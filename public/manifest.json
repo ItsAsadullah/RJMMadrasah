@@ -1,0 +1,17 @@
+{
+  "name": "রহিমা জান্নাত মহিলা মাদ্রাসা",
+  "short_name": "রহিমা জান্নাত",
+  "description": "একটি আদর্শ দ্বীনি শিক্ষা প্রতিষ্ঠান - হলিধানী ও চাঁন্দুয়ালী শাখা",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ]
+}
