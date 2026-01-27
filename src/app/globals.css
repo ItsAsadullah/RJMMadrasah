@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -55,5 +57,46 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* কাস্টম ফন্ট ক্লাস */
+.font-hind {
+  font-family: 'Hind Siliguri', sans-serif;
+}
+
+/* --- Print Specific Styles --- */
+@media print {
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 0 !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+  
+  #printable-area, #printable-area * {
+    visibility: visible;
+  }
+
+  #printable-area {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    z-index: 9999;
   }
 }
