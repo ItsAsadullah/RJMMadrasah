@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, Users, GraduationCap, Calendar, 
-  BookOpen, Settings, LogOut, Clock, Menu, X, ChevronDown, ChevronRight, School, Loader2, FileText
+  BookOpen, Settings, LogOut, Clock, Menu, X, ChevronDown, ChevronRight, School, Loader2, FileText, DollarSign, CalendarCheck, Image as ImageIcon
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
@@ -21,12 +21,12 @@ export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false); 
   const [treeData, setTreeData] = useState<BranchNode[]>([]);
   const [loading, setLoading] = useState(true);
-  
+   
   // কলাপস স্টেট ম্যানেজমেন্ট
   const [expandedBranches, setExpandedBranches] = useState<Record<string, boolean>>({});
   const [expandedYears, setExpandedYears] = useState<Record<string, boolean>>({});
 
-  // ডেস্কটপ ভিউতে সাইডবার সবসময় দেখানোর জন্য
+  // ডেস্কটপ ভিউতে সাইডবার সবসময় দেখানোর জন্য
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
@@ -36,7 +36,7 @@ export default function Sidebar() {
       }
     };
     
-    // ইনিশিয়াল চেক
+    // ইনিশিয়াল চেক
     handleResize();
 
     window.addEventListener('resize', handleResize);
@@ -55,16 +55,17 @@ export default function Sidebar() {
 
       if (branches && classes) {
         const tree: BranchNode[] = branches.map(branch => {
-          // ফিক্স: branch_id null চেক করা হয়েছে এবং String এ কনভার্ট করে তুলনা করা হচ্ছে
+          // ফিক্স: branch_id null চেক করা হয়েছে এবং String এ কনভার্ট করে তুলনা করা হচ্ছে
           const branchClasses = classes.filter(c => 
             c.branch_id && branch.id && String(c.branch_id) === String(branch.id)
           );
           
           const yearsMap: Record<number, ClassNode[]> = {};
           branchClasses.forEach(cls => {
+            // Check for both academic_year and name to ensure valid data
             if (cls.academic_year) {
                if (!yearsMap[cls.academic_year]) yearsMap[cls.academic_year] = [];
-               yearsMap[cls.academic_year].push({ id: cls.id, name: cls.name });
+               yearsMap[cls.academic_year].push({ id: cls.id, name: cls.name || "Unknown Class" });
             }
           });
 
@@ -89,6 +90,11 @@ export default function Sidebar() {
   const toggleYear = (branchId: string, year: number) => {
     const key = `${branchId}-${year}`;
     setExpandedYears(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
   };
 
   return (
@@ -142,7 +148,6 @@ export default function Sidebar() {
                   <Settings className="w-4 h-4" /> শাখা ব্যবস্থাপনা
                </Link>
                
-               {/* Exam Management Link Added */}
                <Link href="/dashboard/academic/exams" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname.includes("/academic/exams") ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
                   <FileText className="w-4 h-4" /> পরীক্ষা ব্যবস্থাপনা
                </Link>
@@ -217,7 +222,15 @@ export default function Sidebar() {
             </div>
           </div>
 
-          {/* ৪. শিক্ষক */}
+          {/* ৪. হাজিরা (UPDATED LINK) */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">হাজিরা</h3>
+            <Link href="/dashboard/attendance" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/attendance" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
+               <CalendarCheck className="w-4 h-4" /> হাজিরা খাতা
+            </Link>
+          </div>
+
+          {/* ৫. শিক্ষক */}
           <div>
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">স্টাফ</h3>
             <div className="space-y-1">
@@ -227,11 +240,41 @@ export default function Sidebar() {
             </div>
           </div>
 
-          {/* ৫. ম্যানেজমেন্ট */}
+          {/* ৬. একাউন্টস */}
+          <div>
+             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">হিসাব ও বেতন</h3>
+             <Link href="/dashboard/accounts" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/accounts" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
+                <DollarSign className="w-4 h-4" /> ফি ও পেমেন্ট
+             </Link>
+          </div>
+
+          {/* ৭. ম্যানেজমেন্ট */}
           <div>
              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">ম্যানেজমেন্ট</h3>
-             <Link href="/dashboard/management/routine" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname.includes("/management/routine") ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
-                <Clock className="w-4 h-4" /> রুটিন ম্যানেজমেন্ট
+             <div className="space-y-1">
+                <Link href="/dashboard/management/routine" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname.includes("/management/routine") ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
+                    <Clock className="w-4 h-4" /> রুটিন ম্যানেজমেন্ট
+                </Link>
+                <Link href="/dashboard/settings/backup" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/settings/backup" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
+                    <Settings className="w-4 h-4" /> ডাটা ম্যানেজমেন্ট
+                </Link>
+             </div>
+          </div>
+
+          {/* ৮. ওয়েবসাইট সেটিংস */}
+          <div>
+             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">ওয়েবসাইট সেটিংস</h3>
+             <Link href="/dashboard/hero" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/hero" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
+                <LayoutDashboard className="w-4 h-4" /> হিরো সেকশন
+             </Link>
+             <Link href="/dashboard/website/home" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/website/home" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
+                <School className="w-4 h-4" /> হোম পেজ কন্টেন্ট
+             </Link>
+             <Link href="/dashboard/gallery" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/gallery" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
+                <ImageIcon className="w-4 h-4" /> গ্যালারি ম্যানেজমেন্ট
+             </Link>
+             <Link href="/dashboard/notices" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/notices" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
+                <FileText className="w-4 h-4" /> নোটিশ বোর্ড
              </Link>
           </div>
 
@@ -239,7 +282,7 @@ export default function Sidebar() {
 
         {/* Footer Logout */}
         <div className="p-4 mt-auto border-t border-gray-100 sticky bottom-0 bg-white">
-          <button className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+          <button onClick={handleLogout} className="flex items-center gap-3 w-full px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
             <LogOut className="w-4 h-4" /> লগ আউট
           </button>
         </div>

@@ -21,62 +21,84 @@ export default function NoticeTicker() {
     fetchNotices();
   }, []);
 
-  if (notices.length === 0) return null;
-
   return (
-    <div className="bg-white border-b border-green-100 h-10 relative flex items-center shadow-sm w-full overflow-hidden group">
+    <div className="bg-white border-b-2 border-green-600 h-12 relative flex items-center shadow-md w-full overflow-hidden group">
+      {/* Islamic Pattern Background */}
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/arabesque.png')] opacity-10"></div>
       
-      {/* Label (বাম পাশে ফিক্সড - Z-Index দিয়ে উপরে রাখা হয়েছে) */}
-      <div className="bg-green-600 text-white px-4 h-full absolute left-0 z-20 flex items-center gap-2 shadow-[4px_0_10px_rgba(0,0,0,0.1)] pr-6" style={{clipPath: "polygon(0 0, 100% 0, 92% 100%, 0% 100%)"}}>
-        <Bell className="w-4 h-4 animate-pulse" />
-        <span className="text-sm font-bold pr-2">নোটিশ:</span>
+      {/* Label (Islamic Shape) */}
+      <div className="bg-green-700 text-white h-full absolute left-0 z-20 flex items-center shadow-[4px_0_15px_rgba(0,0,0,0.2)]">
+        <div className="px-5 h-full flex items-center gap-2 bg-green-800 relative z-10">
+            <Bell className="w-5 h-5 animate-swing" />
+            <span className="text-base font-bold tracking-wide">নোটিশ:</span>
+        </div>
+        {/* Decorative Arrow/Triangle */}
+        <div className="h-full w-8 bg-green-800 relative -ml-4 z-0 transform skew-x-[-20deg] border-r-2 border-green-600"></div>
       </div>
 
       {/* স্ক্রলিং কন্টেইনার */}
-      <div className="flex items-center w-full">
-        {/* অ্যানিমেশন র‍্যাপার - এটি বিরামহীনভাবে ঘুরবে */}
-        <div className="flex animate-marquee whitespace-nowrap will-change-transform">
-          
-          {/* নোটিশ সেট ১ */}
-          {notices.map((notice, index) => (
-            <Link 
-              key={`set1-${index}`} 
-              href="/notice" 
-              className="text-sm font-medium text-gray-700 hover:text-green-700 inline-flex items-center gap-2 transition-colors mx-6"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 block"></span>
-              {notice.title}
-            </Link>
-          ))}
+      <div className="flex items-center w-full pl-36 md:pl-40 relative z-10">
+        {notices.length === 0 ? (
+            <div className="text-gray-500 font-medium italic text-sm animate-pulse px-4">
+                বর্তমানে কোনো নতুন নোটিশ নেই। নিয়মিত ভিজিট করুন।
+            </div>
+        ) : (
+            /* অ্যানিমেশন র‍্যাপার - এটি বিরামহীনভাবে ঘুরবে */
+            <div className="flex animate-marquee whitespace-nowrap will-change-transform">
+            
+            {/* নোটিশ সেট ১ */}
+            {notices.map((notice, index) => (
+                <Link 
+                key={`set1-${index}`} 
+                href="/notice" 
+                className="text-base font-medium text-gray-800 hover:text-green-700 inline-flex items-center gap-2 transition-colors mx-8 font-kalpurush"
+                >
+                <span className="w-2 h-2 rounded-full bg-green-600 block shadow-sm shadow-green-200"></span>
+                {notice.title}
+                </Link>
+            ))}
 
-          {/* নোটিশ সেট ২ (ডুপ্লিকেট - স্মুথ লুপের জন্য) */}
-          {notices.map((notice, index) => (
-            <Link 
-              key={`set2-${index}`} 
-              href="/notice" 
-              className="text-sm font-medium text-gray-700 hover:text-green-700 inline-flex items-center gap-2 transition-colors mx-6"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 block"></span>
-              {notice.title}
-            </Link>
-          ))}
+            {/* নোটিশ সেট ২ (ডুপ্লিকেট - স্মুথ লুপের জন্য) */}
+            {notices.map((notice, index) => (
+                <Link 
+                key={`set2-${index}`} 
+                href="/notice" 
+                className="text-base font-medium text-gray-800 hover:text-green-700 inline-flex items-center gap-2 transition-colors mx-8 font-kalpurush"
+                >
+                <span className="w-2 h-2 rounded-full bg-green-600 block shadow-sm shadow-green-200"></span>
+                {notice.title}
+                </Link>
+            ))}
 
-        </div>
+            </div>
+        )}
       </div>
 
       {/* CSS Animation */}
       <style jsx global>{`
         @keyframes marquee {
           0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); } /* মোট দৈর্ঘ্যের অর্ধেক (এক সেট) সরে গিয়ে রিসেট হবে */
+          100% { transform: translateX(-50%); }
         }
         
         .animate-marquee {
-          animation: marquee 15s linear infinite; /* স্পিড কন্ট্রোল করতে সময় (40s) বাড়ান/কমান */
+          animation: marquee 30s linear infinite;
           min-width: 100%;
         }
 
-        /* মাউস হোভার করলে স্ক্রল থামবে */
+        @keyframes swing {
+            0%, 100% { transform: rotate(0deg); }
+            20% { transform: rotate(15deg); }
+            40% { transform: rotate(-10deg); }
+            60% { transform: rotate(5deg); }
+            80% { transform: rotate(-5deg); }
+        }
+
+        .animate-swing {
+            animation: swing 2s infinite ease-in-out;
+            transform-origin: top center;
+        }
+
         .group:hover .animate-marquee {
           animation-play-state: paused;
         }

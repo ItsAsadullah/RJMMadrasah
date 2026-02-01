@@ -12,7 +12,7 @@ export default function Footer() {
             <div className="flex items-center gap-3">
               <div className="relative h-10 w-10 overflow-hidden rounded-full border border-green-100">
                   <Image 
-                    src="/logo.png" 
+                    src="/images/logo.png" 
                     alt="Logo" 
                     fill
                     sizes="40px" 

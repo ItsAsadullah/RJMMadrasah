@@ -42,7 +42,7 @@ export default function StudentPrintProfile({ student }: { student: any }) {
                     {/* ইনস্টিটিউশন হেডার */}
                     <div className="flex items-start justify-between border-b-2 border-green-900 pb-2 mb-3">
                         <div className="w-20 h-20 relative flex-shrink-0 mt-1">
-                            <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+                            <Image src="/images/logo.png" alt="Logo" fill className="object-contain" />
                         </div>
                         <div className="text-center flex-1 px-2 pt-1">
                             {/* মাদ্রাসার নাম (Hind Siliguri Font & Bold) */}

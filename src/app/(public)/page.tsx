@@ -1,6 +1,13 @@
 import HeroSection from "@/components/home/HeroSection";
 import NoticeTicker from "@/components/home/NoticeTicker";
-import { BookOpen, GraduationCap, Users, Clock, CheckCircle2 } from "lucide-react";
+import DirectorMessage from "@/components/home/DirectorMessage";
+import QuotesSection from "@/components/home/QuotesSection";
+import AboutSection from "@/components/home/AboutSection";
+import MissionVisionSection from "@/components/home/MissionVisionSection";
+import DepartmentsSection from "@/components/home/DepartmentsSection";
+import BranchesSection from "@/components/home/BranchesSection";
+import TeachersSection from "@/components/home/TeachersSection";
+import { BookOpen, GraduationCap, Users, Clock } from "lucide-react";
 
 export default function Home() {
   
@@ -28,26 +35,45 @@ export default function Home() {
   ];
 
   return (
-    <div className="flex flex-col w-full">
+    <div className="flex flex-col w-full font-[Kalpurush]">
       
-      {/* ১. নোটিশ টিকার (পুরো স্ক্রিন জুড়ে) */}
+      {/* ১. নোটিশ টিকার */}
       <div className="w-full bg-white border-b border-green-100">
         <NoticeTicker />
       </div>
 
-      {/* ২. হিরো সেকশন (কম্পোনেন্টের ভেতরেই কন্টেইনার হ্যান্ডেল করা হয়েছে) */}
+      {/* ২. হিরো সেকশন */}
       <HeroSection />
 
-      {/* ৩. মেইন কন্টেন্ট (মাঝখানে সীমাবদ্ধ থাকবে) */}
-      <div className="w-full bg-white">
+      {/* ৩. মেইন কন্টেন্ট */}
+      <div className="w-full bg-gray-50/50">
+        
+        {/* ৪. পরিচালকের বাণী ও ইসলামিক বাণী (Grid Layout) */}
+        <section className="py-16 container mx-auto px-4">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left: Director Message (7 Columns) */}
+                <div className="lg:col-span-7 h-full">
+                    <DirectorMessage />
+                </div>
+                
+                {/* Right: Islamic Quotes (5 Columns) */}
+                <div className="lg:col-span-5 h-full">
+                    <QuotesSection />
+                </div>
+            </div>
+        </section>
+
+        {/* ৫. আমাদের সম্পর্কে */}
+        <AboutSection />
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-20">
           
-          {/* বৈশিষ্ট্য সেকশন */}
+          {/* বৈশিষ্ট্য সেকশন (Static) */}
           <section>
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-extrabold text-gray-800">আমাদের বৈশিষ্ট্যসমূহ</h2>
               <div className="h-1.5 w-24 bg-green-500 mx-auto mt-4 rounded-full"></div>
-              <p className="text-gray-500 mt-4 text-base md:text-lg">কেন আপনার সন্তানের জন্য রহিমা জান্নাত মাদ্রাসা সেরা?</p>
+              <p className="text-gray-500 mt-4 text-base md:text-lg">কেন আপনার সন্তানের জন্য রহিমা জান্নাত মহিলা মাদ্রাসা সেরা?</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -65,34 +91,17 @@ export default function Home() {
             </div>
           </section>
 
-          {/* লক্ষ্য ও উদ্দেশ্য সেকশন */}
-          <section className="bg-gradient-to-br from-green-600 to-green-800 rounded-[2rem] p-8 md:p-16 text-white shadow-2xl relative overflow-hidden group">
-            {/* ব্যাকগ্রাউন্ড ডেকোরেশন */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl group-hover:bg-white/20 transition-all duration-700"></div>
-            
-            <div className="relative z-10 flex flex-col md:flex-row items-center gap-12">
-              <div className="flex-1 space-y-6">
-                <h2 className="text-3xl md:text-5xl font-black leading-tight">আমাদের লক্ষ্য ও উদ্দেশ্য</h2>
-                <p className="text-green-50 text-base md:text-lg leading-loose opacity-90 max-w-2xl">
-                  আমরা বিশ্বাস করি প্রতিটি শিশুই অমিত সম্ভাবনাময়। রহিমা জান্নাত মহিলা মাদ্রাসার লক্ষ্য হলো সেই সম্ভাবনাকে জাগিয়ে তোলা। 
-                  একজন আদর্শ মা ও দ্বীনের দায়ী হিসেবে তারা যেন সমাজে ভূমিকা রাখতে পারে, সেই লক্ষ্যেই আমাদের পথচলা।
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
-                   {[
-                     "সম্পূর্ণ আবাসিক/অনাবাসিক ব্যবস্থা",
-                     "সিসি ক্যামেরা দ্বারা নিয়ন্ত্রিত",
-                     "বিশুদ্ধ খাবার পানি ও সুষম খাবার",
-                     "সার্বক্ষণিক বিদ্যুৎ ও জেনারেটর"
-                   ].map((item, i) => (
-                     <div key={i} className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-xl border border-white/20 hover:bg-white/20 transition-colors">
-                       <CheckCircle2 className="w-5 h-5 text-green-300 flex-shrink-0" />
-                       <span className="text-sm font-medium">{item}</span>
-                     </div>
-                   ))}
-                </div>
-              </div>
-            </div>
-          </section>
+          {/* লক্ষ্য ও উদ্দেশ্য (Dynamic) */}
+          <MissionVisionSection />
+
+          {/* শাখা পরিচিতি (Dynamic) */}
+          <BranchesSection />
+
+          {/* গর্বিত শিক্ষকমণ্ডলী (Dynamic) */}
+          <TeachersSection />
+
+          {/* বিভাগসমূহ (Dynamic) */}
+          <DepartmentsSection />
 
         </div>
       </div>
