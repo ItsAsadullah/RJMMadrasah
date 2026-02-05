@@ -47,8 +47,8 @@ export default function Navbar() {
 
     let authListener: any = null;
 
-    if (supabase && supabase.auth && typeof supabase.auth.onAuthStateChanged === 'function') {
-      const { data } = supabase.auth.onAuthStateChanged((event, session) => {
+    if (supabase && supabase.auth && typeof supabase.auth.onAuthStateChange === 'function') {
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
         setUser(session?.user ?? null);
         if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
           router.refresh();

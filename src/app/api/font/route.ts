@@ -26,7 +26,7 @@ export async function GET() {
         fontBuffer = await response.arrayBuffer();
     }
     
-    return new NextResponse(fontBuffer, {
+    return new NextResponse(fontBuffer as BodyInit, {
       headers: {
         'Content-Type': 'font/ttf',
         'Cache-Control': 'public, max-age=31536000, immutable',

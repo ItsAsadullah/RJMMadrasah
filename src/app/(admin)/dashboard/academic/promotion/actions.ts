@@ -61,7 +61,7 @@ export async function getPromotionList(
   if (!students || students.length === 0) return [];
 
   // 2. Get Exam Marks
-  const { data: marks, error: marksError } = await supabase
+  const { data: marksData, error: marksError } = await supabase
     .from('exam_marks')
     .select(`
       student_id,
@@ -72,6 +72,13 @@ export async function getPromotionList(
     .eq('exam_id', examId);
 
   if (marksError) throw marksError;
+
+  // Transform data to match expected type (flatten array if needed)
+  const marks = marksData?.map((m: any) => ({
+    student_id: m.student_id,
+    marks_obtained: m.marks_obtained,
+    academic_subjects: Array.isArray(m.academic_subjects) ? m.academic_subjects[0] : m.academic_subjects
+  })) || [];
 
   return calculatePromotionLogic(students, marks, passMarksPerSubject);
 }

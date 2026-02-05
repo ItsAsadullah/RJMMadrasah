@@ -117,7 +117,7 @@ export default function PromotionPage() {
     setStudents(prev => {
        const updated = prev.map(s => {
           if (s.id === studentId) {
-             const newStatus = checked ? 'manual_passed' : 'failed';
+             const newStatus: 'manual_passed' | 'failed' = checked ? 'manual_passed' : 'failed';
              return { ...s, status: newStatus, is_manual: checked, manual_reason: checked ? 'Admin Override' : undefined };
           }
           return s;
