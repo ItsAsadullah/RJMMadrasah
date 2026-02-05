@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import Sidebar from "@/components/dashboard/Sidebar";
-import { School, Loader2 } from "lucide-react";
+import Preloader from "@/components/ui/Preloader";
 
 export default function AdminLayout({
   children,
@@ -65,18 +65,7 @@ export default function AdminLayout({
 
   // লোডিং অবস্থায় ইউজারকে ওয়েট করানো
   if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
-        <div className="relative">
-            <School className="w-12 h-12 text-green-600 animate-bounce" />
-            <Loader2 className="w-16 h-16 text-green-100 animate-spin absolute -top-2 -left-2" />
-        </div>
-        <div className="text-center">
-            <h2 className="text-lg font-bold text-gray-800">অ্যাডমিন প্যানেল</h2>
-            <p className="text-sm text-gray-500">নিরাপত্তা যাচাই করা হচ্ছে...</p>
-        </div>
-      </div>
-    );
+    return <Preloader />;
   }
 
   // যদি লগইন করা না থাকে তবে কিছু দেখাবে না (রিডাইরেক্ট হবে)
