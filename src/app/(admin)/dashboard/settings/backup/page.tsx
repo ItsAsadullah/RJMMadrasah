@@ -32,17 +32,33 @@ export default function BackupRestorePage() {
   const [adminPassword, setAdminPassword] = useState("");
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
 
-  // Tables to backup/restore
+  // Tables to backup/restore - Order is critical for dependency management (Parent -> Child)
   const TABLES = [
     "branches",
+    "categories",
     "academic_classes",
+     "academic_subjects",
+     "subjects",
+     "exams",
     "students",
     "teachers",
+    "fee_structures",
+    "student_dues",
+    "transactions",
+    "payments",
     "attendance",
+    "routines",
     "exam_routines",
-    // "fees_payments", // Table doesn't exist yet
-    "transactions", // Added missing table
-    "hero_content"
+    "exam_marks",
+    "results",
+    "promotion_logs",
+    "notices",
+    "hero_content",
+    "home_sections",
+    "gallery_items",
+    "admission_config",
+    "routine_templates",
+    "profiles"
   ];
 
   const handleAction = (type: "backup" | "restore" | "clear") => {
@@ -195,19 +211,8 @@ export default function BackupRestorePage() {
     setLoading(true);
     try {
       // Order is critical for deletion to avoid FK constraints
-      // attendance/exams/payments -> students/teachers -> classes -> branches
-      
-      const REVERSE_TABLES = [
-        "transactions", // Delete transactions first (depends on students)
-        // "fees_payments",
-        "exam_routines",
-        "attendance",
-        "students",
-        "teachers",
-        "academic_classes",
-        "branches",
-        "hero_content"
-      ];
+      // We reverse the TABLES array to delete children first
+      const REVERSE_TABLES = [...TABLES].reverse();
 
       for (const table of REVERSE_TABLES) {
         // We use .not('id', 'is', null) to match all rows regardless of ID type (UUID or Int)
@@ -215,10 +220,10 @@ export default function BackupRestorePage() {
         const { error } = await supabase.from(table).delete().not('id', 'is', null);
         
         if (error) {
-            console.error(`Error clearing ${table}:`, error);
+            console.error(`Error clearing ${table}:`, JSON.stringify(error, null, 2));
             setAlertConfig({
                 title: "ত্রুটি!",
-                description: `Error clearing ${table}: ${error.message}`,
+                description: `Error clearing ${table}: ${error.message || JSON.stringify(error)}`,
                 type: "error"
             });
             setInfoAlertOpen(true);

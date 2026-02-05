@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Save, Upload, User, Info, Target, Layers, BookOpen } from "lucide-react";
+import { Loader2, Save, Upload, User, Info, Target, Layers, BookOpen, Eye } from "lucide-react";
 import Image from "next/image";
 
 type HomeSection = {
@@ -316,7 +316,7 @@ export default function HomeContentManagement() {
                 };
             } else {
                 if (field === 'type') newData.additional_data.type = value;
-                else newData[field as keyof HomeSection] = value;
+                else (newData as any)[field] = value;
             }
             return newData;
         });
@@ -487,6 +487,107 @@ export default function HomeContentManagement() {
     );
   };
 
+  const MissionVisionForm = () => {
+    const sectionKey = "mission_vision";
+    const section = sections[sectionKey] || { 
+        title: "লক্ষ্য ও উদ্দেশ্য", 
+        additional_data: { mission: "", vision: "" } 
+    };
+    const [formData, setFormData] = useState(section);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        setFormData(sections[sectionKey] || { 
+            title: "লক্ষ্য ও উদ্দেশ্য", 
+            additional_data: { mission: "", vision: "" } 
+        });
+    }, [sections]);
+
+    const handleDataChange = (field: string, value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            additional_data: {
+                ...prev.additional_data,
+                [field]: value
+            }
+        }));
+    };
+
+    const saveMissionVision = async () => {
+        setSaving(true);
+        const payload = {
+            section_key: sectionKey,
+            title: formData.title,
+            additional_data: formData.additional_data,
+            is_active: true
+        };
+
+        const existing = sections[sectionKey];
+        let error;
+        
+        if (existing?.id) {
+            const { error: err } = await supabase.from("home_sections").update(payload).eq("id", existing.id);
+            error = err;
+        } else {
+            const { error: err } = await supabase.from("home_sections").insert([payload]);
+            error = err;
+        }
+
+        if (error) alert("সেভ করা যায়নি: " + error.message);
+        else {
+            alert("সফলভাবে সেভ হয়েছে!");
+            fetchSections();
+        }
+        setSaving(false);
+    };
+
+    return (
+      <div className="space-y-6 p-6 bg-white rounded-lg border border-gray-100 shadow-sm">
+        <h2 className="text-xl font-bold text-gray-800 border-b pb-4">লক্ষ্য ও উদ্দেশ্য ম্যানেজমেন্ট</h2>
+        
+        <div className="grid gap-6">
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">হেডিং / শিরোনাম</label>
+                <Input 
+                    value={formData.title} 
+                    onChange={(e) => setFormData({...formData, title: e.target.value})} 
+                />
+            </div>
+
+            <div className="space-y-4 p-4 bg-green-50 rounded-lg border border-green-100">
+                <div className="space-y-2">
+                    <label className="text-sm font-bold text-green-700 flex items-center gap-2">
+                        <Target className="w-4 h-4"/> আমাদের লক্ষ্য (Mission)
+                    </label>
+                    <Textarea 
+                        placeholder="আমাদের লক্ষ্য সম্পর্কে লিখুন..."
+                        value={formData.additional_data?.mission || ""}
+                        onChange={(e) => handleDataChange('mission', e.target.value)}
+                        className="min-h-[120px]"
+                    />
+                </div>
+                
+                <div className="space-y-2">
+                    <label className="text-sm font-bold text-green-700 flex items-center gap-2">
+                        <Eye className="w-4 h-4"/> আমাদের উদ্দেশ্য (Vision)
+                    </label>
+                    <Textarea 
+                        placeholder="আমাদের উদ্দেশ্য সম্পর্কে লিখুন..."
+                        value={formData.additional_data?.vision || ""}
+                        onChange={(e) => handleDataChange('vision', e.target.value)}
+                        className="min-h-[120px]"
+                    />
+                </div>
+            </div>
+
+            <Button onClick={saveMissionVision} disabled={saving} className="w-full bg-green-600 hover:bg-green-700">
+                {saving ? <Loader2 className="animate-spin mr-2"/> : <Save className="mr-2 w-4 h-4"/>} সংরক্ষণ করুন
+            </Button>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) return <div className="flex justify-center items-center h-96"><Loader2 className="w-10 h-10 animate-spin text-green-600" /></div>;
 
   return (
@@ -513,7 +614,7 @@ export default function HomeContentManagement() {
                 <SectionForm sectionKey="about" title="মাদ্রাসা পরিচিতি" defaultTitle="আমাদের সম্পর্কে" />
             </TabsContent>
             <TabsContent value="mission">
-                <SectionForm sectionKey="mission_vision" title="লক্ষ্য ও উদ্দেশ্য" defaultTitle="লক্ষ্য ও উদ্দেশ্য" />
+                <MissionVisionForm />
             </TabsContent>
             <TabsContent value="departments">
                 <DepartmentsForm />

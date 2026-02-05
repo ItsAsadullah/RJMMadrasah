@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import StudentPrintProfile from "@/components/dashboard/StudentPrintProfile";
+import PaymentHistory from "@/components/dashboard/students/PaymentHistory";
 import { divisions, districts, upazilas, departments, classesByDept } from "@/data/bangladesh-data";
 import { differenceInYears, differenceInMonths, differenceInDays } from "date-fns";
 
@@ -499,7 +500,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden text-center p-10 text-gray-400">রেজাল্ট টেবিল এখানে আসবে</div>
         </TabsContent>
         <TabsContent value="payments">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden text-center p-10 text-gray-400">পেমেন্ট টেবিল এখানে আসবে</div>
+            <PaymentHistory studentId={student.student_id} />
         </TabsContent>
       </Tabs>
 

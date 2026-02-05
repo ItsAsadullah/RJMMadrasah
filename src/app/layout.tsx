@@ -1,4 +1,4 @@
-﻿import type { Metadata, Viewport } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Bengali } from "next/font/google";
 import "./globals.css";
 
@@ -19,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="bn" className={notoSansBengali.variable}>
-      <body className="font-bengali bg-white min-h-screen">
+    <html lang="bn" className={notoSansBengali.variable} suppressHydrationWarning>
+      <body className="font-bengali bg-white min-h-screen" suppressHydrationWarning>
         {/* এখানে কোনো ন্যাভবার নেই, তাই এটি এখন ড্যাশবোর্ড থেকে হাওয়া হয়ে যাবে */}
         {children}
       </body>

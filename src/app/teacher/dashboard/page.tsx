@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { 
@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
-export default function TeacherDashboard() {
+function TeacherDashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [teacher, setTeacher] = useState<any>(null);
@@ -487,5 +487,13 @@ export default function TeacherDashboard() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function TeacherDashboard() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin h-8 w-8 text-green-600" /></div>}>
+      <TeacherDashboardContent />
+    </Suspense>
   );
 }

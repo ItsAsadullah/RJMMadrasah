@@ -1,8 +1,8 @@
 "use client";
 
+import { Target, Eye } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { CheckCircle2, Target } from "lucide-react";
 
 export default function MissionVisionSection() {
   const [data, setData] = useState<any>(null);
@@ -19,29 +19,42 @@ export default function MissionVisionSection() {
     fetchData();
   }, []);
 
-  if (!data || !data.is_active) return null;
+  const mission = data?.additional_data?.mission || "কুরআন ও সুন্নাহর আলোকে চরিত্রবান ও আদর্শ নারী সমাজ গঠন করা। আধুনিক শিক্ষার সমন্বয়ে যুগোপযোগী শিক্ষা প্রদান।";
+  const vision = data?.additional_data?.vision || "শিক্ষার্থীদের মেধা ও মননের সঠিক বিকাশ সাধন। নৈতিক ও মানবিক মূল্যবোধ সম্পন্ন সুনাগরিক হিসেবে গড়ে তোলা।";
+
+  const items = [
+    {
+      icon: <Target className="w-10 h-10 text-green-600" />,
+      title: "আমাদের লক্ষ্য",
+      description: mission
+    },
+    {
+      icon: <Eye className="w-10 h-10 text-green-600" />,
+      title: "আমাদের উদ্দেশ্য",
+      description: vision
+    }
+  ];
 
   return (
-    <section className="bg-gradient-to-br from-green-700 to-green-900 rounded-[2rem] p-8 md:p-16 text-white shadow-2xl relative overflow-hidden group my-16 mx-4 md:mx-0">
-        {/* ব্যাকগ্রাউন্ড ডেকোরেশন */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl group-hover:bg-white/20 transition-all duration-700"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-10 -mb-10 blur-2xl"></div>
-        
-        <div className="relative z-10 flex flex-col md:flex-row items-start gap-12">
-            <div className="flex-1 space-y-6">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                        <Target className="w-6 h-6 text-green-100" />
-                    </div>
-                    <span className="text-green-100 font-bold uppercase tracking-wider">আমাদের লক্ষ্য</span>
-                </div>
-                
-                <h2 className="text-3xl md:text-5xl font-black leading-tight">{data.title}</h2>
-                <div className="text-green-50 text-base md:text-lg leading-loose opacity-90 max-w-3xl whitespace-pre-wrap">
-                    {data.content}
-                </div>
-            </div>
+    <section className="py-16 bg-white">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-800">{data?.title || "লক্ষ্য ও উদ্দেশ্য"}</h2>
+            <div className="h-1.5 w-24 bg-green-500 mx-auto mt-4 rounded-full"></div>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {items.map((item, index) => (
+            <div key={index} className="flex flex-col items-center text-center p-8 bg-green-50 rounded-2xl border border-green-100 hover:shadow-lg transition-all group">
+              <div className="bg-white p-4 rounded-full shadow-sm mb-6 group-hover:scale-110 transition-transform duration-300">
+                {item.icon}
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-4">{item.title}</h3>
+              <p className="text-gray-600 leading-relaxed text-lg">{item.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }

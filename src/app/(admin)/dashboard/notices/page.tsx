@@ -43,8 +43,31 @@ import {
   Quote,
   RemoveFormatting,
   Eye,
-  Pencil
+  Pencil,
+  MessageCircle,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  Building2
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 
 type Notice = {
   id: string;
@@ -53,7 +76,31 @@ type Notice = {
   file_url: string;
   google_drive_link: string;
   created_at: string;
+  branch_id: number | null; // null means all branches
 };
+
+// --- WhatsApp Helper (Free Version) ---
+// This uses the "Click to Chat" feature which is 100% free.
+// It opens WhatsApp Web/App with the message pre-filled.
+function openWhatsAppShare(title: string, content: string, file_url?: string) {
+    // Remove HTML tags for plain text message
+    const plainContent = content.replace(/<[^>]+>/g, '').slice(0, 200) + (content.length > 200 ? '...' : '');
+    
+    const message = `📢 *নতুন নোটিশ: ${title}*
+
+${plainContent}
+
+📎 বিস্তারিত দেখুন ও ফাইল ডাউনলোড করুন:
+${window.location.origin}/notice
+
+(রহিমা জান্নাত মহিলা মাদ্রাসা)`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const url = `https://wa.me/?text=${encodedMessage}`;
+    
+    // Open in new tab
+    window.open(url, '_blank');
+}
 
 // --- Rich Text Editor Component (Unchanged) ---
 const RichTextEditor = ({ value, onChange }: { value: string, onChange: (html: string) => void }) => {
@@ -125,6 +172,7 @@ const RichTextEditor = ({ value, onChange }: { value: string, onChange: (html: s
 
 export default function NoticeManagement() {
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   
@@ -138,12 +186,35 @@ export default function NoticeManagement() {
     title: "",
     content: "",
     file_url: "",
-    google_drive_link: ""
+    google_drive_link: "",
+    send_whatsapp: false,
+    branch_id: "all" // "all" or specific ID
+  });
+
+  // Feedback & Confirm Modal States
+  const [feedback, setFeedback] = useState<{ open: boolean, title: string, message: string, type: 'success' | 'error' | 'warning' }>({
+    open: false, title: "", message: "", type: "success"
+  });
+  
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean, id: string | null }>({
+    open: false, id: null
   });
 
   useEffect(() => {
+    fetchBranches();
     fetchNotices();
   }, []);
+
+  const fetchBranches = async () => {
+    console.log("Fetching branches...");
+    const { data, error } = await supabase.from("branches").select("id, name");
+    if (error) {
+        console.error("Error fetching branches:", error);
+    } else {
+        console.log("Branches fetched:", data);
+        if (data) setBranches(data);
+    }
+  };
 
   const fetchNotices = async () => {
     setLoading(true);
@@ -160,7 +231,7 @@ export default function NoticeManagement() {
   // --- Handlers ---
 
   const handleCreateNew = () => {
-    setFormData({ title: "", content: "", file_url: "", google_drive_link: "" });
+    setFormData({ title: "", content: "", file_url: "", google_drive_link: "", send_whatsapp: false, branch_id: "all" });
     setEditingId(null);
     setIsFormOpen(true);
   };
@@ -170,7 +241,9 @@ export default function NoticeManagement() {
       title: notice.title,
       content: notice.content || "",
       file_url: notice.file_url || "",
-      google_drive_link: notice.google_drive_link || ""
+      google_drive_link: notice.google_drive_link || "",
+      send_whatsapp: false,
+      branch_id: notice.branch_id ? String(notice.branch_id) : "all"
     });
     setEditingId(notice.id);
     setIsFormOpen(true);
@@ -191,7 +264,7 @@ export default function NoticeManagement() {
     const { error } = await supabase.storage.from("images").upload(fileName, file);
     
     if (error) {
-      alert("ফাইল আপলোড হয়নি!");
+      setFeedback({ open: true, title: "ত্রুটি", message: "ফাইল আপলোড করা যায়নি!", type: "error" });
     } else {
       const { data } = supabase.storage.from("images").getPublicUrl(fileName);
       setFormData({ ...formData, file_url: data.publicUrl });
@@ -201,39 +274,74 @@ export default function NoticeManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title) return alert("শিরোনাম দিন");
+    if (!formData.title) {
+        setFeedback({ open: true, title: "প্রয়োজনীয় তথ্য", message: "অনুগ্রহ করে নোটিশের শিরোনাম দিন", type: "warning" });
+        return;
+    }
 
     let error;
     
+    // Prepare payload
+    const payload = {
+        title: formData.title,
+        content: formData.content,
+        file_url: formData.file_url,
+        google_drive_link: formData.google_drive_link,
+        branch_id: formData.branch_id === "all" ? null : parseInt(formData.branch_id)
+    };
+
     if (editingId) {
       // আপডেট মোড
       const { error: updateError } = await supabase
         .from("notices")
-        .update(formData)
+        .update(payload)
         .eq("id", editingId);
       error = updateError;
     } else {
       // নতুন তৈরি মোড
       const { error: insertError } = await supabase
         .from("notices")
-        .insert([formData]);
+        .insert([payload]);
       error = insertError;
     }
 
     if (error) {
       console.error(error);
-      alert("সেভ করা যায়নি!");
+      setFeedback({ open: true, title: "ত্রুটি", message: "তথ্য সেভ করা যায়নি। আবার চেষ্টা করুন।", type: "error" });
     } else {
+      // Trigger WhatsApp if checked
+      if (formData.send_whatsapp) {
+          openWhatsAppShare(formData.title, formData.content, formData.file_url);
+      }
+
       setIsFormOpen(false);
       fetchNotices();
-      alert(editingId ? "আপডেট সফল হয়েছে!" : "প্রকাশিত হয়েছে!");
+      
+      setFeedback({ 
+          open: true, 
+          title: "সফল!", 
+          message: editingId ? "নোটিশ সফলভাবে আপডেট হয়েছে!" : "নোটিশ সফলভাবে প্রকাশিত হয়েছে!" + (formData.send_whatsapp ? " (হোয়াটসএ্যাপ ওপেন হচ্ছে...)" : ""), 
+          type: "success" 
+      });
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("আপনি কি নিশ্চিত এটি ডিলিট করতে চান?")) return;
-    const { error } = await supabase.from("notices").delete().eq("id", id);
-    if (!error) fetchNotices();
+  const handleDeleteClick = (id: string) => {
+      setDeleteConfirm({ open: true, id });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm.id) return;
+    
+    const { error } = await supabase.from("notices").delete().eq("id", deleteConfirm.id);
+    setDeleteConfirm({ open: false, id: null });
+    
+    if (!error) {
+        fetchNotices();
+        setFeedback({ open: true, title: "সফল!", message: "নোটিশ ডিলিট করা হয়েছে।", type: "success" });
+    } else {
+        setFeedback({ open: true, title: "ত্রুটি", message: "ডিলিট করা যায়নি।", type: "error" });
+    }
   };
 
   return (
@@ -265,6 +373,7 @@ export default function NoticeManagement() {
               <TableRow>
                 <TableHead className="w-[150px]">তারিখ</TableHead>
                 <TableHead>শিরোনাম</TableHead>
+                <TableHead>শাখা</TableHead>
                 <TableHead className="text-right">পদক্ষেপ</TableHead>
               </TableRow>
             </TableHeader>
@@ -277,6 +386,19 @@ export default function NoticeManagement() {
                   <TableCell className="align-middle">
                     <span className="font-bold text-gray-800 text-base">{notice.title}</span>
                   </TableCell>
+                  <TableCell className="align-middle">
+                     {notice.branch_id ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700">
+                           <Building2 className="w-3 h-3 mr-1"/>
+                           {branches.find(b => b.id === notice.branch_id)?.name || "নির্দিষ্ট শাখা"}
+                        </span>
+                     ) : (
+                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">
+                           <Building2 className="w-3 h-3 mr-1"/>
+                           উভয় শাখা
+                        </span>
+                     )}
+                  </TableCell>
                   <TableCell className="text-right align-middle">
                     <div className="flex justify-end gap-2">
                         {/* বিস্তারিত বাটন */}
@@ -288,7 +410,7 @@ export default function NoticeManagement() {
                             <Pencil className="w-4 h-4" />
                         </Button>
                         {/* ডিলিট বাটন */}
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(notice.id)} className="text-red-400 hover:text-red-600 hover:bg-red-50">
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(notice.id)} className="text-red-400 hover:text-red-600 hover:bg-red-50">
                             <Trash2 className="w-4 h-4" />
                         </Button>
                     </div>
@@ -320,6 +442,25 @@ export default function NoticeManagement() {
               />
             </div>
             <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">কোন শাখার জন্য প্রযোজ্য?</label>
+              <Select value={formData.branch_id} onValueChange={(val) => setFormData({...formData, branch_id: val})}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="শাখা নির্বাচন করুন" />
+                </SelectTrigger>
+                <SelectContent className="z-[9999]">
+                  <SelectItem value="all">উভয় শাখা (সকলের জন্য)</SelectItem>
+                  {branches.length > 0 ? (
+                    branches.map((b) => (
+                      <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                    ))
+                  ) : (
+                    <div className="p-2 text-sm text-gray-400">শাখা লোড হচ্ছে...</div>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">বিস্তারিত বিবরণ</label>
               <RichTextEditor 
                 value={formData.content} 
@@ -336,6 +477,22 @@ export default function NoticeManagement() {
                 placeholder="https://drive.google.com/..." 
               />
             </div>
+            
+            <div className="flex items-center space-x-2 border p-3 rounded-lg bg-green-50 border-green-100">
+                <Checkbox 
+                    id="whatsapp" 
+                    checked={formData.send_whatsapp}
+                    onCheckedChange={(checked) => setFormData({...formData, send_whatsapp: checked as boolean})}
+                />
+                <label
+                    htmlFor="whatsapp"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2 text-green-800"
+                >
+                    <MessageCircle className="w-4 h-4" />
+                    হোয়াটসএ্যাপ গ্রুপে শেয়ার করুন (স্বয়ংক্রিয়)
+                </label>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">ফাইল যুক্ত করুন</label>
               <div className="border-2 border-dashed border-gray-200 p-4 rounded-lg text-center hover:bg-gray-50 transition-colors">
@@ -357,6 +514,7 @@ export default function NoticeManagement() {
 
       {/* --- ২. বিস্তারিত দেখার মোডাল (View Details) --- */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        {/* ... (Existing View Details Content) ... */}
         <DialogContent className="sm:max-w-[700px] bg-white max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-gray-800">{selectedNotice?.title}</DialogTitle>
@@ -400,6 +558,51 @@ export default function NoticeManagement() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* --- 3. Feedback Modal (Success/Error) --- */}
+      <AlertDialog open={feedback.open} onOpenChange={(open) => setFeedback({ ...feedback, open })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              {feedback.type === 'success' && <CheckCircle className="text-green-600 w-6 h-6" />}
+              {feedback.type === 'error' && <XCircle className="text-red-600 w-6 h-6" />}
+              {feedback.type === 'warning' && <AlertTriangle className="text-yellow-500 w-6 h-6" />}
+              {feedback.title}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base text-gray-600 pt-2">
+              {feedback.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction 
+              onClick={() => setFeedback({ ...feedback, open: false })}
+              className={`${feedback.type === 'error' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
+            >
+              ঠিক আছে
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* --- 4. Delete Confirmation Modal --- */}
+      <AlertDialog open={deleteConfirm.open} onOpenChange={(open) => setDeleteConfirm({ ...deleteConfirm, open })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5"/> নিশ্চিতকরণ
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিত যে আপনি এই বিজ্ঞপ্তিটি ডিলিট করতে চান? এটি আর ফিরিয়ে আনা সম্ভব হবে না।
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>বাতিল</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
+              হ্যাঁ, ডিলিট করুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );

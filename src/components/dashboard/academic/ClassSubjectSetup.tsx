@@ -10,6 +10,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Book, Loader2, Edit, Save, CheckCircle2, AlertTriangle } from "lucide-react";
 import { subjectCodes } from "@/data/bangladesh-data";
+import { removeAcademicSubject } from "@/app/(admin)/dashboard/academic/subjects/actions";
 
 export default function ClassSubjectSetup({ branchId, classId }: { branchId: string, classId: string }) {
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -34,6 +35,56 @@ export default function ClassSubjectSetup({ branchId, classId }: { branchId: str
   // ম্যানুয়াল ইনপুট স্টেট
   const [manualSubject, setManualSubject] = useState({ name: "", code: "", full: 100, pass: 33, type: "Written" });
 
+  const normalizeSubjectName = (value: string) => value.replace(/\s+/g, " ").trim();
+
+  const getCodeFromCommonSubjects = (subjectName: string) => {
+    const normalized = normalizeSubjectName(subjectName);
+    for (const [code, name] of Object.entries(subjectCodes.common)) {
+      if (normalizeSubjectName(String(name)) === normalized) return String(code);
+    }
+    return null;
+  };
+
+  const syncFromAcademicConfigSubjects = async (cls: any, existingSubjects: any[]) => {
+    const existingCodes = new Set((existingSubjects || []).map((s: any) => String(s.code)));
+
+    let query = supabase
+      .from("subjects")
+      .select("id, class_name, subject_name, full_marks, pass_marks, department_id")
+      .eq("class_name", cls.name);
+
+    if (cls.department_id) {
+      query = query.or(`department_id.eq.${cls.department_id},department_id.is.null`);
+    }
+
+    const { data: configSubjects, error } = await query.order("subject_name", { ascending: true });
+    if (error || !configSubjects || configSubjects.length === 0) return false;
+
+    const toInsert = configSubjects
+      .map((s: any) => {
+        const codeFromCommon = getCodeFromCommonSubjects(s.subject_name);
+        const code = codeFromCommon || `CFG-${s.id}`;
+        return {
+          class_id: classId,
+          name: s.subject_name,
+          code,
+          full_marks: Number(s.full_marks ?? 100),
+          pass_marks: Number(s.pass_marks ?? 33),
+          exam_type: "Written"
+        };
+      })
+      .filter((row: any) => !existingCodes.has(String(row.code)));
+
+    if (toInsert.length === 0) return false;
+
+    const { error: insertError } = await supabase
+      .from("academic_subjects")
+      .upsert(toInsert, { onConflict: "class_id, code", ignoreDuplicates: true });
+
+    if (insertError) return false;
+    return true;
+  };
+
   useEffect(() => {
     fetchData();
   }, [classId]);
@@ -43,15 +94,54 @@ export default function ClassSubjectSetup({ branchId, classId }: { branchId: str
     const { data: cls } = await supabase.from("academic_classes").select("*, branches(name)").eq("id", classId).single();
     if (cls) {
         setClassInfo(cls);
-        const { data: subs } = await supabase
+        let subs: any[] = [];
+        const { data: subsActive, error: subsActiveError } = await supabase
           .from("academic_subjects")
           .select("*")
           .eq("class_id", classId)
+          .or("is_active.eq.true,is_active.is.null")
           .order("code", { ascending: true });
-        
+
+        if (!subsActiveError) {
+          subs = subsActive || [];
+        } else if (subsActiveError.message.toLowerCase().includes("is_active")) {
+          const { data: subsFallback } = await supabase
+            .from("academic_subjects")
+            .select("*")
+            .eq("class_id", classId)
+            .order("code", { ascending: true });
+          subs = subsFallback || [];
+        }
+
         const existingSubjects = subs || [];
-        setSubjects(existingSubjects);
-        preparePresets(cls.name, existingSubjects);
+
+        const didSync = await syncFromAcademicConfigSubjects(cls, existingSubjects);
+        if (didSync) {
+          let syncedSubs: any[] = [];
+          const { data: syncedSubsActive, error: syncedSubsActiveError } = await supabase
+            .from("academic_subjects")
+            .select("*")
+            .eq("class_id", classId)
+            .or("is_active.eq.true,is_active.is.null")
+            .order("code", { ascending: true });
+
+          if (!syncedSubsActiveError) {
+            syncedSubs = syncedSubsActive || [];
+          } else if (syncedSubsActiveError.message.toLowerCase().includes("is_active")) {
+            const { data: syncedSubsFallback } = await supabase
+              .from("academic_subjects")
+              .select("*")
+              .eq("class_id", classId)
+              .order("code", { ascending: true });
+            syncedSubs = syncedSubsFallback || [];
+          }
+
+          setSubjects(syncedSubs);
+          preparePresets(cls.name, syncedSubs);
+        } else {
+          setSubjects(existingSubjects);
+          preparePresets(cls.name, existingSubjects);
+        }
     }
     setLoading(false);
   };
@@ -167,14 +257,63 @@ export default function ClassSubjectSetup({ branchId, classId }: { branchId: str
   const confirmDelete = async () => {
     if (!deleteId) return;
     setIsSubmitting(true);
-    const { error } = await supabase.from("academic_subjects").delete().eq("id", deleteId);
-    
-    if (error) {
-        alert("ডিলিট করা যায়নি!");
+    const formatDbError = (err: any) => {
+      if (!err) return "";
+      const message = String(err.message || "");
+      const details = err.details ? `\nDetails: ${err.details}` : "";
+      const hint = err.hint ? `\nHint: ${err.hint}` : "";
+      const code = err.code ? `\nCode: ${err.code}` : "";
+      return `${message}${details}${hint}${code}`.trim();
+    };
+
+    const serverResult = await removeAcademicSubject(deleteId);
+    if (serverResult?.success) {
+      fetchData();
+      setIsDeleteOpen(false);
+      setDeleteId(null);
+      setIsSubmitting(false);
+      return;
+    }
+    if (serverResult && "error" in serverResult && serverResult.error) {
+      const serverText = formatDbError(serverResult.error);
+      if (serverText) {
+        alert("রিমুভ করা যায়নি (সার্ভার):\n\n" + serverText);
+      }
+    }
+
+    const { error: hardError } = await supabase.from("academic_subjects").delete().eq("id", deleteId);
+    if (!hardError) {
+      fetchData();
+      setIsDeleteOpen(false);
+      setDeleteId(null);
+      setIsSubmitting(false);
+      return;
+    }
+
+    const { error: softError } = await supabase
+      .from("academic_subjects")
+      .update({ is_active: false })
+      .eq("id", deleteId);
+
+    if (!softError) {
+      fetchData();
+      setIsDeleteOpen(false);
+      setDeleteId(null);
+      setIsSubmitting(false);
+      return;
+    }
+
+    const hardText = formatDbError(hardError);
+    const softText = formatDbError(softError);
+    const softMissingColumn = softText.toLowerCase().includes("is_active");
+    const permissionDenied = (hardText + " " + softText).toLowerCase().includes("permission denied");
+
+    if (permissionDenied) {
+      alert("ডিলিট করার পারমিশন নেই। (Supabase RLS/Policy বা লগইন সেশন চেক করুন)\n\n" + hardText + "\n\n" + softText);
+    } else if (softMissingColumn) {
+      alert("এই ফিচারটি চালাতে ডাটাবেসে academic_subjects টেবিলে is_active কলাম যোগ করতে হবে। Supabase migrations রান করুন।\n\n" + hardText + "\n\n" + softText);
     } else {
-        fetchData();
-        setIsDeleteOpen(false);
-        setDeleteId(null);
+      alert(hardText || softText);
     }
     setIsSubmitting(false);
   };

@@ -38,6 +38,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 // --- Types ---
 type Student = {
   id: string;
@@ -114,10 +116,26 @@ export default function StudentDashboard() {
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [leaveForm, setLeaveForm] = useState({ from: "", to: "", reason: "" });
   const [isSubmittingLeave, setIsSubmittingLeave] = useState(false);
+  const [leaveHistory, setLeaveHistory] = useState<any[]>([]);
 
   useEffect(() => {
     fetchStudentData();
   }, []);
+
+  useEffect(() => {
+    if (student?.id) {
+        fetchLeaveHistory();
+    }
+  }, [student?.id, isLeaveModalOpen]);
+
+  const fetchLeaveHistory = async () => {
+      if (!student?.id) return;
+      const { data } = await supabase.from("leave_applications")
+        .select("*")
+        .eq("student_id", student.id)
+        .order("created_at", { ascending: false });
+      if (data) setLeaveHistory(data);
+  };
 
   // Live Status Timer
   useEffect(() => {
@@ -207,30 +225,54 @@ export default function StudentDashboard() {
         }
 
         // 3. Fetch Financials
-        // Dues
-        const { data: dueData } = await supabase.from("payments")
+        // Dues - Try with UUID first, then fallback to Student ID
+        let dueAmount = 0;
+        let paidHistory: any[] = [];
+        let totalPaidAmount = 0;
+
+        // Try fetching by UUID
+        const { data: dueDataUUID } = await supabase.from("payments")
             .select("amount")
-            .eq("student_id", studentData.student_id)
+            .eq("student_id", studentData.id)
             .eq("status", "due");
-        const totalDue = dueData?.reduce((sum, item) => sum + item.amount, 0) || 0;
+        
+        if (dueDataUUID && dueDataUUID.length > 0) {
+            dueAmount = dueDataUUID.reduce((sum, item) => sum + item.amount, 0);
+        } else {
+             // Fallback to Readable ID
+             const { data: dueDataID } = await supabase.from("payments")
+                .select("amount")
+                .eq("student_id", studentData.student_id)
+                .eq("status", "due");
+             dueAmount = dueDataID?.reduce((sum, item) => sum + item.amount, 0) || 0;
+        }
 
         // Paid History
-        const { data: paidData } = await supabase.from("payments")
+        const { data: paidDataUUID } = await supabase.from("payments")
             .select("*")
-            .eq("student_id", studentData.student_id)
+            .eq("student_id", studentData.id)
             .eq("status", "paid")
-            .order("payment_date", { ascending: false })
-            .limit(5);
+            .order("payment_date", { ascending: false });
+
+        if (paidDataUUID && paidDataUUID.length > 0) {
+            paidHistory = paidDataUUID;
+        } else {
+            const { data: paidDataID } = await supabase.from("payments")
+                .select("*")
+                .eq("student_id", studentData.student_id)
+                .eq("status", "paid")
+                .order("payment_date", { ascending: false });
+            paidHistory = paidDataID || [];
+        }
         
-        // Getting total paid all time
-        const { data: allPaid } = await supabase.from("payments").select("amount").eq("student_id", studentData.student_id).eq("status", "paid");
-        const grandTotalPaid = allPaid?.reduce((sum, item) => sum + item.amount, 0) || 0;
+        // Total Paid
+        totalPaidAmount = paidHistory.reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
 
         setFinancials({
-            due: totalDue,
-            paid: grandTotalPaid,
-            lastPayment: paidData?.[0]?.payment_date || null,
-            history: paidData || []
+            due: dueAmount,
+            paid: totalPaidAmount,
+            lastPayment: paidHistory.length > 0 ? paidHistory[0].payment_date : null,
+            history: paidHistory.slice(0, 5)
         });
 
         // 4. Fetch Results (Latest Exam)
@@ -243,6 +285,7 @@ export default function StudentDashboard() {
             
             if (!resData || resData.length === 0) {
                  const { data: resData2 } = await supabase.from("results")
+                .select("*")
                 .eq("student_id", studentData.student_id)
                 .eq("exam_name", examData.title);
                 if(resData2) setLatestResult(resData2);
@@ -315,12 +358,24 @@ export default function StudentDashboard() {
   const handleLeaveSubmit = async () => {
       if(!leaveForm.from || !leaveForm.to || !leaveForm.reason) return alert("সব তথ্য পূরণ করুন");
       setIsSubmittingLeave(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      alert("আবেদন সফলভাবে জমা হয়েছে!");
-      setIsLeaveModalOpen(false);
+      
+      const { error } = await supabase.from("leave_applications").insert([{
+          student_id: student?.id,
+          from_date: leaveForm.from,
+          to_date: leaveForm.to,
+          reason: leaveForm.reason
+      }]);
+
+      if (error) {
+          alert("আবেদন জমা দেওয়া যায়নি: " + error.message);
+      } else {
+          alert("আবেদন সফলভাবে জমা হয়েছে!");
+          setLeaveForm({ from: "", to: "", reason: "" });
+          fetchLeaveHistory();
+          // Keep modal open to show history or close it? Let's keep open and switch tab if possible, or just close.
+          // User might want to check status immediately.
+      }
       setIsSubmittingLeave(false);
-      setLeaveForm({ from: "", to: "", reason: "" });
   };
 
   // --- Components ---
@@ -583,37 +638,79 @@ export default function StudentDashboard() {
 
       {/* Leave Application Modal */}
       <Dialog open={isLeaveModalOpen} onOpenChange={setIsLeaveModalOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
                   <DialogTitle>ছুটির আবেদন</DialogTitle>
-                  <DialogDescription>নিচের ফর্মটি পূরণ করে জমা দিন।</DialogDescription>
+                  <DialogDescription>নতুন আবেদন করুন অথবা পূর্বের আবেদনের অবস্থা দেখুন।</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-2">
-                  <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                          <label className="text-sm font-bold">হতে</label>
-                          <Input type="date" value={leaveForm.from} onChange={e => setLeaveForm({...leaveForm, from: e.target.value})} />
-                      </div>
-                      <div className="space-y-1">
-                          <label className="text-sm font-bold">পর্যন্ত</label>
-                          <Input type="date" value={leaveForm.to} onChange={e => setLeaveForm({...leaveForm, to: e.target.value})} />
-                      </div>
-                  </div>
-                  <div className="space-y-1">
-                      <label className="text-sm font-bold">কারণ</label>
-                      <Textarea 
-                        placeholder="ছুটির কারণ বিস্তারিত লিখুন..." 
-                        value={leaveForm.reason} 
-                        onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})}
-                      />
-                  </div>
-              </div>
-              <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsLeaveModalOpen(false)}>বাতিল</Button>
-                  <Button onClick={handleLeaveSubmit} disabled={isSubmittingLeave} className="bg-blue-600 hover:bg-blue-700">
-                      {isSubmittingLeave ? <Loader2 className="animate-spin w-4 h-4"/> : "জমা দিন"}
-                  </Button>
-              </DialogFooter>
+              
+              <Tabs defaultValue="apply" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="apply">নতুন আবেদন</TabsTrigger>
+                    <TabsTrigger value="history">আবেদনের ইতিহাস</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="apply" className="space-y-4 py-2">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-sm font-bold">হতে</label>
+                            <Input type="date" value={leaveForm.from} onChange={e => setLeaveForm({...leaveForm, from: e.target.value})} />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-sm font-bold">পর্যন্ত</label>
+                            <Input type="date" value={leaveForm.to} onChange={e => setLeaveForm({...leaveForm, to: e.target.value})} />
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-sm font-bold">কারণ</label>
+                        <Textarea 
+                            placeholder="ছুটির কারণ বিস্তারিত লিখুন..." 
+                            value={leaveForm.reason} 
+                            onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})}
+                        />
+                    </div>
+                    <div className="pt-2 flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setIsLeaveModalOpen(false)}>বন্ধ করুন</Button>
+                        <Button onClick={handleLeaveSubmit} disabled={isSubmittingLeave} className="bg-blue-600 hover:bg-blue-700">
+                            {isSubmittingLeave ? <Loader2 className="animate-spin w-4 h-4"/> : "জমা দিন"}
+                        </Button>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="history" className="max-h-[300px] overflow-y-auto">
+                    {leaveHistory.length === 0 ? (
+                        <p className="text-center text-gray-400 py-10">কোনো আবেদনের ইতিহাস নেই</p>
+                    ) : (
+                        <div className="space-y-3">
+                            {leaveHistory.map((leave) => (
+                                <div key={leave.id} className="border p-3 rounded-lg bg-gray-50">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="font-bold text-sm">
+                                                {format(new Date(leave.from_date), "dd MMM")} - {format(new Date(leave.to_date), "dd MMM yyyy")}
+                                            </p>
+                                            <p className="text-xs text-gray-500 mt-1">{leave.reason}</p>
+                                        </div>
+                                        <Badge className={
+                                            leave.status === 'approved' ? 'bg-green-600' : 
+                                            leave.status === 'rejected' ? 'bg-red-600' : 'bg-yellow-500 text-black'
+                                        }>
+                                            {leave.status === 'approved' ? 'অনুমোদিত' : 
+                                             leave.status === 'rejected' ? 'বাতিল' : 'অপেক্ষমান'}
+                                        </Badge>
+                                    </div>
+                                    {leave.admin_remark && (
+                                        <div className="mt-2 text-xs bg-white p-2 rounded border">
+                                            <span className="font-bold text-gray-600">অ্যাডমিন মন্তব্য: </span>
+                                            {leave.admin_remark}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </TabsContent>
+              </Tabs>
           </DialogContent>
       </Dialog>
 

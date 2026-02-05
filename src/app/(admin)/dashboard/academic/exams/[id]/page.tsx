@@ -114,6 +114,8 @@ const calculateResultSummary = (studentId: string, subjectList: any[], marksMap:
 export default function ExamDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [exam, setExam] = useState<any>(null);
+  const [branches, setBranches] = useState<any[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>("");
   const [classes, setClasses] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -136,7 +138,16 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => {
     fetchExamDetails();
+    fetchBranches();
   }, [id]);
+
+  useEffect(() => {
+      if (selectedBranch && exam) {
+          fetchClasses(selectedBranch);
+      } else {
+          setClasses([]);
+      }
+  }, [selectedBranch, exam]);
 
   useEffect(() => {
     if (selectedClass) {
@@ -181,18 +192,30 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
   }, [students, subjects, tabulationData]);
 
 
+  const fetchBranches = async () => {
+      const { data } = await supabase.from("branches").select("id, name");
+      if (data) setBranches(data);
+  };
+
   const fetchExamDetails = async () => {
     const { data: ex } = await supabase.from("exams").select("*, branches(name)").eq("id", id).single();
     if (ex) {
         setExam(ex);
-        const { data: cls } = await supabase.from("academic_classes").select("id, name").eq("branch_id", ex.branch_id).eq("academic_year", ex.academic_year);
-        if (cls) setClasses(cls);
+        if (ex.branch_id) {
+            setSelectedBranch(ex.branch_id.toString());
+        }
     }
     setLoading(false);
   };
 
+  const fetchClasses = async (branchId: string) => {
+      if (!exam?.academic_year) return;
+      const { data: cls } = await supabase.from("academic_classes").select("id, name").eq("branch_id", branchId).eq("academic_year", exam.academic_year);
+      if (cls) setClasses(cls);
+  };
+
   const fetchClassData = async () => {
-    const { data: subs } = await supabase.from("academic_subjects").select("*").eq("class_id", selectedClass).order('code');
+    const { data: subs } = await supabase.from("academic_subjects").select("*").eq("class_id", selectedClass).eq("is_active", true).order('code');
     if (subs) setSubjects(subs);
 
     const className = classes.find(c => c.id === selectedClass)?.name;

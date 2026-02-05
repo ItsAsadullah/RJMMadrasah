@@ -1,43 +1,74 @@
 "use client";
 
-import { Users, GraduationCap, FileText, Wallet, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Users, GraduationCap, FileText, Wallet, ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
+import { getDashboardStats } from "./actions";
+import Link from "next/link";
+
+const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
 
 export default function DashboardPage() {
-  // ডামি ডেটা (পরে আমরা ডেটাবেস থেকে আনব)
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState({
+    totalStudents: 0,
+    totalTeachers: 0,
+    attendancePercentage: 0,
+    totalIncome: 0,
+    notices: [] as any[]
+  });
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const stats = await getDashboardStats();
+        setData(stats);
+      } catch (error) {
+        console.error("Failed to load dashboard stats", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadStats();
+  }, []);
+
   const stats = [
     {
       title: "মোট শিক্ষার্থী",
-      value: "১,২৫০",
-      change: "+১২%",
-      trend: "up",
+      value: toBengaliNumber(data.totalStudents),
+      change: "অ্যাক্টিভ", // Static for now
+      trend: "neutral",
       icon: <Users className="h-6 w-6 text-blue-600" />,
       bg: "bg-blue-100",
     },
     {
       title: "মোট শিক্ষক/শিক্ষিকা",
-      value: "৪৫",
-      change: "+২ জন",
-      trend: "up",
+      value: toBengaliNumber(data.totalTeachers),
+      change: "বর্তমান",
+      trend: "neutral",
       icon: <GraduationCap className="h-6 w-6 text-green-600" />,
       bg: "bg-green-100",
     },
     {
       title: "আজকের উপস্থিতি",
-      value: "৯২%",
-      change: "-৩%",
-      trend: "down",
+      value: `${toBengaliNumber(data.attendancePercentage)}%`,
+      change: "গড়",
+      trend: "neutral",
       icon: <FileText className="h-6 w-6 text-purple-600" />,
       bg: "bg-purple-100",
     },
     {
       title: "চলতি মাসে আয়",
-      value: "৳ ১,৮০,০০০",
-      change: "+৮%",
+      value: `৳ ${toBengaliNumber(data.totalIncome)}`,
+      change: "হিসাব",
       trend: "up",
       icon: <Wallet className="h-6 w-6 text-orange-600" />,
       bg: "bg-orange-100",
     },
   ];
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-[50vh]"><Loader2 className="w-10 h-10 animate-spin text-green-600" /></div>;
+  }
 
   return (
     <div className="space-y-8">
@@ -56,12 +87,7 @@ export default function DashboardPage() {
               <div className={`${stat.bg} p-3 rounded-lg`}>
                 {stat.icon}
               </div>
-              <span className={`text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1 ${
-                stat.trend === "up" ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
-              }`}>
-                {stat.change}
-                {stat.trend === "up" ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-              </span>
+              {/* Trend removed for simplicity or keep as static */}
             </div>
             <h3 className="text-gray-500 text-sm font-medium">{stat.title}</h3>
             <p className="text-2xl font-bold text-gray-800 mt-1">{stat.value}</p>
@@ -74,19 +100,27 @@ export default function DashboardPage() {
         
         {/* রিসেন্ট নোটিশ */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">সাম্প্রতিক নোটিশ</h2>
+          <div className="flex justify-between items-center mb-4">
+             <h2 className="text-lg font-bold text-gray-800">সাম্প্রতিক নোটিশ</h2>
+             <Link href="/dashboard/notices" className="text-xs text-green-600 hover:underline">সব দেখুন</Link>
+          </div>
+          
           <div className="space-y-4">
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="flex items-start gap-4 p-3 hover:bg-gray-50 rounded-lg transition-colors border-b border-gray-50 last:border-0">
-                <div className="bg-green-50 text-green-700 text-xs font-bold px-2 py-1 rounded">
-                  ১২ই মে
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-gray-800">ঈদুল ফিতরের ছুটি ঘোষণা</h4>
-                  <p className="text-xs text-gray-500 mt-1">আগামী ১৫ই মে থেকে মাদ্রাসা বন্ধ থাকবে...</p>
-                </div>
-              </div>
-            ))}
+            {data.notices.length === 0 ? (
+                <p className="text-gray-400 text-sm text-center py-4">কোনো নোটিশ নেই</p>
+            ) : (
+                data.notices.map((item) => (
+                  <div key={item.id} className="flex items-start gap-4 p-3 hover:bg-gray-50 rounded-lg transition-colors border-b border-gray-50 last:border-0">
+                    <div className="bg-green-50 text-green-700 text-xs font-bold px-2 py-1 rounded min-w-[80px] text-center">
+                      {new Date(item.created_at).toLocaleDateString('bn-BD')}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-800">{item.title}</h4>
+                      {/* <p className="text-xs text-gray-500 mt-1">বিস্তারিত দেখতে ক্লিক করুন...</p> */}
+                    </div>
+                  </div>
+                ))
+            )}
           </div>
         </div>
 
@@ -94,22 +128,22 @@ export default function DashboardPage() {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <h2 className="text-lg font-bold text-gray-800 mb-4">দ্রুত এক্সেস</h2>
           <div className="grid grid-cols-2 gap-4">
-             <button className="p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-2">
+             <Link href="/dashboard/students/add" className="p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-2">
                 <Users className="h-6 w-6" />
                 <span className="text-sm font-medium">নতুন ভর্তি</span>
-             </button>
-             <button className="p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-2">
+             </Link>
+             <Link href="/dashboard/notices" className="p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-2">
                 <FileText className="h-6 w-6" />
                 <span className="text-sm font-medium">নোটিশ আপলোড</span>
-             </button>
-             <button className="p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-2">
+             </Link>
+             <Link href="/dashboard/accounts" className="p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-2">
                 <Wallet className="h-6 w-6" />
                 <span className="text-sm font-medium">বেতন গ্রহণ</span>
-             </button>
-             <button className="p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-2">
+             </Link>
+             <Link href="/dashboard/results" className="p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-2">
                 <GraduationCap className="h-6 w-6" />
                 <span className="text-sm font-medium">রেজাল্ট এন্ট্রি</span>
-             </button>
+             </Link>
           </div>
         </div>
 

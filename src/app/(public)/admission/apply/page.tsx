@@ -11,7 +11,7 @@ import {
   RefreshCw, AlertTriangle, CheckCircle, Printer, Download, X, 
   MapPin, CheckCircle2, ChevronRight, GraduationCap, Users, Shield, ArrowLeft, Edit
 } from "lucide-react";
-import { divisions, districts, upazilas, unions, departments, classesByDept } from "@/data/bangladesh-data";
+import { divisions, districts, upazilas, unions } from "@/data/bangladesh-data";
 import { differenceInYears, differenceInMonths, differenceInDays } from "date-fns";
 import Image from "next/image";
 import Link from "next/link";
@@ -140,6 +140,11 @@ export default function PublicAdmissionPage() {
 
   const [dobState, setDobState] = useState({ day: "", month: "", year: "" });
 
+  // Academic Data States
+  const [dbBranches, setDbBranches] = useState<any[]>([]);
+  const [dbDepartments, setDbDepartments] = useState<any[]>([]);
+  const [dbClasses, setDbClasses] = useState<any[]>([]);
+
   const [formData, setFormData] = useState({
     branch_id: "1", department: "", class_name: "", academic_year: new Date().getFullYear().toString(),
     residential_status: "residential", status: "pending", guardian_type: "", 
@@ -152,6 +157,24 @@ export default function PublicAdmissionPage() {
   });
 
   useEffect(() => { setIsClient(true); }, []);
+
+  // --- একাডেমিক ডাটা ফেচ ---
+  useEffect(() => {
+    const fetchAcademicData = async () => {
+      try {
+        const { data: b } = await supabase.from("branches").select("id, name");
+        const { data: d } = await supabase.from("departments").select("id, name, branch_id");
+        const { data: c } = await supabase.from("academic_classes").select("id, name, branch_id, department_id, allow_residential");
+
+        if (b) setDbBranches(b);
+        if (d) setDbDepartments(d);
+        if (c) setDbClasses(c);
+      } catch (error) {
+        console.error("Error fetching academic data:", error);
+      }
+    };
+    fetchAcademicData();
+  }, []);
 
   // --- ড্রাফট লোড ---
   useEffect(() => {
@@ -446,7 +469,7 @@ export default function PublicAdmissionPage() {
                     <div className="bg-green-700 text-white p-4">
                         <h3 className="text-lg font-bold">Rahima Jannat Madrasa</h3>
                         <div className="flex justify-between text-[10px] opacity-80 mt-1">
-                            <span>{formData.branch_id === "1" ? "Holidhani" : "Chanduali"}</span>
+                            <span>{dbBranches.find(b => b.id.toString() === formData.branch_id)?.name}</span>
                             <span>PROVISIONAL ID</span>
                         </div>
                     </div>
@@ -538,10 +561,40 @@ export default function PublicAdmissionPage() {
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-green-500"></div>
                 <SectionHeader icon={GraduationCap} title="একাডেমিক তথ্য" step="১" />
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div className="space-y-1.5"><label className="text-sm font-semibold text-slate-700">শাখা <span className="text-red-500">*</span></label><select name="branch_id" value={formData.branch_id} onChange={(e) => setFormData({...formData, branch_id: e.target.value})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"><option value="1">হলিধানী বাজার</option><option value="2">চাঁন্দুয়ালী বাজার</option></select></div>
-                    <div className="space-y-1.5"><label className="text-sm font-semibold text-slate-700">বিভাগ <span className="text-red-500">*</span></label><select name="department" value={formData.department} onChange={handleChange} required className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"><option value="">সিলেক্ট করুন</option>{departments.map(d => <option key={d} value={d}>{d}</option>)}</select></div>
-                    <div className="space-y-1.5"><label className="text-sm font-semibold text-slate-700">শ্রেণি <span className="text-red-500">*</span></label><select name="class_name" value={formData.class_name} onChange={handleChange} required className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"><option value="">সিলেক্ট করুন</option>{formData.department && classesByDept[formData.department]?.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                    <div className="space-y-1.5"><label className="text-sm font-semibold text-slate-700">আবাসন <span className="text-red-500">*</span></label><select name="residential_status" value={formData.residential_status} onChange={handleChange} required className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"><option value="residential">আবাসিক</option><option value="non_residential">অনাবাসিক</option></select></div>
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-semibold text-slate-700">শাখা <span className="text-red-500">*</span></label>
+                        <select name="branch_id" value={formData.branch_id} onChange={(e) => setFormData({...formData, branch_id: e.target.value, department: "", class_name: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                            <option value="">সিলেক্ট করুন</option>
+                            {dbBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-semibold text-slate-700">বিভাগ <span className="text-red-500">*</span></label>
+                        <select name="department" value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value, class_name: ""})} required className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                            <option value="">সিলেক্ট করুন</option>
+                            {dbDepartments.filter(d => String(d.branch_id) === formData.branch_id).map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-semibold text-slate-700">শ্রেণি <span className="text-red-500">*</span></label>
+                        <select name="class_name" value={formData.class_name} onChange={handleChange} required className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                            <option value="">সিলেক্ট করুন</option>
+                            {dbClasses.filter(c => {
+                                const dept = dbDepartments.find(d => d.name === formData.department && String(d.branch_id) === formData.branch_id);
+                                return String(c.branch_id) === formData.branch_id && c.department_id === dept?.id;
+                            }).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-semibold text-slate-700">আবাসন <span className="text-red-500">*</span></label>
+                        <select name="residential_status" value={formData.residential_status} onChange={handleChange} required className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                            <option value="non_residential">অনাবাসিক</option>
+                            {(() => {
+                                const selectedClass = dbClasses.find(c => c.name === formData.class_name && String(c.branch_id) === formData.branch_id);
+                                return selectedClass?.allow_residential ? <option value="residential">আবাসিক</option> : null;
+                            })()}
+                        </select>
+                    </div>
                 </div>
             </div>
 

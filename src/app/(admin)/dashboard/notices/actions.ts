@@ -1,10 +1,10 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server' // Adjust your supabase import path
+import { createClient } from '@/lib/supabase/server' // Adjust your supabase import path
 import { revalidatePath } from 'next/cache'
 
 export async function addNotice(formData: FormData) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const title = formData.get('title') as string
   const description = formData.get('description') as string
@@ -28,12 +28,12 @@ export async function addNotice(formData: FormData) {
     return { success: false, message: 'Failed to add notice' }
   }
 
-  revalidatePath('/admin/notices')
+  revalidatePath('/dashboard/notices')
   return { success: true, message: 'Notice added successfully!' }
 }
 
 export async function deleteNotice(id: number) {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   const { error } = await supabase.from('notices').delete().eq('id', id)
 
