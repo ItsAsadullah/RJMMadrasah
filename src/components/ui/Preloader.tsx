@@ -28,7 +28,7 @@ export default function Preloader() {
       <div className="relative z-10 flex flex-col items-center gap-8">
         {/* Long Logo Animation */}
         <div className="flex flex-col items-center animate-fade-in-up">
-           <div className="relative w-[300px] h-[100px] md:w-[500px] md:h-[160px] animate-bounce-slow">
+           <div className="relative w-[350px] h-[120px] md:w-[650px] md:h-[220px] animate-bounce-slow">
               <Image 
                 src="/images/long_logo.svg"
                 alt="Rahima Jannat Mohila Madrasa"
