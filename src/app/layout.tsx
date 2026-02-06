@@ -10,7 +10,21 @@ const notoSansBengali = Noto_Sans_Bengali({
 
 export const metadata: Metadata = {
   title: "রহিমা জান্নাত মহিলা মাদ্রাসা",
-  description: "একটি আদর্শ দ্বীনি শিক্ষা প্রতিষ্ঠান",
+  description: "একটি আদর্শ দ্বীনি শিক্ষা প্রতিষ্ঠান - হলিধানী ও চাঁন্দুয়ালী শাখা",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "রহিমা জান্নাত",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#16a34a",
 };
 
 export default function RootLayout({
