@@ -84,8 +84,6 @@ export default function BrandingSettingsPage() {
     }
     setUploading(null);
   };
-    setUploading(null);
-  };
 
   const isExternal = (url: string) =>
     url.startsWith("http://") || url.startsWith("https://");
