@@ -136,7 +136,18 @@ export default function ResultPage() {
         throw new Error(`এই শিক্ষার্থী '${selectedClass}' শ্রেণির নয়। (নিবন্ধিত শ্রেণি: ${student.class_name})`);
       }
       
-      // ৩. রেজাল্ট/মার্কস ফেচ করা
+      // Branch fetch
+      let branch = null;
+      if (student.branch_id) {
+        const { data: branchData } = await supabase
+          .from("branches")
+          .select("id, name, address")
+          .eq("id", student.branch_id)
+          .maybeSingle();
+        branch = branchData;
+      }
+
+      // Marks fetch
       const { data: marks, error: marksError } = await supabase
         .from("exam_marks")
         .select(`
@@ -146,7 +157,8 @@ export default function ResultPage() {
                 id,
                 name,
                 full_marks,
-                code
+                code,
+                is_active
             )
         `)
         .eq("exam_id", selectedExam)
@@ -155,24 +167,31 @@ export default function ResultPage() {
       if (marksError) throw marksError;
 
       if (!marks || marks.length === 0) {
-        throw new Error("এই পরীক্ষার ফলাফল এখনো প্রকাশিত হয়নি বা শিক্ষার্থী অনুপস্থিত ছিল।");
+        throw new Error("এই পরীক্ষার ফলাফল এখনো প্রকাশিত হয়নি বা শিক্ষার্থী অনুপস্থিত ছিল।");
       }
 
-      // ৪. ডাটা প্রসেসিং
-      const processedMarks = marks.map((m: any) => ({
-        subject_name: m.academic_subjects?.name,
-        full_marks: m.academic_subjects?.full_marks || 100,
-        marks_obtained: m.marks_obtained,
-        code: m.academic_subjects?.code
-      }));
+      // Filter out removed/inactive subjects
+      const processedMarks = marks
+        .filter((m: any) => m.academic_subjects && m.academic_subjects.name && m.academic_subjects.is_active !== false)
+        .map((m: any) => ({
+          subject_name: m.academic_subjects?.name,
+          full_marks: m.academic_subjects?.full_marks || 100,
+          marks_obtained: m.marks_obtained,
+          code: m.academic_subjects?.code
+        }));
 
       processedMarks.sort((a, b) => (a.code > b.code ? 1 : -1));
+
+      if (processedMarks.length === 0) {
+        throw new Error("এই পরীক্ষার ফলাফল এখনো প্রকাশিত হয়নি বা শিক্ষার্থী অনুপস্থিত ছিল।");
+      }
 
       const summary = calculateGPA(processedMarks);
       const examInfo = exams.find(e => e.id === selectedExam);
 
       setResult({
         student,
+        branch,
         exam: examInfo,
         marks: processedMarks,
         summary
@@ -378,7 +397,9 @@ export default function ResultPage() {
                                         className="h-28 w-auto object-contain print:h-24 print:max-w-[90%]" 
                                     />
                                 </div>
-                                <p className="text-sm font-medium text-gray-600 print:text-gray-800 -mt-2 print:-mt-2">হলিধানী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ</p>
+                                <p className="text-sm font-medium text-gray-600 print:text-gray-800 -mt-2 print:-mt-2">
+                                  {result.branch?.address || "হলিধানী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ"}
+                                </p>
                                 
                                 <div className="w-full border-b-[3px] border-double border-green-800 my-2 print:border-green-900"></div>
                                 
