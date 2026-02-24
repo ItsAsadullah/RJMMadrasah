@@ -87,7 +87,15 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [imageUrl],
     },
     manifest: "/manifest.json",
-    icons: { icon: "/icon.png", apple: "/apple-icon.png" },
+    icons: {
+      icon: [
+        { url: "/images/logo.png", type: "image/png" },
+      ],
+      apple: [
+        { url: "/images/logo.png", type: "image/png" },
+      ],
+      shortcut: "/images/logo.png",
+    },
     appleWebApp: { capable: true, statusBarStyle: "default", title: "রহিমা জান্নাত" },
   };
 }
