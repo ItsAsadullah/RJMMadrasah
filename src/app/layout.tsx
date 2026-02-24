@@ -68,7 +68,7 @@ export const metadata: Metadata = {
     description: SITE_DESC,
     images: [
       {
-        url: "/images/og-image.png",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "রহিমা জান্নাত মহিলা মাদ্রাসা",
@@ -80,7 +80,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: `${SITE_NAME} | দ্বীনি শিক্ষা প্রতিষ্ঠান`,
     description: SITE_DESC,
-    images: ["/images/og-image.png"],
+    images: ["/og-image.png"],
   },
 
   manifest: "/manifest.json",
