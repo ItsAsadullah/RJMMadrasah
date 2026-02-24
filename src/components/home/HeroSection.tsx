@@ -257,7 +257,7 @@ export default function HeroSection() {
       <div className="lg:col-span-4 flex flex-col gap-4 h-full">
         
         {/* 2. Right Top: Promo Banners */}
-        <div className="flex-1 relative rounded-2xl overflow-hidden shadow-lg bg-gray-50 group min-h-[250px] border border-gray-100">
+        <div className="flex-1 relative rounded-2xl overflow-hidden shadow-lg bg-white group min-h-[250px] border border-gray-100">
             {promos.length > 0 ? (
                 <div className="relative w-full h-full">
                     <AnimatePresence mode="wait">
@@ -273,7 +273,7 @@ export default function HeroSection() {
                                 <img 
                                     src={promos[currentPromo].content_url} 
                                     alt="Promo" 
-                                    className="w-full h-full object-contain hover:scale-105 transition-transform duration-700"
+                                    className="w-full h-full object-fill hover:scale-105 transition-transform duration-700"
                                 />
                             </Link>
                         </motion.div>
