@@ -113,9 +113,11 @@ CREATE POLICY "Public Insert Leaves"
   ON public.leave_applications
   FOR INSERT
   WITH CHECK (
-    teacher_id IS NOT NULL
-    AND start_date IS NOT NULL
-    AND end_date IS NOT NULL
+    student_id IS NOT NULL
+    AND from_date IS NOT NULL
+    AND to_date IS NOT NULL
+    AND reason IS NOT NULL
+    AND reason <> ''
   );
 
 -- ══════════════════════════════════════════════════════════════
