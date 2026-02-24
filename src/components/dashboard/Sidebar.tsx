@@ -7,7 +7,7 @@ import {
   BookOpen, Settings, LogOut, Clock, Menu, X, ChevronDown, ChevronRight, 
   School, Loader2, FileText, DollarSign, CalendarCheck, Image as ImageIcon,
   ClipboardList, UserPlus, Globe, Database, Award, TrendingUp, Briefcase, 
-  LayoutTemplate, Bell, MapPin, Layers
+  LayoutTemplate, Bell, MapPin, Layers, Search
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
@@ -404,6 +404,9 @@ export default function Sidebar() {
                  </Link>
                  <Link href="/dashboard/website/features" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/website/features" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
                     <Layers className="w-4 h-4" /> বৈশিষ্ট্যসমূহ
+                 </Link>
+                 <Link href="/dashboard/website/seo" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/website/seo" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
+                    <Search className="w-4 h-4" /> SEO সেটিংস
                  </Link>
              </div>
           </div>
