@@ -1,3 +1,18 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "রহিমা জান্নাত মহিলা মাদ্রাসা | দ্বীনি শিক্ষা প্রতিষ্ঠান, ঝিনাইদহ",
+  description:
+    "রহিমা জান্নাত মহিলা মাদ্রাসা — ঝিনাইদহ জেলার হলিধানী ও চাঁন্দুয়ালীতে অবস্থিত বাংলাদেশের একটি আদর্শ মহিলা দ্বীনি শিক্ষা প্রতিষ্ঠান। নূরানী, হিফজুল কুরআন ও কিতাব বিভাগে ভর্তি চলছে।",
+  alternates: { canonical: "https://rjmm.edu.bd" },
+  openGraph: {
+    title: "রহিমা জান্নাত মহিলা মাদ্রাসা | দ্বীনি শিক্ষা প্রতিষ্ঠান, ঝিনাইদহ",
+    description:
+      "ঝিনাইদহ জেলার হলিধানী ও চাঁন্দুয়ালীর আদর্শ দ্বীনি শিক্ষা প্রতিষ্ঠান। ভর্তি ও তথ্যের জন্য ভিজিট করুন।",
+    url: "https://rjmm.edu.bd",
+  },
+};
+
 import HeroSection from "@/components/home/HeroSection";
 import NoticeTicker from "@/components/home/NoticeTicker";
 import DirectorMessage from "@/components/home/DirectorMessage";
