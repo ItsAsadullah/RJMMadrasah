@@ -50,21 +50,31 @@ export default function HeroManagementPage() {
     setLoading(false);
   };
 
+  const CLOUD_NAME = "dfo1slmdy";
+  const UPLOAD_PRESET = "rahima_preset";
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setUploading(true);
 
     const file = e.target.files[0];
-    const fileExt = file.name.split('.').pop();
-    const fileName = `hero/${Date.now()}_${Math.random()}.${fileExt}`;
+    const cloudinaryForm = new FormData();
+    cloudinaryForm.append("file", file);
+    cloudinaryForm.append("upload_preset", UPLOAD_PRESET);
 
-    const { error } = await supabase.storage.from("images").upload(fileName, file);
-
-    if (error) {
-      alert("Upload failed: " + error.message);
-    } else {
-      const { data } = supabase.storage.from("images").getPublicUrl(fileName);
-      setFormData({ ...formData, content_url: data.publicUrl });
+    try {
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+        { method: "POST", body: cloudinaryForm }
+      );
+      const data = await res.json();
+      if (data.secure_url) {
+        setFormData({ ...formData, content_url: data.secure_url });
+      } else {
+        alert("আপলোড ব্যর্থ: " + (data.error?.message || "অজানা ত্রুটি"));
+      }
+    } catch {
+      alert("ইন্টারনেট সংযোগ চেক করুন!");
     }
     setUploading(false);
   };
