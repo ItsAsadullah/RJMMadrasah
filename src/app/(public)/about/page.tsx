@@ -10,6 +10,7 @@ export const metadata: Metadata = {
     description:
       "প্রতিষ্ঠানের ইতিহাস, লক্ষ্য ও উদ্দেশ্য এবং শাখাসমূহ সম্পর্কে জানুন।",
     url: "https://rjmm.edu.bd/about",
+    images: [{ url: "https://rjmm.edu.bd/og-image.png", width: 1200, height: 630, alt: "রহিমা জান্নাত মহিলা মাদ্রাসা" }],
   },
 };
 

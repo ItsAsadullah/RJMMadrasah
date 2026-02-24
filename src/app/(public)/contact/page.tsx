@@ -11,6 +11,7 @@ export const metadata: Metadata = {
     description:
       "হলিধানী বাজার ও চাঁন্দুয়ালী শাখার ঠিকানা, ফোন নম্বর এবং ইমেইল।",
     url: "https://rjmm.edu.bd/contact",
+    images: [{ url: "https://rjmm.edu.bd/og-image.png", width: 1200, height: 630, alt: "রহিমা জান্নাত মহিলা মাদ্রাসা" }],
   },
 };
 

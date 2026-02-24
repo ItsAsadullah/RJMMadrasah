@@ -10,6 +10,7 @@ export const metadata: Metadata = {
     description:
       "ঝিনাইদহ জেলার হলিধানী ও চাঁন্দুয়ালীর আদর্শ দ্বীনি শিক্ষা প্রতিষ্ঠান। ভর্তি ও তথ্যের জন্য ভিজিট করুন।",
     url: "https://rjmm.edu.bd",
+    images: [{ url: "https://rjmm.edu.bd/og-image.png", width: 1200, height: 630, alt: "রহিমা জান্নাত মহিলা মাদ্রাসা" }],
   },
 };
 

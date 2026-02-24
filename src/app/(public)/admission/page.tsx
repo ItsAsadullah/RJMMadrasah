@@ -11,6 +11,7 @@ export const metadata: Metadata = {
     description:
       "নূরানী, হিফজুল কুরআন ও কিতাব বিভাগে সীমিত আসনে ভর্তি চলছে। দ্রুত আবেদন করুন।",
     url: "https://rjmm.edu.bd/admission",
+    images: [{ url: "https://rjmm.edu.bd/og-image.png", width: 1200, height: 630, alt: "রহিমা জান্নাত মহিলা মাদ্রাসা" }],
   },
 };
 
