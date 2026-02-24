@@ -7,6 +7,7 @@ export const metadata: Metadata = {
     "রহিমা জান্নাত মহিলা মাদ্রাসার সাথে যোগাযোগ করুন। হলিধানী বাজার ও চাঁন্দুয়ালী শাখার ঠিকানা, ফোন নম্বর এবং ইমেইল পাবেন এখানে।",
   alternates: { canonical: "https://rjmm.edu.bd/contact" },
   openGraph: {
+    type: "website",
     title: "যোগাযোগ — রহিমা জান্নাত মহিলা মাদ্রাসা",
     description:
       "হলিধানী বাজার ও চাঁন্দুয়ালী শাখার ঠিকানা, ফোন নম্বর এবং ইমেইল।",
