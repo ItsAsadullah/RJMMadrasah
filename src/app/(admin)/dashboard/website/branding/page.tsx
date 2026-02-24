@@ -57,27 +57,33 @@ export default function BrandingSettingsPage() {
     else showToast("সফলভাবে সংরক্ষিত হয়েছে! পরিবর্তন দেখতে পেজ রিলোড করুন।");
   };
 
+  const CLOUD_NAME = "dfo1slmdy";
+  const UPLOAD_PRESET = "rahima_preset";
+
   const handleUpload = async (field: UploadField, file: File) => {
     setUploading(field);
-    const ext = file.name.split(".").pop();
-    const fileName = `${field}-${Date.now()}.${ext}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from("branding-assets")
-      .upload(fileName, file, { upsert: true });
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", UPLOAD_PRESET);
 
-    if (uploadError) {
-      showToast("আপলোড ব্যর্থ: " + uploadError.message, false);
-      setUploading(null);
-      return;
+    try {
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+        { method: "POST", body: formData }
+      );
+      const data = await res.json();
+      if (data.secure_url) {
+        setForm((prev) => ({ ...prev, [field]: data.secure_url }));
+        showToast("ফাইল আপলোড হয়েছে। সংরক্ষণ করুন।");
+      } else {
+        showToast("আপলোড ব্যর্থ: " + (data.error?.message || "অজানা ত্রুটি"), false);
+      }
+    } catch (err) {
+      showToast("ইন্টারনেট সংযোগ চেক করুন!", false);
     }
-
-    const { data } = supabase.storage
-      .from("branding-assets")
-      .getPublicUrl(fileName);
-
-    setForm((prev) => ({ ...prev, [field]: data.publicUrl }));
-    showToast("ফাইল আপলোড হয়েছে। সংরক্ষণ করুন।");
+    setUploading(null);
+  };
     setUploading(null);
   };
 
@@ -184,7 +190,7 @@ export default function BrandingSettingsPage() {
         <ul className="list-disc list-inside space-y-0.5 text-amber-700">
           <li>সংরক্ষণের পর পেজ Hard Refresh করুন (Ctrl+Shift+R)</li>
           <li>Favicon পরিবর্তন Google-এ দেখাতে ২-৪ সপ্তাহ লাগতে পারে</li>
-          <li>Supabase Storage-এ <strong>branding-assets</strong> নামে public bucket তৈরি করতে হবে</li>
+          <li>ছবি Cloudinary-তে আপলোড হয় (<strong>dfo1slmdy</strong> / preset: <strong>rahima_preset</strong>)</li>
         </ul>
       </div>
     </div>
