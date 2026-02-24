@@ -32,6 +32,7 @@ const fallback: FooterSettings = {
 
 export default function Footer() {
   const [info, setInfo] = useState<FooterSettings>(fallback);
+  const [logoUrl, setLogoUrl] = useState("/images/logo.png");
 
   useEffect(() => {
     supabase
@@ -41,6 +42,15 @@ export default function Footer() {
       .single()
       .then(({ data }) => {
         if (data) setInfo(data as FooterSettings);
+      });
+
+    supabase
+      .from("branding_settings")
+      .select("logo_url")
+      .eq("id", 1)
+      .single()
+      .then(({ data }) => {
+        if (data?.logo_url) setLogoUrl(data.logo_url);
       });
   }, []);
 
@@ -53,7 +63,7 @@ export default function Footer() {
             <div className="flex items-center gap-3">
               <div className="relative h-10 w-10 overflow-hidden rounded-full border border-green-100">
                   <Image 
-                    src="/images/logo.png" 
+                    src={logoUrl}
                     alt="Logo" 
                     fill
                     sizes="40px" 

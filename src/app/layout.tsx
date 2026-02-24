@@ -30,21 +30,26 @@ export async function generateMetadata(): Promise<Metadata> {
     "Rahima Jannat Mahila Madrasa", "madrasa Jhenaidah",
   ];
 
+  let faviconUrl = "/images/logo.png";
+
   try {
     const supabase = await createClient();
-    const { data } = await supabase
-      .from("seo_settings")
-      .select("og_title, og_description, og_image_url, site_keywords")
-      .eq("id", 1)
-      .single();
+    const [seoResult, brandingResult] = await Promise.all([
+      supabase.from("seo_settings").select("og_title, og_description, og_image_url, site_keywords").eq("id", 1).single(),
+      supabase.from("branding_settings").select("favicon_url").eq("id", 1).single(),
+    ]);
 
-    if (data) {
-      if (data.og_title) title = data.og_title;
-      if (data.og_description) description = data.og_description;
-      if (data.og_image_url) imageUrl = data.og_image_url;
-      if (data.site_keywords)
-        keywords = data.site_keywords.split(",").map((k: string) => k.trim());
+    const seoData = seoResult.data;
+    if (seoData) {
+      if (seoData.og_title) title = seoData.og_title;
+      if (seoData.og_description) description = seoData.og_description;
+      if (seoData.og_image_url) imageUrl = seoData.og_image_url;
+      if (seoData.site_keywords)
+        keywords = seoData.site_keywords.split(",").map((k: string) => k.trim());
     }
+
+    const brandingData = brandingResult.data;
+    if (brandingData?.favicon_url) faviconUrl = brandingData.favicon_url;
   } catch {
     // Use defaults if Supabase unavailable
   }
@@ -88,13 +93,9 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     manifest: "/manifest.json",
     icons: {
-      icon: [
-        { url: "/images/logo.png", type: "image/png" },
-      ],
-      apple: [
-        { url: "/images/logo.png", type: "image/png" },
-      ],
-      shortcut: "/images/logo.png",
+      icon: [{ url: faviconUrl, type: "image/png" }],
+      apple: [{ url: faviconUrl, type: "image/png" }],
+      shortcut: faviconUrl,
     },
     appleWebApp: { capable: true, statusBarStyle: "default", title: "রহিমা জান্নাত" },
   };

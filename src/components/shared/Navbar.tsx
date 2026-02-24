@@ -27,6 +27,18 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [longLogoUrl, setLongLogoUrl] = useState("/images/long_logo.svg");
+
+  useEffect(() => {
+    supabase
+      .from("branding_settings")
+      .select("long_logo_url")
+      .eq("id", 1)
+      .single()
+      .then(({ data }) => {
+        if (data?.long_logo_url) setLongLogoUrl(data.long_logo_url);
+      });
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -112,7 +124,7 @@ export default function Navbar() {
               {/* লোগো কন্টেইনার */}
               <div className="relative h-28 w-[320px] sm:h-44 sm:w-[550px] md:h-52 md:w-[750px] transition-all hover:scale-105 -mt-6 sm:-mt-12 -mb-8 sm:-mb-14"> 
                 <Image 
-                  src="/images/long_logo.svg" 
+                  src={longLogoUrl}
                   alt="Rahima Jannat Mohila Madrasa Logo" 
                   fill 
                   className="object-contain" 
