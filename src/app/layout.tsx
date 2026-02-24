@@ -3,6 +3,7 @@ import { Noto_Sans_Bengali } from "next/font/google";
 import "./globals.css";
 import JsonLd from "@/components/shared/JsonLd";
 import { createClient } from "@/lib/supabase/server";
+import { Analytics } from "@vercel/analytics/next";
 
 const notoSansBengali = Noto_Sans_Bengali({
   subsets: ["bengali"],
@@ -106,6 +107,7 @@ export default function RootLayout({
       <body className="font-bengali bg-white min-h-screen" suppressHydrationWarning>
         <JsonLd />
         {children}
+        <Analytics />
       </body>
     </html>
   );
