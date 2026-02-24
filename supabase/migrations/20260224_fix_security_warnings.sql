@@ -131,8 +131,8 @@ CREATE POLICY "Public Submit Admission"
   ON public.students
   FOR INSERT
   WITH CHECK (
-    name IS NOT NULL
-    AND name <> ''
+    name_en IS NOT NULL
+    AND name_en <> ''
   );
 
 -- ══════════════════════════════════════════════════════════════
