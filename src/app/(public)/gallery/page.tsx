@@ -79,7 +79,7 @@ export default function GalleryPage() {
     <div className="min-h-screen bg-gray-50 font-[Kalpurush]">
       {/* Hero Section */}
       <section className="relative bg-green-900 text-white py-20 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/images/pattern.png')] opacity-10"></div>
+        <div className="absolute inset-0 opacity-10 bg-gray-200"></div>
         <div className="absolute inset-0 bg-gradient-to-b from-green-800/80 to-green-900/90"></div>
         <div className="container mx-auto px-4 relative z-10 text-center">
           <motion.h1 

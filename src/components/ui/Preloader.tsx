@@ -23,7 +23,7 @@ export default function Preloader() {
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white">
       {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-5 bg-[url('/images/pattern.png')] bg-repeat" />
+      <div className="absolute inset-0 opacity-5 bg-gray-200" />
 
       <div className="relative z-10 flex flex-col items-center gap-8">
         {/* Long Logo Animation */}

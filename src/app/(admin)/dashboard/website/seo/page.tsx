@@ -32,6 +32,7 @@ export default function SeoSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -48,10 +49,15 @@ export default function SeoSettingsPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    await supabase.from("seo_settings").upsert({ ...form, id: 1 });
+    setSaveError(null);
+    const { error } = await supabase.from("seo_settings").upsert({ ...form, id: 1 });
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    if (error) {
+      setSaveError("সংরক্ষণ ব্যর্থ: " + error.message);
+    } else {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,6 +99,12 @@ export default function SeoSettingsPage() {
       </div>
 
       <div className="bg-white rounded-xl border shadow-sm p-6 space-y-6">
+
+        {saveError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
+            {saveError}
+          </div>
+        )}
 
         {/* OG Title */}
         <div className="space-y-2">
