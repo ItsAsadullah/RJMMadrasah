@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import StudentPrintProfile from "@/components/dashboard/StudentPrintProfile";
 import PaymentHistory from "@/components/dashboard/students/PaymentHistory";
-import { divisions, districts, upazilas, departments, classesByDept } from "@/data/bangladesh-data";
+import { divisions, districts, upazilas } from "@/data/bangladesh-data";
 import { differenceInYears, differenceInMonths, differenceInDays } from "date-fns";
 
 // --- কনফিগারেশন ---
@@ -144,6 +144,23 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
   const [sameAddress, setSameAddress] = useState(false);
   const [dobState, setDobState] = useState({ day: "", month: "", year: "" });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  // DB একাডেমিক ডাটা
+  const [dbBranches, setDbBranches] = useState<any[]>([]);
+  const [dbDepartments, setDbDepartments] = useState<any[]>([]);
+  const [dbClasses, setDbClasses] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchAcademicData = async () => {
+      const { data: b } = await supabase.from("branches").select("id, name");
+      const { data: d } = await supabase.from("departments").select("id, name, branch_id");
+      const { data: c } = await supabase.from("academic_classes").select("id, name, branch_id, department_id, allow_residential");
+      if (b) setDbBranches(b);
+      if (d) setDbDepartments(d);
+      if (c) setDbClasses(c);
+    };
+    fetchAcademicData();
+  }, []);
 
   // Other Action Modals
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -432,6 +449,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                     <Badge label={`ক্লাস: ${student.class_name}`} color="blue" />
                     <Badge label={`বিভাগ: ${student.department}`} color="purple" />
                     <Badge label={`সেশন: ${student.academic_year}`} color="orange" />
+                    {student.roll_number && <Badge label={`রোল: ${student.roll_number}`} color="cyan" />}
                     <Badge label={student.status} color={student.status === 'active' ? 'green' : 'red'} />
                 </div>
             </div>
@@ -465,6 +483,15 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                 </InfoCard>
             </div>
             
+
+            <InfoCard title="একাডেমিক তথ্য" icon={GraduationCap}>
+                <InfoRow label="শাখা" value={student.branch_id === 1 || student.branch_id === '1' ? 'হলিধানী বাজার' : 'চাঁন্দুয়ালী বাজার'} />
+                <InfoRow label="বিভাগ" value={student.department} />
+                <InfoRow label="শ্রেণি" value={student.class_name} />
+                <InfoRow label="শিক্ষাবর্ষ" value={student.academic_year} />
+                <InfoRow label="রোল নম্বর" value={student.roll_number || '-'} />
+                <InfoRow label="আবাসিক" value={student.is_residential ? 'হ্যাঁ' : 'না'} />
+            </InfoCard>
             <InfoCard title="অভিভাবকের তথ্য" icon={User} className="w-full">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 flex gap-4">
@@ -514,11 +541,35 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
                    <div className="absolute top-0 left-0 w-1.5 h-full bg-green-500"></div>
                    <SectionHeader icon={GraduationCap} title="একাডেমিক তথ্য" step="১" />
-                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                      <div className="space-y-1.5"><label className="text-sm font-semibold text-slate-700">শাখা</label><select name="branch_id" value={editFormData.branch_id} onChange={handleEditChange} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white"><option value="1">হলিধানী বাজার</option><option value="2">চাঁন্দুয়ালী বাজার</option></select></div>
+                   <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-semibold text-slate-700">শাখা</label>
+                        <select name="branch_id" value={editFormData.branch_id || ""} onChange={(e) => setEditFormData({...editFormData, branch_id: e.target.value, department: "", class_name: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
+                          <option value="">সিলেক্ট করুন</option>
+                          {dbBranches.length > 0
+                            ? dbBranches.map(b => <option key={b.id} value={String(b.id)}>{b.name}</option>)
+                            : <><option value="1">হলিধানী বাজার</option><option value="2">চাঁন্দুয়ালী বাজার</option></>}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-semibold text-slate-700">বিভাগ</label>
+                        <select name="department" value={editFormData.department || ""} onChange={(e) => setEditFormData({...editFormData, department: e.target.value, class_name: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
+                          <option value="">সিলেক্ট করুন</option>
+                          {dbDepartments.filter(d => String(d.branch_id) === String(editFormData.branch_id)).map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-semibold text-slate-700">শ্রেণি</label>
+                        <select name="class_name" value={editFormData.class_name || ""} onChange={(e) => setEditFormData({...editFormData, class_name: e.target.value})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
+                          <option value="">সিলেক্ট করুন</option>
+                          {dbClasses.filter(c => {
+                            const dept = dbDepartments.find(d => d.name === editFormData.department && String(d.branch_id) === String(editFormData.branch_id));
+                            return String(c.branch_id) === String(editFormData.branch_id) && c.department_id === dept?.id;
+                          }).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        </select>
+                      </div>
                       <InputGroup label="শিক্ষাবর্ষ" name="academic_year" value={editFormData.academic_year} onChange={handleEditChange} type="number" />
-                      <div className="space-y-1.5"><label className="text-sm font-semibold text-slate-700">বিভাগ</label><select name="department" value={editFormData.department} onChange={handleEditChange} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white"><option value="">সিলেক্ট</option>{departments.map(d => <option key={d} value={d}>{d}</option>)}</select></div>
-                      <div className="space-y-1.5"><label className="text-sm font-semibold text-slate-700">শ্রেণি</label><select name="class_name" value={editFormData.class_name} onChange={handleEditChange} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white"><option value="">সিলেক্ট</option>{editFormData.department && classesByDept[editFormData.department]?.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+                      <InputGroup label="রোল নম্বর" name="roll_number" value={editFormData.roll_number} onChange={handleEditChange} placeholder="যেমন: ১২" />
                    </div>
                 </div>
 

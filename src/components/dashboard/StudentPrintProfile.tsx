@@ -82,15 +82,45 @@ export default function StudentPrintProfile({ student }: { student: any }) {
                         <div className="bg-green-800 text-white text-center font-bold py-1 uppercase text-xs print:bg-green-800 print:text-white">
                             একাডেমিক তথ্য (অফিস ব্যবহার)
                         </div>
-                        <div className="grid grid-cols-4 gap-2 p-2 text-[12px] bg-green-50/50 font-medium">
-                            <div><span className="font-bold text-green-900">শিক্ষাবর্ষ:</span> {student.academic_year}</div>
-                            <div><span className="font-bold text-green-900">আইডি নং:</span> {student.birth_reg_no ? student.birth_reg_no.slice(-6) : 'N/A'}</div>
-                            <div className="col-span-2 text-right"><span className="font-bold text-green-900">ভর্তির তারিখ:</span> {format(new Date(student.created_at), 'dd/MM/yyyy')}</div>
-                            
-                            <div><span className="font-bold text-green-900">শ্রেণি:</span> {student.class_name}</div>
-                            <div><span className="font-bold text-green-900">বিভাগ:</span> {student.department}</div>
-                            <div><span className="font-bold text-green-900">শাখা:</span> {student.branch_id === 1 ? 'হলিধানী' : 'চাঁন্দুয়ালী'}</div>
-                            <div className="text-right"><span className="font-bold text-green-900">আবাসন:</span> {student.residential_status === 'residential' ? 'আবাসিক' : 'অনাবাসিক'}</div>
+                        <div className="p-2 bg-green-50/50">
+                            {/* Row 1 */}
+                            <div className="grid grid-cols-4 gap-x-3 border-b border-green-200 pb-1.5 mb-1.5">
+                                <div>
+                                    <p className="text-[12px] font-semibold text-gray-800 leading-none">{student.academic_year}</p>
+                                    <p className="text-[9px] font-bold text-green-800 uppercase tracking-wide leading-none mb-0.5">শিক্ষাবর্ষ</p>
+                                </div>
+                                <div>
+                                    <p className="text-[9px] font-bold text-green-800 uppercase tracking-wide leading-none mb-0.5">আইডি নং</p>
+                                    <p className="text-[12px] font-semibold text-gray-800 leading-none">{student.birth_reg_no ? student.birth_reg_no.slice(-6) : 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[9px] font-bold text-green-800 uppercase tracking-wide leading-none mb-0.5">ভর্তির তারিখ</p>
+                                    <p className="text-[12px] font-semibold text-gray-800 leading-none">{format(new Date(student.created_at), 'dd/MM/yyyy')}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[9px] font-bold text-green-800 uppercase tracking-wide leading-none mb-0.5">রোল নম্বর</p>
+                                    <p className="text-[12px] font-semibold text-gray-800 leading-none">{student.roll_number || '-'}</p>
+                                </div>
+                            </div>
+                            {/* Row 2 */}
+                            <div className="grid grid-cols-4 gap-x-3">
+                                <div>
+                                    <p className="text-[9px] font-bold text-green-800 uppercase tracking-wide leading-none mb-0.5">শ্রেণি</p>
+                                    <p className="text-[12px] font-semibold text-gray-800 leading-none">{student.class_name}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[9px] font-bold text-green-800 uppercase tracking-wide leading-none mb-0.5">বিভাগ</p>
+                                    <p className="text-[12px] font-semibold text-gray-800 leading-none">{student.department}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[9px] font-bold text-green-800 uppercase tracking-wide leading-none mb-0.5">শাখা</p>
+                                    <p className="text-[12px] font-semibold text-gray-800 leading-none">{student.branch_id === 1 || student.branch_id === '1' ? 'হলিধানী' : 'চাঁন্দুয়ালী'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[9px] font-bold text-green-800 uppercase tracking-wide leading-none mb-0.5">আবাসন</p>
+                                    <p className="text-[12px] font-semibold text-gray-800 leading-none">{student.residential_status === 'residential' ? 'আবাসিক' : 'অনাবাসিক'}</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

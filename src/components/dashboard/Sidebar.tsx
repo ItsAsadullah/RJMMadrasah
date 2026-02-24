@@ -7,7 +7,7 @@ import {
   BookOpen, Settings, LogOut, Clock, Menu, X, ChevronDown, ChevronRight, 
   School, Loader2, FileText, DollarSign, CalendarCheck, Image as ImageIcon,
   ClipboardList, UserPlus, Globe, Database, Award, TrendingUp, Briefcase, 
-  LayoutTemplate, Bell
+  LayoutTemplate, Bell, MapPin, Layers
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
@@ -392,6 +392,18 @@ export default function Sidebar() {
                  </Link>
                  <Link href="/dashboard/hero" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/hero" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
                     <LayoutTemplate className="w-4 h-4" /> হিরো সেকশন
+                 </Link>
+                 <Link href="/dashboard/website/footer" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/website/footer" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
+                    <Globe className="w-4 h-4" /> ফুটার সেটিংস
+                 </Link>
+                 <Link href="/dashboard/website/contact" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/website/contact" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
+                    <MapPin className="w-4 h-4" /> যোগাযোগ পেজ
+                 </Link>
+                 <Link href="/dashboard/website/admission" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/website/admission" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
+                    <GraduationCap className="w-4 h-4" /> ভর্তি পেজ
+                 </Link>
+                 <Link href="/dashboard/website/features" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/website/features" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
+                    <Layers className="w-4 h-4" /> বৈশিষ্ট্যসমূহ
                  </Link>
              </div>
           </div>

@@ -11,7 +11,7 @@ import {
   RefreshCw, AlertTriangle, CheckCircle, Printer, Download, X, 
   MapPin, CheckCircle2, ChevronRight, GraduationCap, Users, Shield, Crop, ZoomIn, ZoomOut
 } from "lucide-react";
-import { divisions, districts, upazilas, departments, classesByDept } from "@/data/bangladesh-data";
+import { divisions, districts, upazilas } from "@/data/bangladesh-data";
 import { differenceInYears, differenceInMonths, differenceInDays } from "date-fns";
 import Image from "next/image";
 import Link from "next/link";
@@ -145,8 +145,29 @@ export default function AdminStudentAdd() {
   
   const [dobState, setDobState] = useState({ day: "", month: "", year: "" });
 
+  // --- একাডেমিক ডাটা (DB থেকে) ---
+  const [dbBranches, setDbBranches] = useState<any[]>([]);
+  const [dbDepartments, setDbDepartments] = useState<any[]>([]);
+  const [dbClasses, setDbClasses] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchAcademicData = async () => {
+      try {
+        const { data: b } = await supabase.from("branches").select("id, name");
+        const { data: d } = await supabase.from("departments").select("id, name, branch_id");
+        const { data: c } = await supabase.from("academic_classes").select("id, name, branch_id, department_id, allow_residential");
+        if (b) setDbBranches(b);
+        if (d) setDbDepartments(d);
+        if (c) setDbClasses(c);
+      } catch (error) {
+        console.error("Error fetching academic data:", error);
+      }
+    };
+    fetchAcademicData();
+  }, []);
+
   const [formData, setFormData] = useState({
-    branch_id: "1", department: "", class_name: "", academic_year: new Date().getFullYear().toString(),
+    branch_id: "1", department: "", class_name: "", roll_number: "", academic_year: new Date().getFullYear().toString(),
     residential_status: "residential", status: "active", guardian_type: "", 
     name_bn: "", name_en: "", dob: "", age_info: "", birth_reg_no: "", blood_group: "", photo_url: "", birth_cert_url: "",
     father_alive: "yes", father_name_bn: "", father_name_en: "", father_nid: "", father_occupation: "", father_mobile: "", father_nid_url: "", father_photo_url: "",
@@ -348,6 +369,7 @@ export default function AdminStudentAdd() {
       // সেইফটি: খালি স্ট্রিং থাকলে null পাঠান (যদি ডাটাবেস এরর দেয়)
       dob: formData.dob || null, 
       student_id: generatedID,
+      roll_number: formData.roll_number || null,
       branch_id: parseInt(formData.branch_id),
       academic_year: parseInt(formData.academic_year),
       father_alive: formData.father_alive === "yes",
@@ -400,27 +422,46 @@ export default function AdminStudentAdd() {
            <div className="absolute top-0 left-0 w-1.5 h-full bg-green-500"></div>
            <SectionHeader icon={GraduationCap} title="একাডেমিক তথ্য" step="১" />
            
-           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="space-y-1.5">
-                 <label className="text-sm font-semibold text-slate-700">শাখা <span className="text-red-500">*</span></label>
-                 <select name="branch_id" value={formData.branch_id} onChange={(e) => setFormData({...formData, branch_id: e.target.value})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
-                    <option value="1">হলিধানী বাজার</option><option value="2">চাঁন্দুয়ালী বাজার</option>
-                 </select>
-              </div>
-              <InputGroup label="শিক্ষাবর্ষ" name="academic_year" value={formData.academic_year} onChange={handleChange} type="number" required />
-              <div className="space-y-1.5">
-                 <label className="text-sm font-semibold text-slate-700">বিভাগ <span className="text-red-500">*</span></label>
-                 <select name="department" value={formData.department} onChange={handleChange} required className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
-                    <option value="">সিলেক্ট করুন</option>{departments.map(d => <option key={d} value={d}>{d}</option>)}
-                 </select>
-              </div>
-              <div className="space-y-1.5">
-                 <label className="text-sm font-semibold text-slate-700">শ্রেণি <span className="text-red-500">*</span></label>
-                 <select name="class_name" value={formData.class_name} onChange={handleChange} required className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
-                    <option value="">সিলেক্ট করুন</option>{formData.department && classesByDept[formData.department]?.map(c => <option key={c} value={c}>{c}</option>)}
-                 </select>
-              </div>
-           </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+               <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700">শাখা <span className="text-red-500">*</span></label>
+                  <select name="branch_id" value={formData.branch_id} onChange={(e) => setFormData({...formData, branch_id: e.target.value, department: "", class_name: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                     <option value="">সিলেক্ট করুন</option>
+                     {dbBranches.length > 0
+                       ? dbBranches.map(b => <option key={b.id} value={String(b.id)}>{b.name}</option>)
+                       : <><option value="1">হলিধানী বাজার</option><option value="2">চাঁন্দুয়ালী বাজার</option></>}
+                  </select>
+               </div>
+               <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700">বিভাগ <span className="text-red-500">*</span></label>
+                  <select name="department" value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value, class_name: ""})} required className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                     <option value="">সিলেক্ট করুন</option>
+                     {dbDepartments.filter(d => String(d.branch_id) === formData.branch_id).map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                  </select>
+               </div>
+               <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700">শ্রেণি <span className="text-red-500">*</span></label>
+                  <select name="class_name" value={formData.class_name} onChange={handleChange} required className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                     <option value="">সিলেক্ট করুন</option>
+                     {dbClasses.filter(c => {
+                       const dept = dbDepartments.find(d => d.name === formData.department && String(d.branch_id) === formData.branch_id);
+                       return String(c.branch_id) === formData.branch_id && c.department_id === dept?.id;
+                     }).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                  </select>
+               </div>
+               <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700">আবাসন <span className="text-red-500">*</span></label>
+                  <select name="residential_status" value={formData.residential_status} onChange={handleChange} required className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                     <option value="non_residential">অনাবাসিক</option>
+                     {(() => {
+                       const selectedClass = dbClasses.find(c => c.name === formData.class_name && String(c.branch_id) === formData.branch_id);
+                       return !selectedClass || selectedClass?.allow_residential ? <option value="residential">আবাসিক</option> : null;
+                     })()}
+                  </select>
+               </div>
+               <InputGroup label="শিক্ষাবর্ষ" name="academic_year" value={formData.academic_year} onChange={handleChange} type="number" required />
+               <InputGroup label="রোল নম্বর" name="roll_number" value={formData.roll_number} onChange={handleChange} placeholder="যেমন: ১২" />
+            </div>
         </div>
 
         {/* ২. শিক্ষার্থী তথ্য */}
