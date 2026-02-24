@@ -54,8 +54,6 @@ export default function HeroSection() {
     return () => clearInterval(timer);
   }, [promos.length]);
 
-  const defaultBg = "https://images.unsplash.com/photo-1564121211835-e88c852648ab?q=80&w=2070&auto=format&fit=crop";
-
   const getVideoId = (url: string) => {
     try {
         const parts = url.split('/');
@@ -166,7 +164,7 @@ export default function HeroSection() {
             transition={{ duration: 1 }}
             className="absolute inset-0"
             style={{
-              backgroundImage: `url('${slides[currentSlide]?.content_url || defaultBg}')`,
+              backgroundImage: slides[currentSlide]?.content_url ? `url('${slides[currentSlide].content_url}')` : undefined,
               backgroundSize: "cover",
               backgroundPosition: "center",
             }}
