@@ -13,7 +13,7 @@ export default function QuotesSection() {
         .from("home_sections")
         .select("*")
         .eq("section_key", "islamic_quotes")
-        .single();
+        .maybeSingle();
       if (data) setData(data);
     };
     fetchData();

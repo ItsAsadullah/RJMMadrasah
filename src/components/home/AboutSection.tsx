@@ -14,7 +14,7 @@ export default function AboutSection() {
         .from("home_sections")
         .select("*")
         .eq("section_key", "about")
-        .single();
+        .maybeSingle();
       if (data) setData(data);
     };
     fetchData();

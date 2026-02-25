@@ -13,7 +13,7 @@ export default function MissionVisionSection() {
         .from("home_sections")
         .select("*")
         .eq("section_key", "mission_vision")
-        .single();
+        .maybeSingle();
       if (data) setData(data);
     };
     fetchData();

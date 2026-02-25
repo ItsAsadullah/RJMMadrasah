@@ -14,7 +14,7 @@ export default function DirectorMessage() {
         .from("home_sections")
         .select("*")
         .eq("section_key", "director")
-        .single();
+        .maybeSingle();
       if (data) setData(data);
     };
     fetchData();

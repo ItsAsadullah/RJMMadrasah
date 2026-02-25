@@ -13,7 +13,7 @@ export default function DepartmentsSection() {
         .from("home_sections")
         .select("*")
         .eq("section_key", "departments")
-        .single();
+        .maybeSingle();
       if (data) setData(data);
     };
     fetchData();
