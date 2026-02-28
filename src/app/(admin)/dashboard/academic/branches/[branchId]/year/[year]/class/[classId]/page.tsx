@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Users, Book, ChevronLeft, ArrowRight, Eye, CheckCircle, Search, X, Filter } from "lucide-react";
+import { Plus, Users, ChevronLeft, ArrowRight, Eye, CheckCircle, Search, X } from "lucide-react";
 import Link from "next/link";
-import ClassSubjectSetup from "@/components/dashboard/academic/ClassSubjectSetup";
 
 export default function ClassDashboard({ params }: { params: Promise<{ branchId: string, year: string, classId: string }> }) {
   const { branchId, year, classId } = use(params);
@@ -96,9 +95,8 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
       </div>
 
       <Tabs defaultValue="students" value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-[400px] mb-6">
+        <TabsList className="grid w-full grid-cols-1 max-w-[220px] mb-6">
           <TabsTrigger value="students" className="gap-2"><Users className="w-4 h-4" /> শিক্ষার্থী তালিকা</TabsTrigger>
-          <TabsTrigger value="subjects" className="gap-2"><Book className="w-4 h-4" /> বিষয় সেটআপ</TabsTrigger>
         </TabsList>
 
         {/* ট্যাব ১: শিক্ষার্থী তালিকা (ফিল্টার সহ) */}
@@ -193,10 +191,6 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
                     </TableBody>
                 </Table>
             </div>
-        </TabsContent>
-
-        <TabsContent value="subjects">
-            <ClassSubjectSetup branchId={branchId} classId={classId} />
         </TabsContent>
 
       </Tabs>
