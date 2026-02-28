@@ -148,7 +148,7 @@ export default function ClassSubjectSetup({ branchId, classId }: { branchId: str
       const code = parseInt(codeStr);
       const isAlreadyAdded = existingCodes.has(code.toString());
       const isRecommended = presetCodes.includes(code);
-      initialSelection[code] = { selected: isRecommended && !isAlreadyAdded, full: 100, pass: 33, type: "Written" };
+      initialSelection[code] = { selected: isRecommended && !isAlreadyAdded, full: 100, pass: 33, type: "Written", name: subjectCodes.common[code], codeStr: code.toString() };
     });
     setSelectedSubjects(initialSelection);
   };
@@ -211,7 +211,7 @@ export default function ClassSubjectSetup({ branchId, classId }: { branchId: str
   const handleCheckboxChange = (code: number, checked: boolean) => {    setSelectedSubjects((prev) => ({ ...prev, [code]: { ...prev[code], selected: checked } }));
   };
 
-  const handleValueChange = (code: number, field: "full" | "pass" | "type", value: string | number) => {
+  const handleValueChange = (code: number, field: "full" | "pass" | "type" | "name" | "codeStr", value: string | number) => {
     setSelectedSubjects((prev) => ({ ...prev, [code]: { ...prev[code], [field]: value } }));
   };
 
@@ -243,8 +243,8 @@ export default function ClassSubjectSetup({ branchId, classId }: { branchId: str
       .filter(([_, val]) => val.selected)
       .map(([code, val]) => ({
         class_id: classId,
-        name: subjectCodes.common[parseInt(code)],
-        code: code.toString(),
+        name: (val as any).name || subjectCodes.common[parseInt(code)],
+        code: (val as any).codeStr || code.toString(),
         full_marks: Number(val.full),
         pass_marks: Number(val.pass),
         exam_type: val.type,
@@ -659,8 +659,12 @@ export default function ClassSubjectSetup({ branchId, classId }: { branchId: str
                                 <td className="p-3">
                                   <input type="checkbox" checked={data.selected} onChange={(e) => handleCheckboxChange(code, e.target.checked)} className="w-4 h-4 accent-purple-600 cursor-pointer" />
                                 </td>
-                                <td className="p-3 font-mono text-xs text-gray-500">{code}</td>
-                                <td className="p-3 font-medium text-gray-800">{subjectCodes.common[code]}</td>
+                                <td className="p-3">
+                                  <Input value={data.codeStr ?? code.toString()} onChange={(e) => handleValueChange(code, "codeStr", e.target.value)} disabled={!data.selected} className="h-7 w-16 text-xs font-mono text-center bg-white disabled:bg-gray-100 disabled:text-gray-400" />
+                                </td>
+                                <td className="p-3">
+                                  <Input value={data.name ?? subjectCodes.common[code]} onChange={(e) => handleValueChange(code, "name", e.target.value)} disabled={!data.selected} className="h-7 w-full text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400 font-medium" />
+                                </td>
                                 <td className="p-3">
                                   <select value={data.type} onChange={(e) => handleValueChange(code, "type", e.target.value)} disabled={!data.selected}
                                     className="h-8 px-2 text-xs border rounded bg-white w-full disabled:bg-gray-100">
