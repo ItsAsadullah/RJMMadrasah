@@ -57,7 +57,7 @@ export default function DirectorMessage() {
         </div>
 
         {/* Content */}
-        <div className="prose prose-base text-gray-600 leading-relaxed text-justify flex-1">
+        <div className="text-gray-600 leading-relaxed text-justify flex-1 whitespace-pre-line text-base">
             {data.content}
         </div>
         

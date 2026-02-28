@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Save, Loader2, BookOpen, Calendar, Building, Layers, School, Edit } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, BookOpen, Calendar, Building, Layers, School, Edit, Search, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import ClassSubjectSetup from "@/components/dashboard/academic/ClassSubjectSetup";
 
@@ -17,6 +17,20 @@ export default function AcademicSettings() {
   const [departments, setDepartments] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
+
+  // --- Filter States ---
+  const [filterBranchName, setFilterBranchName] = useState("");
+
+  const [filterDeptBranch, setFilterDeptBranch] = useState("");
+  const [filterDeptName, setFilterDeptName] = useState("");
+
+  const [filterClassBranch, setFilterClassBranch] = useState("");
+  const [filterClassDept, setFilterClassDept] = useState("");
+  const [filterClassYear, setFilterClassYear] = useState("");
+  const [filterClassName, setFilterClassName] = useState("");
+
+  const [filterExamYear, setFilterExamYear] = useState("");
+  const [filterExamName, setFilterExamName] = useState("");
 
   // Form States
   const [newBranch, setNewBranch] = useState({ name: "", address: "", phone: "", is_active: true });
@@ -241,6 +255,31 @@ export default function AcademicSettings() {
     fetchData();
   };
 
+  // --- Filtered data ---
+  const filteredBranches = branches.filter(b =>
+    !filterBranchName || b.name?.toLowerCase().includes(filterBranchName.toLowerCase())
+  );
+
+  const filteredDepartments = departments.filter(d => {
+    const branchMatch = !filterDeptBranch || String(d.branch_id) === String(filterDeptBranch);
+    const nameMatch = !filterDeptName || d.name?.toLowerCase().includes(filterDeptName.toLowerCase());
+    return branchMatch && nameMatch;
+  });
+
+  const filteredClasses = classes.filter(c => {
+    const branchMatch = !filterClassBranch || String(c.branch_id) === String(filterClassBranch);
+    const deptMatch = !filterClassDept || String(c.department_id) === String(filterClassDept);
+    const yearMatch = !filterClassYear || String(c.academic_year) === String(filterClassYear);
+    const nameMatch = !filterClassName || c.name?.toLowerCase().includes(filterClassName.toLowerCase());
+    return branchMatch && deptMatch && yearMatch && nameMatch;
+  });
+
+  const filteredExams = exams.filter(e => {
+    const yearMatch = !filterExamYear || String(e.academic_year) === String(filterExamYear);
+    const nameMatch = !filterExamName || e.title?.toLowerCase().includes(filterExamName.toLowerCase());
+    return yearMatch && nameMatch;
+  });
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-800">একাডেমিক সেটিংস</h1>
@@ -277,9 +316,18 @@ export default function AcademicSettings() {
                 </div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                {/* Filter Bar */}
+                <div className="p-4 border-b bg-gray-50 flex gap-3 items-center">
+                    <div className="relative flex-1 max-w-xs">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input value={filterBranchName} onChange={e => setFilterBranchName(e.target.value)} placeholder="নাম দিয়ে খুঁজুন..." className="pl-9 h-9" />
+                    </div>
+                    {filterBranchName && <Button size="sm" variant="ghost" onClick={() => setFilterBranchName("")} className="text-gray-500 h-9"><X className="w-4 h-4 mr-1"/>রিসেট</Button>}
+                    <span className="text-xs text-gray-400 ml-auto">{filteredBranches.length}/{branches.length} শাখা</span>
+                </div>
                 <table className="w-full text-left text-sm">
                     <thead className="bg-gray-50 border-b"><tr><th className="p-4">নাম</th><th className="p-4">ঠিকানা</th><th className="p-4">ফোন</th><th className="p-4 text-right">অ্যাকশন</th></tr></thead>
-                    <tbody className="divide-y">{branches.map(b => (
+                    <tbody className="divide-y">{filteredBranches.map(b => (
                         <tr key={b.id} className="hover:bg-gray-50">
                             <td className="p-4 font-medium">{b.name}</td>
                             <td className="p-4">{b.address}</td>
@@ -289,7 +337,9 @@ export default function AcademicSettings() {
                                 <Button size="icon" variant="ghost" onClick={() => handleDeleteBranch(b.id)} className="text-red-500"><Trash2 className="w-4 h-4"/></Button>
                             </td>
                         </tr>
-                    ))}</tbody>
+                    ))}
+                    {filteredBranches.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-gray-400 italic">কোনো শাখা পাওয়া যায়নি।</td></tr>}
+                    </tbody>
                 </table>
             </div>
         </TabsContent>
@@ -322,9 +372,22 @@ export default function AcademicSettings() {
                 </div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                {/* Filter Bar */}
+                <div className="p-4 border-b bg-gray-50 flex flex-wrap gap-3 items-center">
+                    <select className="h-9 px-3 border rounded-md text-sm" value={filterDeptBranch} onChange={e => setFilterDeptBranch(e.target.value)}>
+                        <option value="">সব শাখা</option>
+                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                    <div className="relative flex-1 max-w-xs">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input value={filterDeptName} onChange={e => setFilterDeptName(e.target.value)} placeholder="বিভাগের নাম..." className="pl-9 h-9" />
+                    </div>
+                    {(filterDeptBranch || filterDeptName) && <Button size="sm" variant="ghost" onClick={() => { setFilterDeptBranch(""); setFilterDeptName(""); }} className="text-gray-500 h-9"><X className="w-4 h-4 mr-1"/>রিসেট</Button>}
+                    <span className="text-xs text-gray-400 ml-auto">{filteredDepartments.length}/{departments.length} বিভাগ</span>
+                </div>
                 <table className="w-full text-left text-sm">
                     <thead className="bg-gray-50 border-b"><tr><th className="p-4">শাখা</th><th className="p-4">বিভাগ</th><th className="p-4 text-right">অ্যাকশন</th></tr></thead>
-                    <tbody className="divide-y">{departments.map(d => (
+                    <tbody className="divide-y">{filteredDepartments.map(d => (
                         <tr key={d.id} className="hover:bg-gray-50">
                             <td className="p-4">{d.branches?.name}</td>
                             <td className="p-4 font-medium">{d.name}</td>
@@ -333,7 +396,9 @@ export default function AcademicSettings() {
                                 <Button size="icon" variant="ghost" onClick={() => handleDeleteDept(d.id)} className="text-red-500"><Trash2 className="w-4 h-4"/></Button>
                             </td>
                         </tr>
-                    ))}</tbody>
+                    ))}
+                    {filteredDepartments.length === 0 && <tr><td colSpan={3} className="p-6 text-center text-gray-400 italic">কোনো বিভাগ পাওয়া যায়নি।</td></tr>}
+                    </tbody>
                 </table>
             </div>
         </TabsContent>
@@ -387,9 +452,29 @@ export default function AcademicSettings() {
                 </div>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                {/* Filter Bar */}
+                <div className="p-4 border-b bg-gray-50 flex flex-wrap gap-3 items-center">
+                    <select className="h-9 px-3 border rounded-md text-sm" value={filterClassBranch} onChange={e => { setFilterClassBranch(e.target.value); setFilterClassDept(""); }}>
+                        <option value="">সব শাখা</option>
+                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                    <select className="h-9 px-3 border rounded-md text-sm" value={filterClassDept} onChange={e => setFilterClassDept(e.target.value)}>
+                        <option value="">সব বিভাগ</option>
+                        {departments.filter(d => !filterClassBranch || String(d.branch_id) === String(filterClassBranch)).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                    <Input type="number" value={filterClassYear} onChange={e => setFilterClassYear(e.target.value)} placeholder="শিক্ষাবর্ষ" className="h-9 w-28" />
+                    <div className="relative flex-1 max-w-xs">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input value={filterClassName} onChange={e => setFilterClassName(e.target.value)} placeholder="শ্রেণির নাম..." className="pl-9 h-9" />
+                    </div>
+                    {(filterClassBranch || filterClassDept || filterClassYear || filterClassName) && (
+                        <Button size="sm" variant="ghost" onClick={() => { setFilterClassBranch(""); setFilterClassDept(""); setFilterClassYear(""); setFilterClassName(""); }} className="text-gray-500 h-9"><X className="w-4 h-4 mr-1"/>রিসেট</Button>
+                    )}
+                    <span className="text-xs text-gray-400 ml-auto">{filteredClasses.length}/{classes.length} শ্রেণি</span>
+                </div>
                 <table className="w-full text-left text-sm">
                     <thead className="bg-gray-50 border-b"><tr><th className="p-4">শাখা</th><th className="p-4">বিভাগ</th><th className="p-4">শ্রেণি</th><th className="p-4">শিক্ষাবর্ষ</th><th className="p-4">আবাসিক</th><th className="p-4 text-right">অ্যাকশন</th></tr></thead>
-                    <tbody className="divide-y">{classes.map(c => (
+                    <tbody className="divide-y">{filteredClasses.map(c => (
                         <tr key={c.id} className="hover:bg-gray-50">
                             <td className="p-4">{c.branches?.name}</td>
                             <td className="p-4">{c.departments?.name || c.department}</td>
@@ -401,7 +486,9 @@ export default function AcademicSettings() {
                                 <Button size="icon" variant="ghost" onClick={() => handleDeleteClass(c.id)} className="text-red-500"><Trash2 className="w-4 h-4"/></Button>
                             </td>
                         </tr>
-                    ))}</tbody>
+                    ))}
+                    {filteredClasses.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-gray-400 italic">কোনো শ্রেণি পাওয়া যায়নি।</td></tr>}
+                    </tbody>
                 </table>
             </div>
         </TabsContent>
@@ -502,8 +589,18 @@ export default function AcademicSettings() {
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
             <h4 className="font-bold mb-4">পরীক্ষার তালিকা</h4>
+            {/* Filter Bar */}
+            <div className="flex flex-wrap gap-3 items-center mb-4 p-3 bg-gray-50 rounded-lg border">
+                <Input type="number" value={filterExamYear} onChange={e => setFilterExamYear(e.target.value)} placeholder="সাল দিয়ে ফিল্টার" className="h-9 w-36" />
+                <div className="relative flex-1 max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input value={filterExamName} onChange={e => setFilterExamName(e.target.value)} placeholder="পরীক্ষার নাম..." className="pl-9 h-9" />
+                </div>
+                {(filterExamYear || filterExamName) && <Button size="sm" variant="ghost" onClick={() => { setFilterExamYear(""); setFilterExamName(""); }} className="text-gray-500 h-9"><X className="w-4 h-4 mr-1"/>রিসেট</Button>}
+                <span className="text-xs text-gray-400 ml-auto">{filteredExams.length}/{exams.length} পরীক্ষা</span>
+            </div>
             <div className="space-y-2">
-              {exams.map((exam) => (
+              {filteredExams.map((exam) => (
                 <div key={exam.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50">
                   <div>
                     <p className="font-bold text-gray-800">{exam.title}</p>
@@ -517,6 +614,7 @@ export default function AcademicSettings() {
                   </div>
                 </div>
               ))}
+              {filteredExams.length === 0 && <p className="text-center py-6 text-gray-400 italic">কোনো পরীক্ষা পাওয়া যায়নি।</p>}
             </div>
           </div>
         </TabsContent>

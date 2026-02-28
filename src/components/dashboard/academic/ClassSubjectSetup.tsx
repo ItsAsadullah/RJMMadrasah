@@ -4,36 +4,60 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Book, Loader2, Edit, Save, CheckCircle2, AlertTriangle } from "lucide-react";
+import {
+  Plus, Trash2, Book, Loader2, Edit, Save, CheckCircle2, AlertTriangle,
+  Search, X, PlusCircle, RotateCcw, BookOpen, ListPlus,
+} from "lucide-react";
 import { subjectCodes } from "@/data/bangladesh-data";
 import { removeAcademicSubject } from "@/app/(admin)/dashboard/academic/subjects/actions";
 
-export default function ClassSubjectSetup({ branchId, classId }: { branchId: string, classId: string }) {
+// -------------- Types ----------------
+type ExistingEditable = {
+  name: string;
+  code: string;
+  full_marks: number;
+  pass_marks: number;
+  exam_type: string;
+  changed: boolean;
+  markedForRemove: boolean;
+};
+
+type ManualRow = {
+  id: number;
+  name: string;
+  code: string;
+  full: number;
+  pass: number;
+  type: string;
+};
+
+// -------------- Component ----------------
+export default function ClassSubjectSetup({ branchId, classId }: { branchId: string; classId: string }) {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [classInfo, setClassInfo] = useState<any>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Modals State
+
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<any>(null);
-
-  // Delete Modal State
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // স্মার্ট সিলেকশন স্টেট
-  const [selectedSubjects, setSelectedSubjects] = useState<{ 
-    [code: number]: { selected: boolean, full: number, pass: number, type: string } 
+  const [modalSearch, setModalSearch] = useState("");
+  const [selectedSubjects, setSelectedSubjects] = useState<{
+    [code: number]: { selected: boolean; full: number; pass: number; type: string };
   }>({});
-
-  // ম্যানুয়াল ইনপুট স্টেট
-  const [manualSubject, setManualSubject] = useState({ name: "", code: "", full: 100, pass: 33, type: "Written" });
+  const [editableExisting, setEditableExisting] = useState<{ [id: string]: ExistingEditable }>({});
+  const [manualRows, setManualRows] = useState<ManualRow[]>([
+    { id: 1, name: "", code: "", full: 100, pass: 33, type: "Written" },
+  ]);
+  const [manualCounter, setManualCounter] = useState(2);
+  const [modalTab, setModalTab] = useState<"edit" | "add">("edit");
 
   const normalizeSubjectName = (value: string) => value.replace(/\s+/g, " ").trim();
 
@@ -47,492 +71,605 @@ export default function ClassSubjectSetup({ branchId, classId }: { branchId: str
 
   const syncFromAcademicConfigSubjects = async (cls: any, existingSubjects: any[]) => {
     const existingCodes = new Set((existingSubjects || []).map((s: any) => String(s.code)));
-
     let query = supabase
       .from("subjects")
       .select("id, class_name, subject_name, full_marks, pass_marks, department_id")
       .eq("class_name", cls.name);
-
     if (cls.department_id) {
       query = query.or(`department_id.eq.${cls.department_id},department_id.is.null`);
     }
-
     const { data: configSubjects, error } = await query.order("subject_name", { ascending: true });
     if (error || !configSubjects || configSubjects.length === 0) return false;
-
     const toInsert = configSubjects
       .map((s: any) => {
         const codeFromCommon = getCodeFromCommonSubjects(s.subject_name);
         const code = codeFromCommon || `CFG-${s.id}`;
-        return {
-          class_id: classId,
-          name: s.subject_name,
-          code,
-          full_marks: Number(s.full_marks ?? 100),
-          pass_marks: Number(s.pass_marks ?? 33),
-          exam_type: "Written"
-        };
+        return { class_id: classId, name: s.subject_name, code, full_marks: Number(s.full_marks ?? 100), pass_marks: Number(s.pass_marks ?? 33), exam_type: "Written" };
       })
       .filter((row: any) => !existingCodes.has(String(row.code)));
-
     if (toInsert.length === 0) return false;
-
-    const { error: insertError } = await supabase
-      .from("academic_subjects")
-      .upsert(toInsert, { onConflict: "class_id, code", ignoreDuplicates: true });
-
+    const { error: insertError } = await supabase.from("academic_subjects").upsert(toInsert, { onConflict: "class_id, code", ignoreDuplicates: true });
     if (insertError) return false;
     return true;
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [classId]);
+  useEffect(() => { fetchData(); }, [classId]);
 
   const fetchData = async () => {
     setLoading(true);
     const { data: cls } = await supabase.from("academic_classes").select("*, branches(name)").eq("id", classId).single();
     if (cls) {
-        setClassInfo(cls);
-        let subs: any[] = [];
-        const { data: subsActive, error: subsActiveError } = await supabase
-          .from("academic_subjects")
-          .select("*")
-          .eq("class_id", classId)
-          .or("is_active.eq.true,is_active.is.null")
-          .order("code", { ascending: true });
-
-        if (!subsActiveError) {
-          subs = subsActive || [];
-        } else if (subsActiveError.message.toLowerCase().includes("is_active")) {
-          const { data: subsFallback } = await supabase
-            .from("academic_subjects")
-            .select("*")
-            .eq("class_id", classId)
-            .order("code", { ascending: true });
-          subs = subsFallback || [];
-        }
-
-        const existingSubjects = subs || [];
-
-        const didSync = await syncFromAcademicConfigSubjects(cls, existingSubjects);
-        if (didSync) {
-          let syncedSubs: any[] = [];
-          const { data: syncedSubsActive, error: syncedSubsActiveError } = await supabase
-            .from("academic_subjects")
-            .select("*")
-            .eq("class_id", classId)
-            .or("is_active.eq.true,is_active.is.null")
-            .order("code", { ascending: true });
-
-          if (!syncedSubsActiveError) {
-            syncedSubs = syncedSubsActive || [];
-          } else if (syncedSubsActiveError.message.toLowerCase().includes("is_active")) {
-            const { data: syncedSubsFallback } = await supabase
-              .from("academic_subjects")
-              .select("*")
-              .eq("class_id", classId)
-              .order("code", { ascending: true });
-            syncedSubs = syncedSubsFallback || [];
-          }
-
-          setSubjects(syncedSubs);
-          preparePresets(cls.name, syncedSubs);
+      setClassInfo(cls);
+      let subs: any[] = [];
+      const { data: subsActive, error: subsActiveError } = await supabase
+        .from("academic_subjects").select("*").eq("class_id", classId)
+        .or("is_active.eq.true,is_active.is.null").order("code", { ascending: true });
+      if (!subsActiveError) {
+        subs = subsActive || [];
+      } else if (subsActiveError.message.toLowerCase().includes("is_active")) {
+        const { data: subsFallback } = await supabase.from("academic_subjects").select("*").eq("class_id", classId).order("code", { ascending: true });
+        subs = subsFallback || [];
+      }
+      const didSync = await syncFromAcademicConfigSubjects(cls, subs);
+      if (didSync) {
+        let syncedSubs: any[] = [];
+        const { data: syncedSubsActive, error: syncedSubsActiveError } = await supabase
+          .from("academic_subjects").select("*").eq("class_id", classId)
+          .or("is_active.eq.true,is_active.is.null").order("code", { ascending: true });
+        if (!syncedSubsActiveError) {
+          syncedSubs = syncedSubsActive || [];
         } else {
-          setSubjects(existingSubjects);
-          preparePresets(cls.name, existingSubjects);
+          const { data: f } = await supabase.from("academic_subjects").select("*").eq("class_id", classId).order("code", { ascending: true });
+          syncedSubs = f || [];
         }
+        setSubjects(syncedSubs);
+        preparePresets(cls.name, syncedSubs);
+      } else {
+        setSubjects(subs);
+        preparePresets(cls.name, subs);
+      }
     }
     setLoading(false);
   };
 
   const preparePresets = (className: string, existingSubjects: any[]) => {
-      const presetCodes = subjectCodes.class_wise[className as keyof typeof subjectCodes.class_wise] || [];
-      const initialSelection: any = {};
-      const existingCodes = new Set(existingSubjects.map((sub: any) => sub.code));
+    const presetCodes = subjectCodes.class_wise[className as keyof typeof subjectCodes.class_wise] || [];
+    const initialSelection: any = {};
+    const existingCodes = new Set(existingSubjects.map((sub: any) => sub.code));
+    Object.keys(subjectCodes.common).forEach((codeStr: string) => {
+      const code = parseInt(codeStr);
+      const isAlreadyAdded = existingCodes.has(code.toString());
+      const isRecommended = presetCodes.includes(code);
+      initialSelection[code] = { selected: isRecommended && !isAlreadyAdded, full: 100, pass: 33, type: "Written" };
+    });
+    setSelectedSubjects(initialSelection);
+  };
 
-      Object.keys(subjectCodes.common).forEach((codeStr: string) => {
-          const code = parseInt(codeStr);
-          const isAlreadyAdded = existingCodes.has(code.toString());
-          const isRecommended = presetCodes.includes(code);
-          
-          initialSelection[code] = { 
-              selected: isRecommended && !isAlreadyAdded, 
-              full: 100, 
-              pass: 33,
-              type: "Written"
-          };
-      });
-      setSelectedSubjects(initialSelection);
+  const openAddModal = () => {
+    const map: { [id: string]: ExistingEditable } = {};
+    subjects.forEach((s) => {
+      map[s.id] = { name: s.name, code: s.code, full_marks: s.full_marks, pass_marks: s.pass_marks, exam_type: s.exam_type || "Written", changed: false, markedForRemove: false };
+    });
+    setEditableExisting(map);
+    setManualRows([{ id: 1, name: "", code: "", full: 100, pass: 33, type: "Written" }]);
+    setManualCounter(2);
+    setModalSearch("");
+    // Default to "edit" tab if subjects exist, otherwise "add" tab
+    setModalTab(subjects.length > 0 ? "edit" : "add");
+    setIsOpen(true);
   };
 
   const handleCheckboxChange = (code: number, checked: boolean) => {
-      setSelectedSubjects(prev => ({ ...prev, [code]: { ...prev[code], selected: checked } }));
+    setSelectedSubjects((prev) => ({ ...prev, [code]: { ...prev[code], selected: checked } }));
   };
 
-  const handleValueChange = (code: number, field: 'full' | 'pass' | 'type', value: string | number) => {
-      setSelectedSubjects(prev => ({ ...prev, [code]: { ...prev[code], [field]: value } }));
+  const handleValueChange = (code: number, field: "full" | "pass" | "type", value: string | number) => {
+    setSelectedSubjects((prev) => ({ ...prev, [code]: { ...prev[code], [field]: value } }));
+  };
+
+  const handleExistingChange = (id: string, field: keyof ExistingEditable, value: any) => {
+    setEditableExisting((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value, changed: true } }));
+  };
+
+  const toggleRemoveExisting = (id: string) => {
+    setEditableExisting((prev) => ({ ...prev, [id]: { ...prev[id], markedForRemove: !prev[id].markedForRemove, changed: true } }));
+  };
+
+  const addManualRow = () => {
+    setManualRows((prev) => [...prev, { id: manualCounter, name: "", code: "", full: 100, pass: 33, type: "Written" }]);
+    setManualCounter((c) => c + 1);
+  };
+
+  const removeManualRow = (id: number) => {
+    setManualRows((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const updateManualRow = (id: number, field: keyof ManualRow, value: any) => {
+    setManualRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
   };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    
-    const subjectsToInsert = Object.entries(selectedSubjects)
-        .filter(([_, val]) => val.selected)
-        .map(([code, val]) => ({
-            class_id: classId,
-            name: subjectCodes.common[parseInt(code)],
-            code: code.toString(),
-            full_marks: Number(val.full),
-            pass_marks: Number(val.pass),
-            exam_type: val.type
-        }));
+    // 1. Newly selected preset subjects
+    const subjectsToUpsert: any[] = Object.entries(selectedSubjects)
+      .filter(([_, val]) => val.selected)
+      .map(([code, val]) => ({
+        class_id: classId,
+        name: subjectCodes.common[parseInt(code)],
+        code: code.toString(),
+        full_marks: Number(val.full),
+        pass_marks: Number(val.pass),
+        exam_type: val.type,
+      }));
+    // 2. Filled manual rows
+    manualRows.filter((r) => r.name.trim()).forEach((r) => {
+      let finalCode = r.code.trim() || `MAN-${Math.floor(1000 + Math.random() * 9000)}`;
+      subjectsToUpsert.push({ class_id: classId, name: r.name.trim(), code: finalCode, full_marks: Number(r.full), pass_marks: Number(r.pass), exam_type: r.type });
+    });
 
-    if (manualSubject.name) {
-        let finalCode = manualSubject.code;
-        if (!finalCode) finalCode = `MAN-${Math.floor(1000 + Math.random() * 9000)}`;
-        
-        subjectsToInsert.push({
-            class_id: classId,
-            name: manualSubject.name,
-            code: finalCode,
-            full_marks: Number(manualSubject.full),
-            pass_marks: Number(manualSubject.pass),
-            exam_type: manualSubject.type
-        });
+    if (subjectsToUpsert.length > 0) {
+      const { error } = await supabase.from("academic_subjects").upsert(subjectsToUpsert, { onConflict: "class_id, code" });
+      if (error) { alert("বিষয় যোগ করতে সমস্যা: " + error.message); setIsSubmitting(false); return; }
     }
 
-    if (subjectsToInsert.length === 0) {
-        alert("অন্তত একটি বিষয় সিলেক্ট করুন।");
-        setIsSubmitting(false);
-        return;
+    // 3. Update changed existing subjects
+    const toUpdate = Object.entries(editableExisting).filter(([_, v]) => v.changed && !v.markedForRemove);
+    for (const [id, v] of toUpdate) {
+      await supabase.from("academic_subjects").update({ name: v.name, code: v.code, full_marks: v.full_marks, pass_marks: v.pass_marks, exam_type: v.exam_type }).eq("id", id);
     }
 
-    const { error } = await supabase
-        .from("academic_subjects")
-        .upsert(subjectsToInsert, { onConflict: 'class_id, code' });
-
-    if (error) {
-      alert("সমস্যা হয়েছে: " + error.message);
-    } else {
-      setIsOpen(false);
-      setManualSubject({ name: "", code: "", full: 100, pass: 33, type: "Written" });
-      fetchData(); 
+    // 4. Remove marked for removal
+    const toRemove = Object.entries(editableExisting).filter(([_, v]) => v.markedForRemove);
+    for (const [id] of toRemove) {
+      const result = await removeAcademicSubject(id);
+      if (!result?.success) await supabase.from("academic_subjects").delete().eq("id", id);
     }
+
+    if (subjectsToUpsert.length === 0 && toUpdate.length === 0 && toRemove.length === 0) {
+      alert("কোনো পরিবর্তন করা হয়নি।"); setIsSubmitting(false); return;
+    }
+    setIsOpen(false);
+    fetchData();
     setIsSubmitting(false);
   };
 
-  const handleEditClick = (subject: any) => {
-      setEditingSubject(subject);
-      setIsEditOpen(true);
-  };
+  const handleEditClick = (subject: any) => { setEditingSubject(subject); setIsEditOpen(true); };
 
   const handleUpdateSubject = async () => {
-      if (!editingSubject) return;
-      setIsSubmitting(true);
-      const { error } = await supabase.from("academic_subjects").update({
-          name: editingSubject.name,
-          code: editingSubject.code,
-          full_marks: editingSubject.full_marks,
-          pass_marks: editingSubject.pass_marks,
-          exam_type: editingSubject.exam_type
-      }).eq("id", editingSubject.id);
-
-      if (error) alert("আপডেট করা যায়নি!");
-      else {
-          setIsEditOpen(false);
-          setEditingSubject(null);
-          fetchData();
-      }
-      setIsSubmitting(false);
+    if (!editingSubject) return;
+    setIsSubmitting(true);
+    const { error } = await supabase.from("academic_subjects").update({
+      name: editingSubject.name, code: editingSubject.code,
+      full_marks: editingSubject.full_marks, pass_marks: editingSubject.pass_marks, exam_type: editingSubject.exam_type,
+    }).eq("id", editingSubject.id);
+    if (error) alert("আপডেট করা যায়নি!");
+    else { setIsEditOpen(false); setEditingSubject(null); fetchData(); }
+    setIsSubmitting(false);
   };
 
-  // --- Delete Handler (Open Modal) ---
-  const handleDeleteClick = (id: string) => {
-    setDeleteId(id);
-    setIsDeleteOpen(true);
-  };
+  const handleDeleteClick = (id: string) => { setDeleteId(id); setIsDeleteOpen(true); };
 
-  // --- Confirm Delete ---
   const confirmDelete = async () => {
     if (!deleteId) return;
     setIsSubmitting(true);
     const formatDbError = (err: any) => {
       if (!err) return "";
-      const message = String(err.message || "");
-      const details = err.details ? `\nDetails: ${err.details}` : "";
-      const hint = err.hint ? `\nHint: ${err.hint}` : "";
-      const code = err.code ? `\nCode: ${err.code}` : "";
-      return `${message}${details}${hint}${code}`.trim();
+      return [err.message, err.details && `Details: ${err.details}`, err.hint && `Hint: ${err.hint}`, err.code && `Code: ${err.code}`].filter(Boolean).join("\n");
     };
-
     const serverResult = await removeAcademicSubject(deleteId);
-    if (serverResult?.success) {
-      fetchData();
-      setIsDeleteOpen(false);
-      setDeleteId(null);
-      setIsSubmitting(false);
-      return;
-    }
-    if (serverResult && "error" in serverResult && serverResult.error) {
-      const serverText = formatDbError(serverResult.error);
-      if (serverText) {
-        alert("রিমুভ করা যায়নি (সার্ভার):\n\n" + serverText);
-      }
-    }
-
+    if (serverResult?.success) { fetchData(); setIsDeleteOpen(false); setDeleteId(null); setIsSubmitting(false); return; }
     const { error: hardError } = await supabase.from("academic_subjects").delete().eq("id", deleteId);
-    if (!hardError) {
-      fetchData();
-      setIsDeleteOpen(false);
-      setDeleteId(null);
-      setIsSubmitting(false);
-      return;
-    }
-
-    const { error: softError } = await supabase
-      .from("academic_subjects")
-      .update({ is_active: false })
-      .eq("id", deleteId);
-
-    if (!softError) {
-      fetchData();
-      setIsDeleteOpen(false);
-      setDeleteId(null);
-      setIsSubmitting(false);
-      return;
-    }
-
+    if (!hardError) { fetchData(); setIsDeleteOpen(false); setDeleteId(null); setIsSubmitting(false); return; }
+    const { error: softError } = await supabase.from("academic_subjects").update({ is_active: false }).eq("id", deleteId);
+    if (!softError) { fetchData(); setIsDeleteOpen(false); setDeleteId(null); setIsSubmitting(false); return; }
     const hardText = formatDbError(hardError);
     const softText = formatDbError(softError);
-    const softMissingColumn = softText.toLowerCase().includes("is_active");
-    const permissionDenied = (hardText + " " + softText).toLowerCase().includes("permission denied");
-
-    if (permissionDenied) {
-      alert("ডিলিট করার পারমিশন নেই। (Supabase RLS/Policy বা লগইন সেশন চেক করুন)\n\n" + hardText + "\n\n" + softText);
-    } else if (softMissingColumn) {
-      alert("এই ফিচারটি চালাতে ডাটাবেসে academic_subjects টেবিলে is_active কলাম যোগ করতে হবে। Supabase migrations রান করুন।\n\n" + hardText + "\n\n" + softText);
-    } else {
-      alert(hardText || softText);
-    }
+    if ((hardText + softText).toLowerCase().includes("permission denied")) alert("ডিলিট পারমিশন নেই।\n\n" + hardText);
+    else if (softText.toLowerCase().includes("is_active")) alert("is_active কলাম যোগ করুন।\n\n" + hardText);
+    else alert(hardText || softText);
     setIsSubmitting(false);
   };
+
+  const examTypeLabel = (t: string) => t === "Written" ? "লিখিত" : t === "Oral" ? "মৌখিক" : "ব্যবহারিক";
+  const examTypeClass = (t: string) => t === "Written" ? "bg-blue-50 text-blue-600 border-blue-100" : t === "Oral" ? "bg-orange-50 text-orange-600 border-orange-100" : "bg-green-50 text-green-600";
+
+  // Filtered preset codes for modal (exclude already in DB)
+  const filteredPresetCodes = Object.keys(selectedSubjects).filter((codeStr) => {
+    const isAlreadyInDB = subjects.some((s) => s.code == codeStr);
+    if (isAlreadyInDB) return false;
+    if (!modalSearch) return true;
+    return subjectCodes.common[parseInt(codeStr)]?.toString().toLowerCase().includes(modalSearch.toLowerCase());
+  });
+
+  // Filtered existing IDs for modal
+  const filteredExistingIds = Object.keys(editableExisting).filter((id) => {
+    if (!modalSearch) return true;
+    return editableExisting[id].name.toLowerCase().includes(modalSearch.toLowerCase());
+  });
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg border border-gray-200">
         <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-          <Book className="w-5 h-5 text-purple-600" /> বিষয় তালিকা ({subjects.length})
+          <Book className="w-5 h-5 text-purple-600" /> বিষয় তালিকা ({subjects.length})
         </h3>
-        <Button onClick={() => setIsOpen(true)} className="bg-purple-600 hover:bg-purple-700 shadow-sm">
-          <Plus className="w-4 h-4 mr-2" /> নতুন বিষয় যোগ
+        <Button onClick={openAddModal} className="bg-purple-600 hover:bg-purple-700 shadow-sm">
+          <Plus className="w-4 h-4 mr-2" /> বিষয় নির্বাচন করুন
         </Button>
       </div>
 
-      {/* Subject List */}
+      {/* Subject List Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
-            <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-purple-600" /></div>
+          <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-purple-600" /></div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
-                <TableHeader className="bg-white">
+              <TableHeader className="bg-white">
                 <TableRow>
-                    <TableHead>কোড</TableHead>
-                    <TableHead>বিষয়ের নাম</TableHead>
-                    <TableHead>ধরণ</TableHead>
-                    <TableHead>পূর্ণ নম্বর</TableHead>
-                    <TableHead>পাস নম্বর</TableHead>
-                    <TableHead className="text-right">অ্যাকশন</TableHead>
+                  <TableHead>কোড</TableHead>
+                  <TableHead>বিষয়ের নাম</TableHead>
+                  <TableHead>ধরণ</TableHead>
+                  <TableHead>পূর্ণ নম্বর</TableHead>
+                  <TableHead>পাস নম্বর</TableHead>
+                  <TableHead className="text-right">অ্যাকশন</TableHead>
                 </TableRow>
-                </TableHeader>
-                <TableBody>
+              </TableHeader>
+              <TableBody>
                 {subjects.map((sub) => (
-                    <TableRow key={sub.id} className="hover:bg-gray-50">
+                  <TableRow key={sub.id} className="hover:bg-gray-50">
                     <TableCell className="font-mono text-xs text-gray-500">{sub.code || "-"}</TableCell>
                     <TableCell className="font-bold text-gray-700">{sub.name}</TableCell>
                     <TableCell>
-                        <span className={`text-[10px] uppercase px-2 py-1 rounded border font-bold ${sub.exam_type === 'Written' ? 'bg-blue-50 text-blue-600 border-blue-100' : sub.exam_type === 'Oral' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-green-50 text-green-600'}`}>
-                            {sub.exam_type === 'Written' ? 'লিখিত' : sub.exam_type === 'Oral' ? 'মৌখিক' : 'ব্যবহারিক'}
-                        </span>
+                      <span className={`text-[10px] uppercase px-2 py-1 rounded border font-bold ${examTypeClass(sub.exam_type)}`}>
+                        {examTypeLabel(sub.exam_type)}
+                      </span>
                     </TableCell>
                     <TableCell>{sub.full_marks}</TableCell>
                     <TableCell className="text-red-600 font-bold">{sub.pass_marks}</TableCell>
                     <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => handleEditClick(sub)} className="text-blue-500 hover:bg-blue-50 h-8 w-8">
-                                <Edit className="w-4 h-4" />
-                            </Button>
-                            {/* ডিলিট বাটন ক্লিক করলে এখন মডাল ওপেন হবে */}
-                            <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(sub.id)} className="text-red-400 hover:bg-red-50 h-8 w-8">
-                                <Trash2 className="w-4 h-4" />
-                            </Button>
-                        </div>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(sub)} className="text-blue-500 hover:bg-blue-50 h-8 w-8"><Edit className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(sub.id)} className="text-red-400 hover:bg-red-50 h-8 w-8"><Trash2 className="w-4 h-4" /></Button>
+                      </div>
                     </TableCell>
-                    </TableRow>
+                  </TableRow>
                 ))}
                 {subjects.length === 0 && (
-                    <TableRow>
-                        <TableCell colSpan={6} className="text-center py-10 text-gray-400 italic">এখনো কোনো বিষয় যোগ করা হয়নি।</TableCell>
-                    </TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center py-10 text-gray-400 italic">এখনো কোনো বিষয় যোগ করা হয়নি।</TableCell></TableRow>
                 )}
-                </TableBody>
+              </TableBody>
             </Table>
           </div>
         )}
       </div>
 
-      {/* 1. Add Subject Modal */}
+      {/* ══════════════════════════════════════════════
+          1. ADVANCED Add / Edit Subject Modal
+          ══════════════════════════════════════════════ */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[800px] max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[940px] max-h-[92vh] flex flex-col p-0 gap-0">
+
+          {/* Fixed Header */}
+          <DialogHeader className="px-6 pt-5 pb-3 border-b bg-white rounded-t-lg shrink-0">
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                <Book className="w-5 h-5 text-purple-600" /> বিষয় নির্বাচন করুন ({classInfo?.name})
+              <Book className="w-5 h-5 text-purple-600" /> বিষয় ম্যানেজমেন্ট — {classInfo?.name}
             </DialogTitle>
-            <DialogDescription>
-                নিচের তালিকা থেকে প্রয়োজনীয় বিষয়গুলোতে টিক দিন। ইতিমধ্যে যুক্ত থাকা বিষয়গুলো অটোমেটিক চেক করা হবে।
-            </DialogDescription>
+            <DialogDescription className="sr-only">বিষয় যোগ ও সম্পাদনা</DialogDescription>
+
+            {/* Tab Switcher */}
+            <div className="flex gap-1 mt-3 p-1 bg-gray-100 rounded-lg w-fit">
+              <button
+                onClick={() => { setModalTab("edit"); setModalSearch(""); }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+                  modalTab === "edit"
+                    ? "bg-white text-green-700 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <BookOpen className="w-4 h-4" />
+                যুক্ত বিষয় সম্পাদনা
+                {Object.keys(editableExisting).length > 0 && (
+                  <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${modalTab === "edit" ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"}`}>
+                    {Object.keys(editableExisting).length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => { setModalTab("add"); setModalSearch(""); }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+                  modalTab === "add"
+                    ? "bg-white text-purple-700 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <ListPlus className="w-4 h-4" />
+                নতুন বিষয় যোগ
+              </button>
+            </div>
+
+            {/* Search bar (shown on add tab and when editing with many subjects) */}
+            {(modalTab === "add" || Object.keys(editableExisting).length > 5) && (
+              <div className="relative mt-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input value={modalSearch} onChange={(e) => setModalSearch(e.target.value)}
+                  placeholder="বিষয়ের নাম দিয়ে খুঁজুন..." className="pl-9 h-9" />
+                {modalSearch && (
+                  <button className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" onClick={() => setModalSearch("")}>
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )}
           </DialogHeader>
-          
-          <div className="space-y-6 mt-2">
-            {/* Preset List */}
-            <div className="border rounded-lg overflow-hidden shadow-sm">
-                <div className="max-h-[300px] overflow-y-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-50 text-gray-600 font-medium border-b sticky top-0 z-10">
-                            <tr>
-                                <th className="p-3 w-10">#</th>
-                                <th className="p-3 w-16">কোড</th>
-                                <th className="p-3">বিষয়ের নাম</th>
-                                <th className="p-3 w-28">ধরণ</th>
-                                <th className="p-3 w-24 text-center">পূর্ণমান</th>
-                                <th className="p-3 w-24 text-center">পাস</th>
+
+          {/* Scrollable Body */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5 min-h-0">
+
+            {/* ════ TAB: যুক্ত বিষয় সম্পাদনা ════ */}
+            {modalTab === "edit" && (
+              <div>
+                {Object.keys(editableExisting).length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <BookOpen className="w-12 h-12 text-gray-300 mb-3" />
+                    <p className="text-gray-500 font-medium">এই ক্লাসে এখনো কোনো বিষয় যোগ করা হয়নি।</p>
+                    <p className="text-gray-400 text-sm mt-1">নতুন বিষয় যোগ করতে উপরে <strong>"নতুন বিষয় যোগ"</strong> ট্যাবে যান।</p>
+                    <Button onClick={() => setModalTab("add")} className="mt-4 bg-purple-600 hover:bg-purple-700" size="sm">
+                      <ListPlus className="w-4 h-4 mr-2" /> নতুন বিষয় যোগ করুন
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="px-4 py-2.5 bg-green-50 border-b flex items-center justify-between">
+                      <p className="text-xs font-bold uppercase tracking-wide text-green-700 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        ইতিমধ্যে যুক্ত {Object.keys(editableExisting).length}টি বিষয় — সরাসরি সম্পাদনা করুন
+                      </p>
+                      <span className="text-[10px] text-green-600 bg-green-100 px-2 py-1 rounded font-medium">
+                        চেকবক্স আনচেক = মুছে ফেলা
+                      </span>
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b">
+                        <tr>
+                          <th className="p-2 w-10 text-center text-gray-500 font-medium text-xs">রাখুন</th>
+                          <th className="p-2 text-gray-500 font-medium text-xs text-left">বিষয়ের নাম</th>
+                          <th className="p-2 w-20 text-gray-500 font-medium text-xs text-left">কোড</th>
+                          <th className="p-2 w-32 text-gray-500 font-medium text-xs text-left">ধরণ</th>
+                          <th className="p-2 w-24 text-gray-500 font-medium text-xs text-center">পূর্ণমান</th>
+                          <th className="p-2 w-24 text-gray-500 font-medium text-xs text-center">পাস</th>
+                          <th className="p-2 w-16 text-center"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {filteredExistingIds.map((id) => {
+                          const row = editableExisting[id];
+                          const isRemoving = row.markedForRemove;
+                          return (
+                            <tr key={id} className={isRemoving ? "bg-red-50 opacity-60" : row.changed ? "bg-amber-50" : "bg-white hover:bg-gray-50 transition-colors"}>
+                              <td className="p-2 text-center">
+                                <input type="checkbox" checked={!isRemoving} onChange={() => toggleRemoveExisting(id)} className="w-4 h-4 accent-green-600 cursor-pointer" />
+                              </td>
+                              <td className="p-2">
+                                <Input value={row.name} onChange={(e) => handleExistingChange(id, "name", e.target.value)} disabled={isRemoving} className="h-8 text-sm disabled:bg-gray-50 disabled:text-gray-400" />
+                              </td>
+                              <td className="p-2">
+                                <Input value={row.code} onChange={(e) => handleExistingChange(id, "code", e.target.value)} disabled={isRemoving} className="h-8 text-xs font-mono w-full disabled:bg-gray-50 disabled:text-gray-400" />
+                              </td>
+                              <td className="p-2">
+                                <select value={row.exam_type} onChange={(e) => handleExistingChange(id, "exam_type", e.target.value)} disabled={isRemoving}
+                                  className="h-8 px-2 text-xs border rounded bg-white w-full disabled:bg-gray-50 disabled:text-gray-400">
+                                  <option value="Written">লিখিত</option>
+                                  <option value="Oral">মৌখিক</option>
+                                  <option value="Practical">ব্যবহারিক</option>
+                                </select>
+                              </td>
+                              <td className="p-2">
+                                <Input type="number" value={row.full_marks} onChange={(e) => handleExistingChange(id, "full_marks", parseInt(e.target.value))} disabled={isRemoving} className="h-8 w-full text-center disabled:bg-gray-50" />
+                              </td>
+                              <td className="p-2">
+                                <Input type="number" value={row.pass_marks} onChange={(e) => handleExistingChange(id, "pass_marks", parseInt(e.target.value))} disabled={isRemoving} className="h-8 w-full text-center text-red-600 font-bold disabled:bg-gray-50" />
+                              </td>
+                              <td className="p-2 text-center">
+                                {isRemoving ? (
+                                  <button title="পূর্বাবস্থায়" onClick={() => toggleRemoveExisting(id)} className="text-green-600 hover:text-green-800 p-1 rounded hover:bg-green-50">
+                                    <RotateCcw className="w-4 h-4" />
+                                  </button>
+                                ) : row.changed ? (
+                                  <span className="text-[10px] text-amber-600 font-bold px-1 py-0.5 bg-amber-100 rounded">পরিবর্তিত</span>
+                                ) : (
+                                  <CheckCircle2 className="w-4 h-4 text-green-400 mx-auto" />
+                                )}
+                              </td>
                             </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ════ TAB: নতুন বিষয় যোগ ════ */}
+            {modalTab === "add" && (
+              <div className="space-y-5">
+                {/* Section B: Preset list */}
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-purple-700 mb-2 flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5" /> তালিকা থেকে বেছে নিন
+                  </p>
+                  <div className="border rounded-lg overflow-hidden shadow-sm">
+                    <div className="max-h-[300px] overflow-y-auto">
+                      <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-600 font-medium border-b sticky top-0 z-10">
+                          <tr>
+                            <th className="p-3 w-10">#</th>
+                            <th className="p-3 w-16">কোড</th>
+                            <th className="p-3">বিষয়ের নাম</th>
+                            <th className="p-3 w-28">ধরণ</th>
+                            <th className="p-3 w-24 text-center">পূর্ণমান</th>
+                            <th className="p-3 w-24 text-center">পাস</th>
+                          </tr>
                         </thead>
                         <tbody className="divide-y">
-                            {Object.keys(selectedSubjects).map((codeStr) => {
-                                const code = parseInt(codeStr);
-                                const data = selectedSubjects[code];
-                                const isAlreadyInDB = subjects.some(s => s.code == code.toString());
-
-                                return (
-                                    <tr key={code} className={isAlreadyInDB ? "bg-gray-100 opacity-60" : (data.selected ? "bg-purple-50/50" : "hover:bg-gray-50")}>
-                                        <td className="p-3">
-                                            {isAlreadyInDB ? (
-                                                <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                            ) : (
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={data.selected} 
-                                                    onChange={(e) => handleCheckboxChange(code, e.target.checked)}
-                                                    className="w-4 h-4 accent-purple-600 cursor-pointer"
-                                                />
-                                            )}
-                                        </td>
-                                        <td className="p-3 font-mono text-xs text-gray-500">{code}</td>
-                                        <td className="p-3 font-medium text-gray-800">
-                                            {subjectCodes.common[code]}
-                                            {isAlreadyInDB && <span className="ml-2 text-[10px] text-green-600 font-bold border border-green-200 px-1 rounded bg-white">যুক্ত আছে</span>}
-                                        </td>
-                                        <td className="p-3">
-                                            <select 
-                                                value={data.type} onChange={(e) => handleValueChange(code, 'type', e.target.value)} 
-                                                disabled={!data.selected || isAlreadyInDB}
-                                                className="h-8 px-2 text-xs border rounded bg-white w-full disabled:bg-gray-100"
-                                            >
-                                                <option value="Written">লিখিত</option>
-                                                <option value="Oral">মৌখিক</option>
-                                                <option value="Practical">ব্যবহারিক</option>
-                                            </select>
-                                        </td>
-                                        <td className="p-3 text-center">
-                                            <Input type="number" value={data.full} onChange={(e) => handleValueChange(code, 'full', parseInt(e.target.value))} disabled={!data.selected || isAlreadyInDB} className="h-8 w-20 text-center bg-white disabled:bg-gray-100" />
-                                        </td>
-                                        <td className="p-3 text-center">
-                                            <Input type="number" value={data.pass} onChange={(e) => handleValueChange(code, 'pass', parseInt(e.target.value))} disabled={!data.selected || isAlreadyInDB} className="h-8 w-20 text-center text-red-600 font-bold bg-white disabled:bg-gray-100" />
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                          {filteredPresetCodes.length === 0 ? (
+                            <tr><td colSpan={6} className="p-5 text-center text-gray-400 italic text-xs">
+                              {modalSearch ? "অনুসন্ধানে কোনো বিষয় পাওয়া যায়নি।" : "সমস্ত বিষয় ইতিমধ্যে যুক্ত হয়েছে।"}
+                            </td></tr>
+                          ) : filteredPresetCodes.map((codeStr) => {
+                            const code = parseInt(codeStr);
+                            const data = selectedSubjects[code];
+                            if (!data) return null;
+                            return (
+                              <tr key={code} className={data.selected ? "bg-purple-50/60" : "hover:bg-gray-50"}>
+                                <td className="p-3">
+                                  <input type="checkbox" checked={data.selected} onChange={(e) => handleCheckboxChange(code, e.target.checked)} className="w-4 h-4 accent-purple-600 cursor-pointer" />
+                                </td>
+                                <td className="p-3 font-mono text-xs text-gray-500">{code}</td>
+                                <td className="p-3 font-medium text-gray-800">{subjectCodes.common[code]}</td>
+                                <td className="p-3">
+                                  <select value={data.type} onChange={(e) => handleValueChange(code, "type", e.target.value)} disabled={!data.selected}
+                                    className="h-8 px-2 text-xs border rounded bg-white w-full disabled:bg-gray-100">
+                                    <option value="Written">লিখিত</option>
+                                    <option value="Oral">মৌখিক</option>
+                                    <option value="Practical">ব্যবহারিক</option>
+                                  </select>
+                                </td>
+                                <td className="p-3 text-center">
+                                  <Input type="number" value={data.full} onChange={(e) => handleValueChange(code, "full", parseInt(e.target.value))} disabled={!data.selected} className="h-8 w-20 text-center bg-white disabled:bg-gray-100" />
+                                </td>
+                                <td className="p-3 text-center">
+                                  <Input type="number" value={data.pass} onChange={(e) => handleValueChange(code, "pass", parseInt(e.target.value))} disabled={!data.selected} className="h-8 w-20 text-center text-red-600 font-bold bg-white disabled:bg-gray-100" />
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
-                    </table>
-                </div>
-            </div>
-
-            {/* Manual Subject */}
-            <div className="bg-gray-50 p-4 rounded-lg border border-dashed border-gray-300">
-                <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">তালিকায় নেই? ম্যানুয়ালি যোগ করুন</p>
-                <div className="flex flex-col md:flex-row gap-2">
-                    <Input placeholder="নাম (উদাঃ পদার্থ)" value={manualSubject.name} onChange={(e) => setManualSubject({...manualSubject, name: e.target.value})} className="flex-1 h-9 bg-white" />
-                    <Input placeholder="কোড (ঐচ্ছিক)" value={manualSubject.code} onChange={(e) => setManualSubject({...manualSubject, code: e.target.value})} className="w-20 h-9 bg-white" />
-                    <select value={manualSubject.type} onChange={(e) => setManualSubject({...manualSubject, type: e.target.value})} className="h-9 px-2 text-xs border rounded bg-white w-24">
-                        <option value="Written">লিখিত</option>
-                        <option value="Oral">মৌখিক</option>
-                        <option value="Practical">ব্যবহারিক</option>
-                    </select>
-                    <div className="flex gap-2">
-                        <Input type="number" placeholder="Total" value={manualSubject.full} onChange={(e) => setManualSubject({...manualSubject, full: parseInt(e.target.value)})} className="w-20 h-9 bg-white" />
-                        <Input type="number" placeholder="Pass" value={manualSubject.pass} onChange={(e) => setManualSubject({...manualSubject, pass: parseInt(e.target.value)})} className="w-20 h-9 bg-white text-red-600 font-bold" />
+                      </table>
                     </div>
+                  </div>
                 </div>
-            </div>
 
-            <DialogFooter>
-                <Button onClick={() => setIsOpen(false)} variant="outline">বাতিল</Button>
-                <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-purple-600 hover:bg-purple-700 font-bold shadow-md">
-                    {isSubmitting ? <><Loader2 className="animate-spin mr-2" /> সেভ হচ্ছে...</> : "সংরক্ষণ করুন"}
-                </Button>
-            </DialogFooter>
+                {/* Section C: Multiple manual subjects */}
+                <div className="bg-gray-50 p-4 rounded-lg border border-dashed border-gray-300">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-bold text-gray-600 uppercase tracking-wide flex items-center gap-1.5">
+                      <PlusCircle className="w-3.5 h-3.5 text-purple-500" />
+                      তালিকায় নেই? একাধিক বিষয় একসাথে তৈরি করুন
+                    </p>
+                    <Button size="sm" variant="outline" onClick={addManualRow}
+                      className="h-7 text-xs text-purple-600 border-purple-300 hover:bg-purple-50">
+                      <PlusCircle className="w-3.5 h-3.5 mr-1" /> আরো যোগ করুন
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {manualRows.map((row) => (
+                      <div key={row.id} className="flex flex-wrap gap-2 items-center bg-white p-2 rounded border">
+                        <Input placeholder="বিষয়ের নাম (যেমন: পদার্থ)" value={row.name}
+                          onChange={(e) => updateManualRow(row.id, "name", e.target.value)}
+                          className="flex-1 min-w-[140px] h-9 text-sm" />
+                        <Input placeholder="কোড (ঐচ্ছিক)" value={row.code}
+                          onChange={(e) => updateManualRow(row.id, "code", e.target.value)}
+                          className="w-24 h-9 text-xs font-mono" />
+                        <select value={row.type} onChange={(e) => updateManualRow(row.id, "type", e.target.value)}
+                          className="h-9 px-2 text-xs border rounded bg-white w-28">
+                          <option value="Written">লিখিত</option>
+                          <option value="Oral">মৌখিক</option>
+                          <option value="Practical">ব্যবহারিক</option>
+                        </select>
+                        <Input type="number" placeholder="পূর্ণমান" value={row.full}
+                          onChange={(e) => updateManualRow(row.id, "full", parseInt(e.target.value))}
+                          className="w-20 h-9 text-center" />
+                        <Input type="number" placeholder="পাস" value={row.pass}
+                          onChange={(e) => updateManualRow(row.id, "pass", parseInt(e.target.value))}
+                          className="w-20 h-9 text-center text-red-600 font-bold" />
+                        {manualRows.length > 1 && (
+                          <button onClick={() => removeManualRow(row.id)} className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50">
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Fixed Footer */}
+          <DialogFooter className="px-6 py-4 border-t bg-gray-50 rounded-b-lg shrink-0 flex items-center justify-between">
+            <p className="text-xs text-gray-400">
+              {modalTab === "edit"
+                ? "পরিবর্তন করা বিষয়গুলো সংরক্ষণ বাটনে সেভ হবে"
+                : "নির্বাচিত ও ম্যানুয়াল বিষয়গুলো সংরক্ষণ বাটনে যোগ হবে"}
+            </p>
+            <div className="flex gap-2">
+              <Button onClick={() => setIsOpen(false)} variant="outline">বাতিল</Button>
+              <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-purple-600 hover:bg-purple-700 font-bold shadow-md">
+                {isSubmitting ? <><Loader2 className="animate-spin mr-2" /> সেভ হচ্ছে...</> : <><Save className="w-4 h-4 mr-2" /> সংরক্ষণ করুন</>}
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 2. Edit Subject Modal */}
+      {/* ════════════ 2. Quick Edit Modal ════════════ */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader><DialogTitle>বিষয় সংশোধন</DialogTitle><DialogDescription>তথ্য পরিবর্তন করে আপডেট করুন</DialogDescription></DialogHeader>
-              {editingSubject && (
-                  <div className="space-y-4 py-4">
-                      <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-1"><label className="text-xs font-bold text-gray-500">নাম</label><Input value={editingSubject.name} onChange={(e) => setEditingSubject({...editingSubject, name: e.target.value})} /></div>
-                          <div className="space-y-1"><label className="text-xs font-bold text-gray-500">কোড</label><Input value={editingSubject.code} onChange={(e) => setEditingSubject({...editingSubject, code: e.target.value})} /></div>
-                      </div>
-                      <div className="space-y-1">
-                          <label className="text-xs font-bold text-gray-500">পরীক্ষার ধরণ</label>
-                          <select value={editingSubject.exam_type} onChange={(e) => setEditingSubject({...editingSubject, exam_type: e.target.value})} className="w-full h-10 px-3 border rounded-md bg-white text-sm">
-                              <option value="Written">লিখিত (Written)</option>
-                              <option value="Oral">মৌখিক (Oral)</option>
-                              <option value="Practical">ব্যবহারিক (Practical)</option>
-                          </select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-1"><label className="text-xs font-bold text-gray-500">পূর্ণ নম্বর</label><Input type="number" value={editingSubject.full_marks} onChange={(e) => setEditingSubject({...editingSubject, full_marks: e.target.value})} /></div>
-                          <div className="space-y-1"><label className="text-xs font-bold text-gray-500">পাস নম্বর</label><Input type="number" value={editingSubject.pass_marks} onChange={(e) => setEditingSubject({...editingSubject, pass_marks: e.target.value})} className="text-red-600 font-bold" /></div>
-                      </div>
-                      <DialogFooter>
-                          <Button variant="outline" onClick={() => setIsEditOpen(false)}>বাতিল</Button>
-                          <Button onClick={handleUpdateSubject} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">{isSubmitting ? "আপডেট হচ্ছে..." : "আপডেট করুন"}</Button>
-                      </DialogFooter>
-                  </div>
-              )}
-          </DialogContent>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>বিষয় সংশোধন</DialogTitle>
+            <DialogDescription>তথ্য পরিবর্তন করে আপডেট করুন</DialogDescription>
+          </DialogHeader>
+          {editingSubject && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1"><label className="text-xs font-bold text-gray-500">নাম</label>
+                  <Input value={editingSubject.name} onChange={(e) => setEditingSubject({ ...editingSubject, name: e.target.value })} /></div>
+                <div className="space-y-1"><label className="text-xs font-bold text-gray-500">কোড</label>
+                  <Input value={editingSubject.code} onChange={(e) => setEditingSubject({ ...editingSubject, code: e.target.value })} /></div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500">পরীক্ষার ধরণ</label>
+                <select value={editingSubject.exam_type} onChange={(e) => setEditingSubject({ ...editingSubject, exam_type: e.target.value })}
+                  className="w-full h-10 px-3 border rounded-md bg-white text-sm">
+                  <option value="Written">লিখিত (Written)</option>
+                  <option value="Oral">মৌখিক (Oral)</option>
+                  <option value="Practical">ব্যবহারিক (Practical)</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1"><label className="text-xs font-bold text-gray-500">পূর্ণ নম্বর</label>
+                  <Input type="number" value={editingSubject.full_marks} onChange={(e) => setEditingSubject({ ...editingSubject, full_marks: e.target.value })} /></div>
+                <div className="space-y-1"><label className="text-xs font-bold text-gray-500">পাস নম্বর</label>
+                  <Input type="number" value={editingSubject.pass_marks} onChange={(e) => setEditingSubject({ ...editingSubject, pass_marks: e.target.value })} className="text-red-600 font-bold" /></div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditOpen(false)}>বাতিল</Button>
+                <Button onClick={handleUpdateSubject} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">
+                  {isSubmitting ? "আপডেট হচ্ছে..." : "আপডেট করুন"}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
       </Dialog>
 
-      {/* 3. Delete Confirmation Modal (NEW) */}
+      {/* ════════════ 3. Delete Confirmation ════════════ */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-          <DialogContent className="sm:max-w-sm">
-             <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-red-600"><AlertTriangle className="w-5 h-5"/> ডিলিট নিশ্চিতকরণ</DialogTitle>
-                <DialogDescription>আপনি কি নিশ্চিত যে আপনি এই বিষয়টি তালিকা থেকে মুছে ফেলতে চান?</DialogDescription>
-             </DialogHeader>
-             <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>না, বাতিল</Button>
-                <Button variant="destructive" onClick={confirmDelete} disabled={isSubmitting}>
-                   {isSubmitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <><Trash2 className="w-4 h-4 mr-2" /> হ্যাঁ, ডিলিট</>}
-                </Button>
-             </DialogFooter>
-          </DialogContent>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600"><AlertTriangle className="w-5 h-5" /> ডিলিট নিশ্চিতকরণ</DialogTitle>
+            <DialogDescription>আপনি কি নিশ্চিত যে এই বিষয়টি মুছে ফেলতে চান?</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>না, বাতিল</Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <><Trash2 className="w-4 h-4 mr-2" /> হ্যাঁ, ডিলিট</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   );

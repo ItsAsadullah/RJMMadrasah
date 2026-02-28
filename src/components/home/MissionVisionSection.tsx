@@ -50,7 +50,7 @@ export default function MissionVisionSection() {
                 {item.icon}
               </div>
               <h3 className="text-2xl font-bold text-gray-800 mb-4">{item.title}</h3>
-              <p className="text-gray-600 leading-relaxed text-lg">{item.description}</p>
+              <p className="text-gray-600 leading-relaxed text-lg whitespace-pre-line text-justify">{item.description}</p>
             </div>
           ))}
         </div>

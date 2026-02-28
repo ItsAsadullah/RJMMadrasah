@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
@@ -168,6 +168,7 @@ export default function HomeContentManagement() {
                 placeholder="বিস্তারিত লিখুন..." 
                 className="min-h-[200px]"
             />
+            <p className="text-xs text-gray-400">💡 টিপস: Enter চেপে নতুন লাইনে যান — ওয়েবসাইটে সেই লাইন বিভাজন দেখা যাবে। যেমন: বিসমিল্লাহির রাহমানির রাহিম [Enter] এরপরের প্যারা।</p>
           </div>
 
           <div className="space-y-2">
@@ -290,199 +291,250 @@ export default function HomeContentManagement() {
 
   const QuotesForm = () => {
     const sectionKey = "islamic_quotes";
-    const section = sections[sectionKey] || { 
-        title: "কুরআন ও হাদিসের বাণী", 
-        additional_data: { type: 'quran', quran: {}, hadith: {}, other: {} } 
+
+    type QuoteItem = {
+      id: number;
+      type: "quran" | "hadith" | "other";
+      arabic?: string;
+      bengali?: string;
+      surah?: string;
+      ayah?: string;
+      book?: string;
+      number?: string;
+      text?: string;
+      source?: string;
     };
-    const [formData, setFormData] = useState(section);
-    const [saving, setSaving] = useState(false);
+
+    const migrateOldFormat = (ad: any): QuoteItem[] => {
+      if (!ad) return [];
+      if (Array.isArray(ad.quotes) && ad.quotes.length > 0) return ad.quotes;
+      const type = ad.type;
+      if (!type) return [];
+      if (type === "quran" && ad.quran) return [{ id: 1, type: "quran", ...ad.quran }];
+      if (type === "hadith" && ad.hadith) return [{ id: 1, type: "hadith", ...ad.hadith }];
+      if (type === "other" && ad.other) return [{ id: 1, type: "other", ...ad.other }];
+      return [];
+    };
+
+    const section = sections[sectionKey] || { title: "কুরআন ও হাদিসের বাণী", additional_data: { quotes: [] } };
+    const [sectionTitle, setSectionTitle] = useState(section.title || "কুরআন ও হাদিসের বাণী");
+    const [quotes, setQuotes] = useState<QuoteItem[]>(() => migrateOldFormat(section.additional_data));
+    const [editIndex, setEditIndex] = useState<number | null>(null);
+    const [editForm, setEditForm] = useState<Partial<QuoteItem>>({ type: "quran" });
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        setFormData(sections[sectionKey] || { 
-            title: "কুরআন ও হাদিসের বাণী", 
-            additional_data: { type: 'quran', quran: {}, hadith: {}, other: {} } 
-        });
+      const s = sections[sectionKey];
+      if (s) {
+        setSectionTitle(s.title || "কুরআন ও হাদিসের বাণী");
+        setQuotes(migrateOldFormat(s.additional_data));
+      }
     }, [sections]);
 
-    const handleDataChange = (field: string, value: string, category?: string) => {
-        setFormData(prev => {
-            const newData = { ...prev };
-            if (!newData.additional_data) newData.additional_data = { type: 'quran', quran: {}, hadith: {}, other: {} };
-            
-            if (category) {
-                newData.additional_data[category] = {
-                    ...newData.additional_data[category],
-                    [field]: value
-                };
-            } else {
-                if (field === 'type') newData.additional_data.type = value;
-                else (newData as any)[field] = value;
-            }
-            return newData;
-        });
+    const startAdd = () => {
+      setEditIndex(-1);
+      setEditForm({ type: "quran", arabic: "", bengali: "", surah: "", ayah: "" });
+    };
+
+    const startEdit = (index: number) => {
+      setEditIndex(index);
+      setEditForm({ ...quotes[index] });
+    };
+
+    const cancelEdit = () => { setEditIndex(null); setEditForm({ type: "quran" }); };
+
+    const saveEditForm = () => {
+      if (!editForm.type) return;
+      const newQuote: QuoteItem = {
+        id: editIndex === -1 ? Date.now() : (quotes[editIndex!]?.id || Date.now()),
+        type: editForm.type as QuoteItem["type"],
+        arabic: editForm.arabic || "",
+        bengali: editForm.bengali || "",
+        surah: editForm.surah || "",
+        ayah: editForm.ayah || "",
+        book: editForm.book || "",
+        number: editForm.number || "",
+        text: editForm.text || "",
+        source: editForm.source || "",
+      };
+      if (editIndex === -1) {
+        setQuotes((prev) => [...prev, newQuote]);
+      } else {
+        setQuotes((prev) => prev.map((q, i) => (i === editIndex ? newQuote : q)));
+      }
+      cancelEdit();
+    };
+
+    const removeQuote = (index: number) => {
+      setQuotes((prev) => prev.filter((_, i) => i !== index));
+      if (editIndex === index) cancelEdit();
+    };
+
+    const moveQuote = (index: number, dir: -1 | 1) => {
+      const newArr = [...quotes];
+      const target = index + dir;
+      if (target < 0 || target >= newArr.length) return;
+      [newArr[index], newArr[target]] = [newArr[target], newArr[index]];
+      setQuotes(newArr);
     };
 
     const saveQuotes = async () => {
-        setSaving(true);
-        const payload = {
-            section_key: sectionKey,
-            title: formData.title,
-            additional_data: formData.additional_data,
-            is_active: true
-        };
-
-        const existing = sections[sectionKey];
-        let error;
-        
-        if (existing?.id) {
-            const { error: err } = await supabase.from("home_sections").update(payload).eq("id", existing.id);
-            error = err;
-        } else {
-            const { error: err } = await supabase.from("home_sections").insert([payload]);
-            error = err;
-        }
-
-        if (error) alert("সেভ করা যায়নি: " + error.message);
-        else {
-            alert("সফলভাবে সেভ হয়েছে!");
-            fetchSections();
-        }
-        setSaving(false);
+      setIsSaving(true);
+      const payload = {
+        section_key: sectionKey,
+        title: sectionTitle,
+        additional_data: { quotes },
+        is_active: true,
+      };
+      const existing = sections[sectionKey];
+      let error;
+      if (existing?.id) {
+        const { error: err } = await supabase.from("home_sections").update(payload).eq("id", existing.id);
+        error = err;
+      } else {
+        const { error: err } = await supabase.from("home_sections").insert([payload]);
+        error = err;
+      }
+      if (error) alert("সেভ করা যায়নি: " + error.message);
+      else { alert("সফলভাবে সেভ হয়েছে!"); fetchSections(); }
+      setIsSaving(false);
     };
 
-    const type = formData.additional_data?.type || 'quran';
+    const typeLabel = (t: string) => t === "quran" ? "আল-কুরআন" : t === "hadith" ? "আল-হাদিস" : "অন্যান্য";
+    const typeColor = (t: string) => t === "quran" ? "bg-green-100 text-green-700 border-green-200" : t === "hadith" ? "bg-blue-100 text-blue-700 border-blue-200" : "bg-gray-100 text-gray-700 border-gray-200";
 
     return (
       <div className="space-y-6 p-6 bg-white rounded-lg border border-gray-100 shadow-sm">
         <h2 className="text-xl font-bold text-gray-800 border-b pb-4">বাণী ম্যানেজমেন্ট</h2>
-        
-        <div className="grid gap-6">
-            <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">বাণীর ধরন</label>
-                <select 
-                    value={type}
-                    onChange={(e) => handleDataChange('type', e.target.value)}
-                    className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white"
-                >
-                    <option value="quran">আল-কুরআন</option>
-                    <option value="hadith">আল-হাদিস</option>
-                    <option value="other">অন্যান্য</option>
-                </select>
-            </div>
 
-            <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">হেডিং / শিরোনাম</label>
-                <Input 
-                    value={formData.title} 
-                    onChange={(e) => handleDataChange('title', e.target.value)} 
-                />
-            </div>
-
-            {type === 'quran' && (
-                <div className="space-y-4 p-4 bg-green-50 rounded-lg border border-green-100">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-green-700">সূরা</label>
-                            <Input 
-                                placeholder="উদাঃ সূরা আল-ফাতিহা"
-                                value={formData.additional_data?.quran?.surah || ""}
-                                onChange={(e) => handleDataChange('surah', e.target.value, 'quran')}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-green-700">আয়াত নং</label>
-                            <Input 
-                                placeholder="উদাঃ ৫"
-                                value={formData.additional_data?.quran?.ayah || ""}
-                                onChange={(e) => handleDataChange('ayah', e.target.value, 'quran')}
-                            />
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-green-700">আরবি টেক্সট</label>
-                        <Textarea 
-                            className="font-amiri text-right text-lg min-h-[80px]"
-                            placeholder="আরবি আয়াত লিখুন..."
-                            value={formData.additional_data?.quran?.arabic || ""}
-                            onChange={(e) => handleDataChange('arabic', e.target.value, 'quran')}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-green-700">বাংলা অর্থ</label>
-                        <Textarea 
-                            placeholder="বাংলা অর্থ লিখুন..."
-                            value={formData.additional_data?.quran?.bengali || ""}
-                            onChange={(e) => handleDataChange('bengali', e.target.value, 'quran')}
-                        />
-                    </div>
-                </div>
-            )}
-
-            {type === 'hadith' && (
-                <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-blue-700">হাদিস গ্রন্থ</label>
-                            <Input 
-                                placeholder="উদাঃ সহীহ বুখারী"
-                                value={formData.additional_data?.hadith?.book || ""}
-                                onChange={(e) => handleDataChange('book', e.target.value, 'hadith')}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-blue-700">হাদিস নং</label>
-                            <Input 
-                                placeholder="উদাঃ ১"
-                                value={formData.additional_data?.hadith?.number || ""}
-                                onChange={(e) => handleDataChange('number', e.target.value, 'hadith')}
-                            />
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-blue-700">আরবি টেক্সট (ঐচ্ছিক)</label>
-                        <Textarea 
-                            className="font-amiri text-right text-lg min-h-[80px]"
-                            placeholder="আরবি হাদিস..."
-                            value={formData.additional_data?.hadith?.arabic || ""}
-                            onChange={(e) => handleDataChange('arabic', e.target.value, 'hadith')}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-blue-700">বাংলা অনুবাদ</label>
-                        <Textarea 
-                            placeholder="হাদিসের বাংলা অনুবাদ..."
-                            value={formData.additional_data?.hadith?.bengali || ""}
-                            onChange={(e) => handleDataChange('bengali', e.target.value, 'hadith')}
-                        />
-                    </div>
-                </div>
-            )}
-
-            {type === 'other' && (
-                <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-600">বাণী / উক্তি</label>
-                        <Textarea 
-                            placeholder="বাণী লিখুন..."
-                            value={formData.additional_data?.other?.text || ""}
-                            onChange={(e) => handleDataChange('text', e.target.value, 'other')}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-600">উক্তিকারীর নাম / সূত্র</label>
-                        <Input 
-                            placeholder="উদাঃ আল্লামা ইকবাল"
-                            value={formData.additional_data?.other?.source || ""}
-                            onChange={(e) => handleDataChange('source', e.target.value, 'other')}
-                        />
-                    </div>
-                </div>
-            )}
-
-            <Button onClick={saveQuotes} disabled={saving} className="w-full bg-green-600 hover:bg-green-700">
-                {saving ? <Loader2 className="animate-spin mr-2"/> : <Save className="mr-2 w-4 h-4"/>} সংরক্ষণ করুন
-            </Button>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">হেডিং / শিরোনাম</label>
+          <Input value={sectionTitle} onChange={(e) => setSectionTitle(e.target.value)} />
         </div>
+
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-bold text-gray-700">বাণীসমূহ ({quotes.length}টি)</h3>
+            <Button type="button" onClick={startAdd} size="sm" className="bg-green-600 hover:bg-green-700 text-white text-xs">
+              + নতুন বাণী যোগ করুন
+            </Button>
+          </div>
+
+          {quotes.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-4 border border-dashed rounded-lg">
+              কোনো বাণী নেই। নতুন বাণী যোগ করুন।
+            </p>
+          )}
+
+          {quotes.map((q, i) => (
+            <div key={q.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex flex-col gap-1">
+                <button onClick={() => moveQuote(i, -1)} disabled={i === 0} className="text-gray-400 hover:text-gray-700 disabled:opacity-30 text-xs leading-none">▲</button>
+                <button onClick={() => moveQuote(i, 1)} disabled={i === quotes.length - 1} className="text-gray-400 hover:text-gray-700 disabled:opacity-30 text-xs leading-none">▼</button>
+              </div>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full border flex-shrink-0 ${typeColor(q.type)}`}>{typeLabel(q.type)}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800 truncate">
+                  {q.type === "quran" ? (q.surah || "(সূরা নেই)") : q.type === "hadith" ? (q.book || "(গ্রন্থ নেই)") : (q.source || q.text?.slice(0, 30) || "(বাণী নেই)")}
+                </p>
+                <p className="text-xs text-gray-500 truncate">{q.bengali?.slice(0, 60) || q.text?.slice(0, 60) || "—"}</p>
+              </div>
+              <div className="flex gap-1">
+                <Button type="button" size="sm" variant="ghost" onClick={() => startEdit(i)} className="text-blue-600 hover:text-blue-800 text-xs px-2">সম্পাদনা</Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => removeQuote(i)} className="text-red-500 hover:text-red-700 text-xs px-2">মুছুন</Button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {editIndex !== null && (
+          <div className="space-y-4 p-5 bg-yellow-50 rounded-lg border border-yellow-200">
+            <h4 className="text-sm font-bold text-yellow-800">{editIndex === -1 ? "নতুন বাণী যোগ করুন" : "বাণী সম্পাদনা করুন"}</h4>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-700">বাণীর ধরন</label>
+              <select
+                value={editForm.type || "quran"}
+                onChange={(e) => setEditForm({ type: e.target.value as QuoteItem["type"] })}
+                className="w-full h-9 px-3 rounded-md border border-gray-300 bg-white text-sm"
+              >
+                <option value="quran">আল-কুরআন</option>
+                <option value="hadith">আল-হাদিস</option>
+                <option value="other">অন্যান্য</option>
+              </select>
+            </div>
+
+            {editForm.type === "quran" && (
+              <div className="space-y-3 p-3 bg-green-50 rounded border border-green-100">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-green-700">সূরা</label>
+                    <Input placeholder="উদাঃ সূরা বাকারা" value={editForm.surah || ""} onChange={(e) => setEditForm(p => ({ ...p, surah: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-green-700">আয়াত নং</label>
+                    <Input placeholder="উদাঃ ২০১" value={editForm.ayah || ""} onChange={(e) => setEditForm(p => ({ ...p, ayah: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-green-700">আরবি টেক্সট</label>
+                  <Textarea className="font-amiri text-right text-lg min-h-[70px]" placeholder="আরবি আয়াত..." value={editForm.arabic || ""} onChange={(e) => setEditForm(p => ({ ...p, arabic: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-green-700">বাংলা অর্থ</label>
+                  <Textarea placeholder="বাংলা অর্থ..." value={editForm.bengali || ""} onChange={(e) => setEditForm(p => ({ ...p, bengali: e.target.value }))} />
+                </div>
+              </div>
+            )}
+
+            {editForm.type === "hadith" && (
+              <div className="space-y-3 p-3 bg-blue-50 rounded border border-blue-100">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-blue-700">হাদিস গ্রন্থ</label>
+                    <Input placeholder="উদাঃ সহীহ বুখারী" value={editForm.book || ""} onChange={(e) => setEditForm(p => ({ ...p, book: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-blue-700">হাদিস নং</label>
+                    <Input placeholder="উদাঃ ১" value={editForm.number || ""} onChange={(e) => setEditForm(p => ({ ...p, number: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-blue-700">আরবি টেক্সট (ঐচ্ছিক)</label>
+                  <Textarea className="font-amiri text-right text-lg min-h-[70px]" placeholder="আরবি হাদিস..." value={editForm.arabic || ""} onChange={(e) => setEditForm(p => ({ ...p, arabic: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-blue-700">বাংলা অনুবাদ</label>
+                  <Textarea placeholder="হাদিসের বাংলা অনুবাদ..." value={editForm.bengali || ""} onChange={(e) => setEditForm(p => ({ ...p, bengali: e.target.value }))} />
+                </div>
+              </div>
+            )}
+
+            {editForm.type === "other" && (
+              <div className="space-y-3 p-3 bg-gray-50 rounded border border-gray-200">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-600">বাণী / উক্তি</label>
+                  <Textarea placeholder="বাণী লিখুন..." value={editForm.text || ""} onChange={(e) => setEditForm(p => ({ ...p, text: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-600">উৎস / উক্তিকারী</label>
+                  <Input placeholder="উদাঃ আল্লামা ইকবাল" value={editForm.source || ""} onChange={(e) => setEditForm(p => ({ ...p, source: e.target.value }))} />
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button type="button" onClick={saveEditForm} className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm">
+                {editIndex === -1 ? "তালিকায় যোগ করুন" : "পরিবর্তন সংরক্ষণ করুন"}
+              </Button>
+              <Button type="button" onClick={cancelEdit} variant="outline" className="text-sm">বাতিল</Button>
+            </div>
+          </div>
+        )}
+
+        <Button onClick={saveQuotes} disabled={isSaving} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold">
+          {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2 w-4 h-4" />} সকল বাণী সংরক্ষণ করুন
+        </Button>
       </div>
     );
   };
@@ -565,6 +617,7 @@ export default function HomeContentManagement() {
                         onChange={(e) => handleDataChange('mission', e.target.value)}
                         className="min-h-[120px]"
                     />
+                    <p className="text-xs text-gray-400">💡 Enter চেপে নতুন লাইনে যান — ওয়েবসাইটে সেই বিভাজন দেখা যাবে।</p>
                 </div>
                 
                 <div className="space-y-2">
@@ -577,6 +630,7 @@ export default function HomeContentManagement() {
                         onChange={(e) => handleDataChange('vision', e.target.value)}
                         className="min-h-[120px]"
                     />
+                    <p className="text-xs text-gray-400">💡 Enter চেপে নতুন লাইনে যান — ওয়েবসাইটে সেই বিভাজন দেখা যাবে।</p>
                 </div>
             </div>
 
