@@ -156,7 +156,7 @@ export default function AcademicSettings() {
     // For compatibility with existing code that uses 'department' text column:
     let deptName = "";
     if (newClass.department_id) {
-        const d = departments.find(dp => dp.id === newClass.department_id);
+        const d = departments.find(dp => String(dp.id) === String(newClass.department_id));
         if (d) deptName = d.name;
     }
 
@@ -177,8 +177,9 @@ export default function AcademicSettings() {
             setNewClass({ name: "", branch_id: "", department_id: "", academic_year: new Date().getFullYear().toString(), is_active: true, allow_residential: true });
             setEditingClass(null);
             fetchData();
+            alert("✅ শ্রেণি সফলভাবে আপডেট হয়েছে!");
         } else {
-            alert(error.message);
+            alert("❌ আপডেট ব্যর্থ: " + error.message);
         }
     } else {
         // Insert
@@ -196,13 +197,15 @@ export default function AcademicSettings() {
   const handleEditClass = (cls: any) => {
       setNewClass({
           name: cls.name,
-          branch_id: cls.branch_id,
+          branch_id: String(cls.branch_id),
           department_id: cls.department_id || "",
-          academic_year: cls.academic_year,
-          is_active: cls.is_active,
-          allow_residential: cls.allow_residential
+          academic_year: String(cls.academic_year),
+          is_active: cls.is_active ?? true,
+          allow_residential: cls.allow_residential ?? true,
       });
       setEditingClass(cls);
+      // Scroll the form into view
+      window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleDeleteClass = async (id: string) => {
