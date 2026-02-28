@@ -59,6 +59,14 @@ export default function ClassSubjectSetup({ branchId, classId }: { branchId: str
   const [manualCounter, setManualCounter] = useState(2);
   const [modalTab, setModalTab] = useState<"edit" | "add">("edit");
 
+  // Inline edit state for main table
+  const [inlineEditId, setInlineEditId] = useState<string | null>(null);
+  const [inlineEditData, setInlineEditData] = useState<{ name: string; code: string; full_marks: number; pass_marks: number; exam_type: string }>({ name: "", code: "", full_marks: 100, pass_marks: 33, exam_type: "Written" });
+
+  // New subject row state (bottom of table)
+  const [newRow, setNewRow] = useState({ name: "", code: "", full: 100, pass: 33, type: "Written" });
+  const [isAddingNew, setIsAddingNew] = useState(false);
+
   const normalizeSubjectName = (value: string) => value.replace(/\s+/g, " ").trim();
 
   const getCodeFromCommonSubjects = (subjectName: string) => {
@@ -159,8 +167,48 @@ export default function ClassSubjectSetup({ branchId, classId }: { branchId: str
     setIsOpen(true);
   };
 
-  const handleCheckboxChange = (code: number, checked: boolean) => {
-    setSelectedSubjects((prev) => ({ ...prev, [code]: { ...prev[code], selected: checked } }));
+  // ── Inline edit handlers ──────────────────────────────────────────
+  const startInlineEdit = (sub: any) => {
+    setInlineEditId(sub.id);
+    setInlineEditData({ name: sub.name, code: sub.code || "", full_marks: sub.full_marks, pass_marks: sub.pass_marks, exam_type: sub.exam_type || "Written" });
+  };
+
+  const cancelInlineEdit = () => { setInlineEditId(null); };
+
+  const saveInlineEdit = async () => {
+    if (!inlineEditId) return;
+    setIsSubmitting(true);
+    const { error } = await supabase.from("academic_subjects").update({
+      name: inlineEditData.name,
+      code: inlineEditData.code,
+      full_marks: inlineEditData.full_marks,
+      pass_marks: inlineEditData.pass_marks,
+      exam_type: inlineEditData.exam_type,
+    }).eq("id", inlineEditId);
+    if (error) alert("আপডেট করা যায়নি: " + error.message);
+    else { setInlineEditId(null); fetchData(); }
+    setIsSubmitting(false);
+  };
+
+  // ── Quick add new subject row ────────────────────────────────────
+  const saveNewRow = async () => {
+    if (!newRow.name.trim()) return alert("বিষয়ের নাম দিন।");
+    setIsAddingNew(true);
+    let finalCode = newRow.code.trim() || `MAN-${Math.floor(1000 + Math.random() * 9000)}`;
+    const { error } = await supabase.from("academic_subjects").insert([{
+      class_id: classId,
+      name: newRow.name.trim(),
+      code: finalCode,
+      full_marks: Number(newRow.full),
+      pass_marks: Number(newRow.pass),
+      exam_type: newRow.type,
+    }]);
+    if (error) alert("যোগ করা যায়নি: " + error.message);
+    else { setNewRow({ name: "", code: "", full: 100, pass: 33, type: "Written" }); fetchData(); }
+    setIsAddingNew(false);
+  };
+
+  const handleCheckboxChange = (code: number, checked: boolean) => {    setSelectedSubjects((prev) => ({ ...prev, [code]: { ...prev[code], selected: checked } }));
   };
 
   const handleValueChange = (code: number, field: "full" | "pass" | "type", value: string | number) => {
@@ -288,59 +336,143 @@ export default function ClassSubjectSetup({ branchId, classId }: { branchId: str
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg border border-gray-200">
         <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
           <Book className="w-5 h-5 text-purple-600" /> বিষয় তালিকা ({subjects.length})
         </h3>
-        <Button onClick={openAddModal} className="bg-purple-600 hover:bg-purple-700 shadow-sm">
-          <Plus className="w-4 h-4 mr-2" /> বিষয় নির্বাচন করুন
+        <Button onClick={openAddModal} variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50">
+          <ListPlus className="w-4 h-4 mr-2" /> তালিকা থেকে একসাথে যোগ
         </Button>
       </div>
 
-      {/* Subject List Table */}
+      {/* Inline-editable Subject Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
           <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-purple-600" /></div>
         ) : (
           <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-white">
-                <TableRow>
-                  <TableHead>কোড</TableHead>
-                  <TableHead>বিষয়ের নাম</TableHead>
-                  <TableHead>ধরণ</TableHead>
-                  <TableHead>পূর্ণ নম্বর</TableHead>
-                  <TableHead>পাস নম্বর</TableHead>
-                  <TableHead className="text-right">অ্যাকশন</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {subjects.map((sub) => (
-                  <TableRow key={sub.id} className="hover:bg-gray-50">
-                    <TableCell className="font-mono text-xs text-gray-500">{sub.code || "-"}</TableCell>
-                    <TableCell className="font-bold text-gray-700">{sub.name}</TableCell>
-                    <TableCell>
-                      <span className={`text-[10px] uppercase px-2 py-1 rounded border font-bold ${examTypeClass(sub.exam_type)}`}>
-                        {examTypeLabel(sub.exam_type)}
-                      </span>
-                    </TableCell>
-                    <TableCell>{sub.full_marks}</TableCell>
-                    <TableCell className="text-red-600 font-bold">{sub.pass_marks}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(sub)} className="text-blue-500 hover:bg-blue-50 h-8 w-8"><Edit className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(sub.id)} className="text-red-400 hover:bg-red-50 h-8 w-8"><Trash2 className="w-4 h-4" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b text-gray-500 font-semibold text-xs uppercase tracking-wide">
+                  <th className="px-4 py-3 text-left w-20">কোড</th>
+                  <th className="px-4 py-3 text-left">বিষয়ের নাম</th>
+                  <th className="px-4 py-3 text-left w-28">ধরণ</th>
+                  <th className="px-4 py-3 text-center w-24">পূর্ণ নম্বর</th>
+                  <th className="px-4 py-3 text-center w-24">পাস নম্বর</th>
+                  <th className="px-4 py-3 text-right w-28">অ্যাকশন</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {subjects.map((sub) => {
+                  const isEditing = inlineEditId === sub.id;
+                  return (
+                    <tr key={sub.id} className={isEditing ? "bg-blue-50 border-blue-200" : "hover:bg-gray-50 transition-colors"}>
+                      {isEditing ? (
+                        <>
+                          <td className="px-3 py-2">
+                            <Input value={inlineEditData.code} onChange={(e) => setInlineEditData(p => ({ ...p, code: e.target.value }))} className="h-8 text-xs font-mono w-full" placeholder="কোড" />
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input value={inlineEditData.name} onChange={(e) => setInlineEditData(p => ({ ...p, name: e.target.value }))} className="h-8 text-sm font-medium w-full" placeholder="বিষয়ের নাম" autoFocus />
+                          </td>
+                          <td className="px-3 py-2">
+                            <select value={inlineEditData.exam_type} onChange={(e) => setInlineEditData(p => ({ ...p, exam_type: e.target.value }))}
+                              className="h-8 px-2 text-xs border rounded bg-white w-full">
+                              <option value="Written">লিখিত</option>
+                              <option value="Oral">মৌখিক</option>
+                              <option value="Practical">ব্যবহারিক</option>
+                            </select>
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input type="number" value={inlineEditData.full_marks} onChange={(e) => setInlineEditData(p => ({ ...p, full_marks: parseInt(e.target.value) }))} className="h-8 text-center w-full" />
+                          </td>
+                          <td className="px-3 py-2">
+                            <Input type="number" value={inlineEditData.pass_marks} onChange={(e) => setInlineEditData(p => ({ ...p, pass_marks: parseInt(e.target.value) }))} className="h-8 text-center w-full text-red-600 font-bold" />
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button size="sm" onClick={saveInlineEdit} disabled={isSubmitting} className="h-8 bg-blue-600 hover:bg-blue-700 text-white px-3">
+                                {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Save className="w-3 h-3 mr-1" />সেভ</>}
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={cancelInlineEdit} className="h-8 px-2 text-gray-500 hover:bg-gray-100">
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-4 py-3 font-mono text-xs text-gray-400">{sub.code || "—"}</td>
+                          <td className="px-4 py-3 font-semibold text-gray-800">{sub.name}</td>
+                          <td className="px-4 py-3">
+                            <span className={`text-[10px] uppercase px-2 py-1 rounded border font-bold ${examTypeClass(sub.exam_type)}`}>
+                              {examTypeLabel(sub.exam_type)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center text-gray-700">{sub.full_marks}</td>
+                          <td className="px-4 py-3 text-center text-red-600 font-bold">{sub.pass_marks}</td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" onClick={() => startInlineEdit(sub)} className="text-blue-500 hover:bg-blue-50 h-8 w-8" title="সম্পাদনা">
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(sub.id)} className="text-red-400 hover:bg-red-50 h-8 w-8" title="মুছুন">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+
+                {/* ── New subject add row ── */}
+                <tr className="bg-green-50/60 border-t-2 border-dashed border-green-200">
+                  <td className="px-3 py-2">
+                    <Input value={newRow.code} onChange={(e) => setNewRow(p => ({ ...p, code: e.target.value }))}
+                      placeholder="কোড" className="h-8 text-xs font-mono w-full bg-white" />
+                  </td>
+                  <td className="px-3 py-2">
+                    <Input value={newRow.name} onChange={(e) => setNewRow(p => ({ ...p, name: e.target.value }))}
+                      onKeyDown={(e) => e.key === "Enter" && saveNewRow()}
+                      placeholder="+ নতুন বিষয়ের নাম লিখুন..." className="h-8 text-sm w-full bg-white" />
+                  </td>
+                  <td className="px-3 py-2">
+                    <select value={newRow.type} onChange={(e) => setNewRow(p => ({ ...p, type: e.target.value }))}
+                      className="h-8 px-2 text-xs border rounded bg-white w-full">
+                      <option value="Written">লিখিত</option>
+                      <option value="Oral">মৌখিক</option>
+                      <option value="Practical">ব্যবহারিক</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-2">
+                    <Input type="number" value={newRow.full} onChange={(e) => setNewRow(p => ({ ...p, full: parseInt(e.target.value) }))}
+                      className="h-8 text-center w-full bg-white" />
+                  </td>
+                  <td className="px-3 py-2">
+                    <Input type="number" value={newRow.pass} onChange={(e) => setNewRow(p => ({ ...p, pass: parseInt(e.target.value) }))}
+                      className="h-8 text-center w-full bg-white text-red-600 font-bold" />
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <Button size="sm" onClick={saveNewRow} disabled={isAddingNew || !newRow.name.trim()}
+                      className="h-8 bg-green-600 hover:bg-green-700 text-white px-3">
+                      {isAddingNew ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Plus className="w-3 h-3 mr-1" />যোগ</>}
+                    </Button>
+                  </td>
+                </tr>
+
                 {subjects.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="text-center py-10 text-gray-400 italic">এখনো কোনো বিষয় যোগ করা হয়নি।</TableCell></TableRow>
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-gray-400 italic text-sm">
+                      নিচের সবুজ ঘরে বিষয়ের নাম লিখে "যোগ" বাটন চাপুন।
+                    </td>
+                  </tr>
                 )}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
         )}
       </div>
