@@ -165,6 +165,7 @@ export default function AcademicSettings() {
         branch_id: parseInt(newClass.branch_id),
         academic_year: parseInt(newClass.academic_year),
         is_active: newClass.is_active,
+        allow_residential: newClass.allow_residential,
         department: deptName // Populate legacy column
     };
     if (newClass.department_id) payload.department_id = newClass.department_id;
