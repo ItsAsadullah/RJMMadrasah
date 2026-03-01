@@ -22,7 +22,7 @@ export default function AccountsPage() {
   }, []);
 
   const fetchTransactions = async () => {
-    const { data } = await supabase.from("transactions").select("*, categories(name)").order("transaction_date", { ascending: false }).limit(50);
+    const { data } = await supabase.from("transactions").select("*, categories(name)").order("transaction_date", { ascending: false });
     
     if (data) {
         let inc = 0, exp = 0, lil = 0;
@@ -79,11 +79,20 @@ export default function AccountsPage() {
 }
 
 // --- Helper Components ---
-const StatCard = ({ title, amount, icon: Icon, color }: any) => (
-    <Card className={`border-l-4 border-${color}-600`}>
-        <CardContent className="p-4 flex justify-between items-center">
-            <div><p className="text-xs font-bold text-gray-500 uppercase">{title}</p><h3 className={`text-2xl font-bold text-${color}-700`}>৳ {toBengaliNumber(amount)}</h3></div>
-            <div className={`p-2 rounded-full bg-${color}-50 text-${color}-600`}><Icon className="w-6 h-6"/></div>
-        </CardContent>
-    </Card>
-);
+const StatCard = ({ title, amount, icon: Icon, color }: any) => {
+    const colorMap: Record<string, string> = {
+        green: "border-green-600 text-green-700 bg-green-50 text-green-600",
+        red: "border-red-600 text-red-700 bg-red-50 text-red-600",
+        blue: "border-blue-600 text-blue-700 bg-blue-50 text-blue-600",
+        purple: "border-purple-600 text-purple-700 bg-purple-50 text-purple-600",
+    };
+    const [border, text, bg, iconColor] = (colorMap[color] || colorMap.blue).split(" ");
+    return (
+        <Card className={`border-l-4 ${border}`}>
+            <CardContent className="p-4 flex justify-between items-center">
+                <div><p className="text-xs font-bold text-gray-500 uppercase">{title}</p><h3 className={`text-2xl font-bold ${text}`}>৳ {toBengaliNumber(amount)}</h3></div>
+                <div className={`p-2 rounded-full ${bg} ${iconColor}`}><Icon className="w-6 h-6"/></div>
+            </CardContent>
+        </Card>
+    );
+};

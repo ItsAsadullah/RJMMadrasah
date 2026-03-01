@@ -10,11 +10,11 @@ export default function JsonLd() {
         "url": "https://rjmm.edu.bd",
         "logo": {
           "@type": "ImageObject",
-          "url": "https://rjmm.edu.bd/icon.png",
+          "url": "https://rjmm.edu.bd/images/logo.png",
           "width": 512,
           "height": 512,
         },
-        "image": "https://rjmm.edu.bd/images/og-image.png",
+        "image": "https://rjmm.edu.bd/og-image.png",
         "description":
           "ঝিনাইদহ জেলার হলিধানী ও চাঁন্দুয়ালীতে অবস্থিত একটি আদর্শ দ্বীনি শিক্ষা প্রতিষ্ঠান। নূরানী, হিফজুল কুরআন ও কিতাব বিভাগে ভর্তি চলছে।",
         "telephone": "+8801988214554",

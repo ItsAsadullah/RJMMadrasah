@@ -29,6 +29,7 @@ export default function AdminLayout({
         
         if (error || !session) {
           router.replace("/login");
+          setLoading(false);
         } else {
           setAuthenticated(true);
           setLoading(false);
@@ -36,6 +37,7 @@ export default function AdminLayout({
       } catch (err) {
         console.error("Auth check failed:", err);
         router.replace("/login");
+        setLoading(false);
       }
     };
 

@@ -41,6 +41,6 @@ export async function deleteNotice(id: number) {
     return { success: false }
   }
 
-  revalidatePath('/admin/notices')
+  revalidatePath('/dashboard/notices')
   return { success: true }
 }

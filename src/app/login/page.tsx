@@ -77,7 +77,7 @@ export default function UniversalLoginPage() {
             }
 
             // 2. Verify Mobile Number (Last 11 digits check)
-            if (data.father_mobile !== password && data.father_mobile.slice(-11) !== password.slice(-11)) {
+            if (!data.father_mobile || (data.father_mobile !== password && data.father_mobile.slice(-11) !== password.slice(-11))) {
                 throw new Error("মোবাইল নম্বর সঠিক নয়।");
             }
 

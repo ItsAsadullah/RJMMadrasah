@@ -255,8 +255,9 @@ export default function AcademicSettings() {
 
   const handleDeleteExam = async (id: string) => {
     if (!confirm("নিশ্চিত ডিলিট করবেন?")) return;
-    await supabase.from("exams").delete().eq("id", id);
-    fetchData();
+    const { error } = await supabase.from("exams").delete().eq("id", id);
+    if (error) alert("ডিলিট করা যাবে না (অন্য তথ্যের সাথে যুক্ত)");
+    else fetchData();
   };
 
   // --- Filtered data ---

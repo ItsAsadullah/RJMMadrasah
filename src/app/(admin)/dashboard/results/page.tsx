@@ -39,7 +39,7 @@ export default function ResultManagement() {
   useEffect(() => {
     const fetchInitData = async () => {
       const { data: b } = await supabase.from("branches").select("*").eq("is_active", true);
-      const { data: e } = await supabase.from("exams").select("*").eq("year", selectedYear);
+      const { data: e } = await supabase.from("exams").select("*").eq("academic_year", parseInt(selectedYear));
       if (b) setBranches(b);
       if (e) setExams(e);
     };
@@ -104,7 +104,7 @@ export default function ResultManagement() {
     const { data: existingResults } = await supabase
       .from("results")
       .select("student_id, marks")
-      .eq("exam_name", exams.find(e => e.id === selectedExam)?.name)
+      .eq("exam_name", exams.find(e => e.id === selectedExam)?.title)
       .eq("class_name", clsObj.name)
       .eq("subject_name", subjects.find(s => s.id === selectedSubject)?.name)
       .eq("year", selectedYear);
@@ -148,7 +148,7 @@ export default function ResultManagement() {
 
         return {
             student_id: studentId,
-            exam_name: examObj.name,
+            exam_name: examObj.title,
             class_name: clsObj.name,
             subject_name: subObj.name,
             marks: numMark,
@@ -170,7 +170,7 @@ export default function ResultManagement() {
     
     // এখানে আমরা সিম্পল ইনসার্ট ব্যবহার করছি, কিন্তু ডুপ্লিকেট এড়াতে আগে ক্লিন করছি
     await supabase.from("results").delete()
-        .eq("exam_name", examObj.name)
+        .eq("exam_name", examObj.title)
         .eq("class_name", clsObj.name)
         .eq("subject_name", subObj.name)
         .eq("year", parseInt(selectedYear));

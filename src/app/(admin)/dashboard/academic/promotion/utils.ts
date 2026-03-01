@@ -108,7 +108,7 @@ export function calculatePromotionLogic(
   // Assign New Roll to Passed Students
   let currentRoll = 1;
   processedList.forEach(s => {
-    if (s.status === 'passed') {
+    if (s.status === 'passed' || s.status === 'manual_passed') {
       s.new_roll = currentRoll++;
     }
   });

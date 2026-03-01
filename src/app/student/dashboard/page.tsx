@@ -303,7 +303,7 @@ export default function StudentDashboard() {
             .gte("date", startOfMonth);
         
         const totalDays = 26; // Approx working days
-        const presentCount = attData?.length || 0; 
+        const presentCount = attData?.filter((a: any) => a.status === 'present').length || 0; 
         setAttendanceStats({
             present: presentCount,
             absent: Math.max(0, totalDays - presentCount),

@@ -59,7 +59,7 @@ export default function StudentManagement() {
 
   // --- Filter Logic ---
   const filteredStudents = students.filter(s => {
-    if (branchFilter !== "all" && s.branch_id.toString() !== branchFilter) return false;
+    if (branchFilter !== "all" && String(s.branch_id || "") !== branchFilter) return false;
     if (deptFilter !== "all" && s.department !== deptFilter) return false;
     if (classFilter !== "all" && s.class_name !== classFilter) return false;
     return true;
@@ -78,13 +78,13 @@ export default function StudentManagement() {
     if (!confirm("Are you sure you want to delete this student?")) return;
     const { error } = await supabase.from("students").delete().eq("id", id);
     if (error) alert("Error deleting student");
-    else alert("Student deleted successfully");
+    else { alert("Student deleted successfully"); fetchStudents(); }
   };
 
   const handleBulkDelete = async (ids: string[]) => {
     const { error } = await supabase.from("students").delete().in("id", ids);
     if (error) alert("Error deleting students");
-    else alert(`${ids.length} students deleted successfully`);
+    else { alert(`${ids.length} students deleted successfully`); fetchStudents(); }
   };
 
   const handleAddNew = () => {
