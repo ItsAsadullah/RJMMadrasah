@@ -182,7 +182,7 @@ export default function AdminStudentAdd() {
     const { data, error } = await supabase
       .from('students')
       .select('student_id')
-      .eq('academic_year', parseInt(formData.academic_year))
+      .like('student_id', `${yearPrefix}%`)
       .order('student_id', { ascending: false })
       .limit(1);
 

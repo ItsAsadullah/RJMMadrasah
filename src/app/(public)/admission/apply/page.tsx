@@ -207,7 +207,7 @@ export default function PublicAdmissionPage() {
       const { data: maxIdData, error } = await supabase
         .from('students')
         .select('student_id')
-        .eq('academic_year', parseInt(formData.academic_year))
+        .like('student_id', `${yearPrefix}%`)
         .order('student_id', { ascending: false })
         .limit(1);
 
@@ -216,7 +216,7 @@ export default function PublicAdmissionPage() {
       let nextSerial = 1;
       if (maxIdData && maxIdData.length > 0 && maxIdData[0].student_id) {
           const lastId = maxIdData[0].student_id;
-          const lastSerial = parseInt(lastId.substring(2)); 
+          const lastSerial = parseInt(lastId.substring(yearPrefix.length)); 
           if (!isNaN(lastSerial)) nextSerial = lastSerial + 1;
       }
       const newID = `${yearPrefix}${nextSerial.toString().padStart(4, '0')}`;
