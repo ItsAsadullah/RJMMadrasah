@@ -30,7 +30,7 @@ export default function StudentManagement() {
       setLoading(true);
       const { data, error } = await supabase
         .from("students")
-        .select("*")
+        .select("*, branches(name)")
         .order("created_at", { ascending: false });
 
       if (error) console.error("Error fetching students:", error);

@@ -28,6 +28,7 @@ type Student = {
   created_at: string;
   branch_id: number;
   photo_url?: string;
+  branches?: { name: string };
 };
 
 type StudentTableProps = {
@@ -104,20 +105,20 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
 
   const exportPDF = () => {
     const doc = new jsPDF();
-    const tableColumn = ["ID", "Name", "Class", "Mobile", "Status"];
-    const tableRows: any[] = [];
+      const tableColumn = ["ID", "Name", "Class & Roll", "Dept", "Branch", "Mobile", "Status"];
+      const tableRows: any[] = [];
 
-    const exportData = selectedRows.size > 0 
-      ? filteredData.filter(s => selectedRows.has(s.id))
-      : filteredData;
+      const exportData = selectedRows.size > 0
+        ? filteredData.filter(s => selectedRows.has(s.id))
+        : filteredData;
 
-    exportData.forEach(student => {
-      const studentData = [
-        student.student_id || "N/A",
-        student.name_bn,
-        student.class_name,
-        student.father_mobile,
-        student.status
+      exportData.forEach(student => {
+        const studentData = [
+          student.student_id || "N/A",
+          student.name_bn,
+          `${student.class_name} (${student.roll_no || '-'})`,
+          student.department || "-",
+          student.branches?.name || "-",
       ];
       tableRows.push(studentData);
     });
@@ -183,22 +184,24 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
                 />
               </TableHead>
               <TableHead className="cursor-pointer hover:text-green-600" onClick={() => handleSort('student_id')}>
-                ID <ArrowUpDown className="w-3 h-3 inline ml-1" />
+                আইডি <ArrowUpDown className="w-3 h-3 inline ml-1" />
               </TableHead>
               <TableHead className="cursor-pointer hover:text-green-600" onClick={() => handleSort('name_bn')}>
-                Name <ArrowUpDown className="w-3 h-3 inline ml-1" />
+                নাম <ArrowUpDown className="w-3 h-3 inline ml-1" />
               </TableHead>
-              <TableHead>Class & Roll</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>শ্রেণি ও রোল</TableHead>
+              <TableHead>বিভাগ</TableHead>
+              <TableHead>শাখা</TableHead>
+              <TableHead>যোগাযোগ</TableHead>
+              <TableHead>স্ট্যাটাস</TableHead>
+              <TableHead className="text-right">অ্যাকশন</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-10 text-gray-400">
-                  No students found.
+                <TableCell colSpan={9} className="text-center py-10 text-gray-400">
+                  কোনো শিক্ষার্থী পাওয়া যায়নি।
                 </TableCell>
               </TableRow>
             ) : (
@@ -230,8 +233,13 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
                   </TableCell>
                   <TableCell>
                     <span className="badge bg-gray-100 px-2 py-0.5 rounded text-xs font-medium">{student.class_name}</span>
-                    <div className="text-xs text-gray-500 mt-1">Roll: {student.roll_no || "-"}</div>
-                    {student.department && <div className="text-xs text-gray-400">{student.department}</div>}
+                    <div className="text-xs text-gray-500 mt-1">রোল: {student.roll_no || "-"}</div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm text-gray-600">{student.department || "-"}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm text-gray-600">{student.branches?.name || "-"}</span>
                   </TableCell>
                   <TableCell className="font-mono text-sm">{student.father_mobile}</TableCell>
                   <TableCell>
