@@ -23,7 +23,7 @@ type YearStat = {
 export default function AcademicYearPage({ params }: { params: Promise<{ branchId: string }> }) {
   const { branchId } = use(params);
   const currentYear = new Date().getFullYear();
-  
+
   const [yearsData, setYearsData] = useState<YearStat[]>([]);
   const [branchInfo, setBranchInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -47,16 +47,7 @@ export default function AcademicYearPage({ params }: { params: Promise<{ branchI
   const [deleteYear, setDeleteYear] = useState<number | null>(null);
   const [password, setPassword] = useState("");
 
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) setUserEmail(user.email);
-    };
-    getUser();
-    fetchData();
-  }, [branchId]);
-
-  const fetchData = async () => {
+  async function fetchData() {
     setLoading(true);
     // ১. ব্রাঞ্চ তথ্য
     const { data: branch } = await supabase.from("branches").select("*").eq("id", branchId).single();
@@ -93,7 +84,16 @@ export default function AcademicYearPage({ params }: { params: Promise<{ branchI
       setYearsData(stats.sort((a, b) => b.year - a.year));
     }
     setLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) setUserEmail(user.email);
+    };
+    getUser();
+    fetchData();
+  }, [branchId]);
 
   // --- Create Handler ---
   const handleCreateYear = async (e: React.FormEvent) => {

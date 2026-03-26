@@ -35,7 +35,7 @@ export default function LeaveManagementPage() {
   const [leaves, setLeaves] = useState<LeaveApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("pending");
-  
+
   // Modal State
   const [selectedLeave, setSelectedLeave] = useState<LeaveApplication | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -44,17 +44,12 @@ export default function LeaveManagementPage() {
 
   const [branches, setBranches] = useState<any[]>([]);
 
-  useEffect(() => {
-    fetchBranches();
-    fetchLeaves();
-  }, [filterStatus]);
-
-  const fetchBranches = async () => {
+  async function fetchBranches() {
     const { data } = await supabase.from("branches").select("id, name");
     if (data) setBranches(data);
-  };
+  }
 
-  const fetchLeaves = async () => {
+  async function fetchLeaves() {
     setLoading(true);
     let query = supabase
       .from("leave_applications")
@@ -81,7 +76,12 @@ export default function LeaveManagementPage() {
       setLeaves(data || []);
     }
     setLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    fetchBranches();
+    fetchLeaves();
+  }, [filterStatus]);
 
   const handleAction = async (status: 'approved' | 'rejected') => {
     if (!selectedLeave) return;

@@ -160,7 +160,6 @@ export default function SeoSettingsPage() {
           {/* Preview */}
           {form.og_image_url && (
             <div className="border rounded-lg overflow-hidden bg-gray-50">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={form.og_image_url}
                 alt="OG Image Preview"

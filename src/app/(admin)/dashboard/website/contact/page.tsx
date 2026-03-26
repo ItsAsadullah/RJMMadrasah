@@ -53,11 +53,7 @@ export default function ContactSettingsPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  async function fetchData() {
     setLoading(true);
     const { data: row } = await supabase
       .from("contact_settings")
@@ -66,7 +62,11 @@ export default function ContactSettingsPage() {
       .single();
     if (row) setData(row as ContactSettings);
     setLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handleChange = (field: keyof ContactSettings, value: string) => {
     setData((prev) => ({ ...prev, [field]: value }));

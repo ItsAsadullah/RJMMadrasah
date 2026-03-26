@@ -9,7 +9,7 @@ export default function DirectorMessage() {
   const [data, setData] = useState<any>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
+    async function fetchData() {
       const { data } = await supabase
         .from("home_sections")
         .select("*")

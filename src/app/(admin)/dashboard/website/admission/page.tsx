@@ -65,15 +65,15 @@ export default function AdmissionSettingsPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  useEffect(() => { fetchData(); }, []);
-
-  const fetchData = async () => {
+  async function fetchData() {
     setLoading(true);
     const { data: row } = await supabase
       .from("admission_settings").select("*").limit(1).single();
     if (row) setData(row as AdmissionSettings);
     setLoading(false);
-  };
+  }
+
+  useEffect(() => { fetchData(); }, []);
 
   const set = (field: keyof AdmissionSettings, value: any) =>
     setData((prev) => ({ ...prev, [field]: value }));

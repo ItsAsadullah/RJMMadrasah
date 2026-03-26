@@ -15,67 +15,67 @@ import Reports from "@/components/dashboard/accounts/Reports";
 const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
 
 export default function AccountsPage() {
-  const [reportSummary, setReportSummary] = useState({ income: 0, expense: 0, balance: 0, lillah: 0 });
+    const [reportSummary, setReportSummary] = useState({ income: 0, expense: 0, balance: 0, lillah: 0 });
 
-  useEffect(() => {
-    fetchTransactions();
-  }, []);
-
-  const fetchTransactions = async () => {
-    const { data } = await supabase.from("transactions").select("*, categories(name)").order("transaction_date", { ascending: false });
-    
-    if (data) {
-        let inc = 0, exp = 0, lil = 0;
-        data.forEach((t: any) => {
-            if(t.type === 'income') { inc += t.amount; if(t.fund_type === 'lillah') lil += t.amount; }
-            else { exp += t.amount; if(t.fund_type === 'lillah') lil -= t.amount; }
-        });
-        setReportSummary({ income: inc, expense: exp, balance: inc - exp, lillah: lil });
-    }
-  };
-
-  return (
-    <div className="space-y-6 p-4 md:p-8 bg-gray-50 min-h-screen font-[Kalpurush]">
+    async function fetchTransactions() {
+      const { data } = await supabase.from("transactions").select("*, categories(name)").order("transaction_date", { ascending: false });
       
-      {/* Top Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">
-          <StatCard title="মোট আয়" amount={reportSummary.income} icon={ArrowDownCircle} color="green" />
-          <StatCard title="মোট ব্যয়" amount={reportSummary.expense} icon={ArrowUpCircle} color="red" />
-          <StatCard title="বর্তমান স্থিতি" amount={reportSummary.balance} icon={DollarSign} color="blue" />
-          <StatCard title="লিল্লাহ ফান্ড" amount={reportSummary.lillah} icon={PieChart} color="purple" />
+      if (data) {
+          let inc = 0, exp = 0, lil = 0;
+          data.forEach((t: any) => {
+              if(t.type === 'income') { inc += t.amount; if(t.fund_type === 'lillah') lil += t.amount; }
+              else { exp += t.amount; if(t.fund_type === 'lillah') lil -= t.amount; }
+          });
+          setReportSummary({ income: inc, expense: exp, balance: inc - exp, lillah: lil });
+      }
+    }
+
+    useEffect(() => {
+      fetchTransactions();
+    }, []);
+
+    return (
+      <div className="space-y-6 p-4 md:p-8 bg-gray-50 min-h-screen font-[Kalpurush]">
+        
+        {/* Top Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">
+            <StatCard title="মোট আয়" amount={reportSummary.income} icon={ArrowDownCircle} color="green" />
+            <StatCard title="মোট ব্যয়" amount={reportSummary.expense} icon={ArrowUpCircle} color="red" />
+            <StatCard title="বর্তমান স্থিতি" amount={reportSummary.balance} icon={DollarSign} color="blue" />
+            <StatCard title="লিল্লাহ ফান্ড" amount={reportSummary.lillah} icon={PieChart} color="purple" />
+        </div>
+
+        <Tabs defaultValue="collection" className="w-full print:hidden">
+          <TabsList className="grid w-full grid-cols-5 bg-white border h-14 mb-6 p-1 rounded-lg">
+              <TabsTrigger value="collection" className="font-bold">ফি আদায়</TabsTrigger>
+              <TabsTrigger value="donation" className="font-bold">দান গ্রহণ</TabsTrigger>
+              <TabsTrigger value="setup" className="font-bold">ফি নির্ধারণ</TabsTrigger>
+              <TabsTrigger value="expense" className="font-bold">ব্যয়</TabsTrigger>
+              <TabsTrigger value="reports" className="font-bold">রিপোর্ট</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="collection">
+              <FeeCollection />
+          </TabsContent>
+
+          <TabsContent value="donation">
+              <DonationCollection />
+          </TabsContent>
+
+          <TabsContent value="setup">
+              <FeeSetup />
+          </TabsContent>
+
+          <TabsContent value="expense">
+              <ExpenseManagement />
+          </TabsContent>
+
+          <TabsContent value="reports">
+              <Reports />
+          </TabsContent>
+        </Tabs>
       </div>
-
-      <Tabs defaultValue="collection" className="w-full print:hidden">
-        <TabsList className="grid w-full grid-cols-5 bg-white border h-14 mb-6 p-1 rounded-lg">
-            <TabsTrigger value="collection" className="font-bold">ফি আদায়</TabsTrigger>
-            <TabsTrigger value="donation" className="font-bold">দান গ্রহণ</TabsTrigger>
-            <TabsTrigger value="setup" className="font-bold">ফি নির্ধারণ</TabsTrigger>
-            <TabsTrigger value="expense" className="font-bold">ব্যয়</TabsTrigger>
-            <TabsTrigger value="reports" className="font-bold">রিপোর্ট</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="collection">
-            <FeeCollection />
-        </TabsContent>
-
-        <TabsContent value="donation">
-            <DonationCollection />
-        </TabsContent>
-
-        <TabsContent value="setup">
-            <FeeSetup />
-        </TabsContent>
-
-        <TabsContent value="expense">
-            <ExpenseManagement />
-        </TabsContent>
-
-        <TabsContent value="reports">
-            <Reports />
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
+    );
 }
 
 // --- Helper Components ---

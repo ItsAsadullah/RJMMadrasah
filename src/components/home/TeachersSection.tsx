@@ -10,7 +10,7 @@ export default function TeachersSection() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchTeachers = async () => {
+    async function fetchTeachers() {
       // Fetch teachers with branch info
       const { data, error } = await supabase
         .from("teachers")

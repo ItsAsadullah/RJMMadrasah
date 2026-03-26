@@ -26,11 +26,7 @@ export default function GalleryPage() {
   const [filter, setFilter] = useState("all");
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
 
-  useEffect(() => {
-    fetchGalleryItems();
-  }, []);
-
-  const fetchGalleryItems = async () => {
+  async function fetchGalleryItems() {
     setLoading(true);
     const { data, error } = await supabase
       .from("gallery_items")
@@ -43,7 +39,11 @@ export default function GalleryPage() {
       setItems(data as GalleryItem[] || []);
     }
     setLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    fetchGalleryItems();
+  }, []);
 
   const filteredItems = items.filter((item) => {
     if (filter === "all") return true;
@@ -99,7 +99,6 @@ export default function GalleryPage() {
           </motion.p>
         </div>
       </section>
-
       {/* Gallery Content */}
       <section className="py-12 container mx-auto px-4">
         {/* Filters */}
@@ -150,45 +149,40 @@ export default function GalleryPage() {
                     {/* Render Content Based on Type */}
                     {item.type === "image" ? (
                        // Image Logic
-                       item.thumbnail_url || (item.url && (!isExternalLink(item.url) || getGoogleDriveImageUrl(item.url))) ? (
-                          <Image
-                            src={item.thumbnail_url || getGoogleDriveImageUrl(item.url) || item.url}
-                            alt={item.title}
-                            fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-500"
-                          />
-                       ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400">
-                              <ImageIcon className="w-12 h-12 mb-2 text-green-200" />
-                              <span className="text-xs text-gray-400">প্রিভিউ নেই</span>
-                          </div>
-                       )
+                       (item.thumbnail_url || (item.url && (!isExternalLink(item.url) || getGoogleDriveImageUrl(item.url))) ? (<Image
+                         src={item.thumbnail_url || getGoogleDriveImageUrl(item.url) || item.url}
+                         alt={item.title}
+                         fill
+                         className="object-cover group-hover:scale-105 transition-transform duration-500"
+                       />) : (<div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400">
+                         <ImageIcon className="w-12 h-12 mb-2 text-green-200" />
+                         <span className="text-xs text-gray-400">প্রিভিউ নেই</span>
+                       </div>))
                     ) : (
                       // Video Logic
-                      <div className="w-full h-full flex items-center justify-center relative bg-black">
-                         {item.thumbnail_url ? (
-                             <Image
-                                src={item.thumbnail_url}
-                                alt={item.title}
-                                fill
-                                className="object-cover group-hover:scale-105 transition-transform duration-500 opacity-70"
-                             />
-                         ) : (item.url.includes("youtube") || item.url.includes("youtu.be")) ? (
-                            <img 
-                                src={`https://img.youtube.com/vi/${getYouTubeId(item.url)}/hqdefault.jpg`} 
-                                alt={item.title} 
-                                className="absolute inset-0 w-full h-full object-cover opacity-70"
+                      (<div className="w-full h-full flex items-center justify-center relative bg-black">
+                        {item.thumbnail_url ? (
+                            <Image
+                               src={item.thumbnail_url}
+                               alt={item.title}
+                               fill
+                               className="object-cover group-hover:scale-105 transition-transform duration-500 opacity-70"
                             />
-                         ) : (
-                             <div className="absolute inset-0 bg-gray-800 flex flex-col items-center justify-center">
-                                 <PlayCircle className="w-12 h-12 text-white/50 mb-2" />
-                                 <span className="text-xs text-white/50">ভিডিও প্রিভিউ নেই</span>
-                             </div>
-                         )}
-                        
+                        ) : (item.url.includes("youtube") || item.url.includes("youtu.be")) ? (
+                           <img 
+                               src={`https://img.youtube.com/vi/${getYouTubeId(item.url)}/hqdefault.jpg`} 
+                               alt={item.title} 
+                               className="absolute inset-0 w-full h-full object-cover opacity-70"
+                           />
+                        ) : (
+                            <div className="absolute inset-0 bg-gray-800 flex flex-col items-center justify-center">
+                                <PlayCircle className="w-12 h-12 text-white/50 mb-2" />
+                                <span className="text-xs text-white/50">ভিডিও প্রিভিউ নেই</span>
+                            </div>
+                        )}
                         <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors z-10"></div>
                         <PlayCircle className="w-12 h-12 text-white opacity-90 group-hover:scale-110 transition-transform z-20" />
-                      </div>
+                      </div>)
                     )}
 
                     {/* Overlay Title */}
@@ -212,7 +206,6 @@ export default function GalleryPage() {
           </motion.div>
         )}
       </section>
-
       {/* Lightbox / Modal */}
       <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
         <DialogContent className="sm:max-w-[900px] p-0 bg-black overflow-hidden border-none text-white">

@@ -42,15 +42,15 @@ export default function FeaturesSettingsPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  useEffect(() => { fetchData(); }, []);
-
-  const fetchData = async () => {
+  async function fetchData() {
     setLoading(true);
     const { data: row } = await supabase
       .from("features_settings").select("*").limit(1).single();
     if (row) setData(row as FeaturesSettings);
     setLoading(false);
-  };
+  }
+
+  useEffect(() => { fetchData(); }, []);
 
   const set = (field: keyof FeaturesSettings, value: any) =>
     setData((prev) => ({ ...prev, [field]: value }));

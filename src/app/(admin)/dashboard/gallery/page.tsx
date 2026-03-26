@@ -55,7 +55,7 @@ export default function GalleryManagement() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [thumbUploading, setThumbUploading] = useState(false);
-  
+
   // Modals State
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -68,15 +68,11 @@ export default function GalleryManagement() {
     thumbnail_url: "",
     category: "general"
   });
-  
+
   // Upload Type State (Direct Upload vs Link)
   const [uploadType, setUploadType] = useState<"file" | "link">("file");
 
-  useEffect(() => {
-    fetchGalleryItems();
-  }, []);
-
-  const fetchGalleryItems = async () => {
+  async function fetchGalleryItems() {
     setLoading(true);
     const { data, error } = await supabase
       .from("gallery_items")
@@ -86,7 +82,11 @@ export default function GalleryManagement() {
     if (error) console.error(error);
     else setItems(data as GalleryItem[] || []);
     setLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    fetchGalleryItems();
+  }, []);
 
   // --- Handlers ---
 

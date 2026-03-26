@@ -14,7 +14,7 @@ export default function FeeSetup() {
   const [loading, setLoading] = useState(true);
   const [branches, setBranches] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  
+
   // Form State
   const [formData, setFormData] = useState({
     branch_id: "",
@@ -24,20 +24,15 @@ export default function FeeSetup() {
     frequency: "monthly"
   });
 
-  useEffect(() => {
-    fetchInitialData();
-    fetchStructures();
-  }, []);
-
-  const fetchInitialData = async () => {
+  async function fetchInitialData() {
     const { data: b } = await supabase.from("branches").select("id, name");
     if(b) setBranches(b);
     
     const { data: c } = await supabase.from("categories").select("id, name").eq("type", "income");
     if(c) setCategories(c);
-  };
+  }
 
-  const fetchStructures = async () => {
+  async function fetchStructures() {
     setLoading(true);
     const { data, error } = await supabase
       .from("fee_structures")
@@ -46,7 +41,12 @@ export default function FeeSetup() {
     
     if(data) setStructures(data);
     setLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    fetchInitialData();
+    fetchStructures();
+  }, []);
 
   const handleSubmit = async () => {
     if(!formData.branch_id || !formData.category_id || !formData.amount) return alert("সব তথ্য দিন");

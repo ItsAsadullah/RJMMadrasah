@@ -49,7 +49,7 @@ export default function ResultManagement() {
   // ২. ক্লাস লোড (Branch & Year সিলেক্ট করলে)
   useEffect(() => {
     if (!selectedBranch || !selectedYear) return;
-    const fetchClasses = async () => {
+    async function fetchClasses() {
       const { data } = await supabase
         .from("academic_classes")
         .select("*")

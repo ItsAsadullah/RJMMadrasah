@@ -103,6 +103,16 @@ ${window.location.origin}/notice
 }
 
 // --- Rich Text Editor Component (Unchanged) ---
+const ToolbarButton = ({ onClick, icon: Icon, title }: { onClick: () => void, icon: any, title: string }) => (
+  <Button 
+    type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-gray-200 text-gray-600" 
+    onClick={onClick} title={title}
+    onMouseDown={(e) => e.preventDefault()} 
+  >
+    <Icon className="w-4 h-4" />
+  </Button>
+);
+
 const RichTextEditor = ({ value, onChange }: { value: string, onChange: (html: string) => void }) => {
   const editorRef = useRef<HTMLDivElement>(null);
 
@@ -121,16 +131,6 @@ const RichTextEditor = ({ value, onChange }: { value: string, onChange: (html: s
       editorRef.current.focus();
     }
   };
-
-  const ToolbarButton = ({ onClick, icon: Icon, title }: { onClick: () => void, icon: any, title: string }) => (
-    <Button 
-      type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-gray-200 text-gray-600" 
-      onClick={onClick} title={title}
-      onMouseDown={(e) => e.preventDefault()} 
-    >
-      <Icon className="w-4 h-4" />
-    </Button>
-  );
 
   return (
     <div className="border border-input rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-green-500 bg-white shadow-sm">
@@ -175,7 +175,7 @@ export default function NoticeManagement() {
   const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  
+
   // Modals State
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -195,17 +195,12 @@ export default function NoticeManagement() {
   const [feedback, setFeedback] = useState<{ open: boolean, title: string, message: string, type: 'success' | 'error' | 'warning' }>({
     open: false, title: "", message: "", type: "success"
   });
-  
+
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean, id: string | null }>({
     open: false, id: null
   });
 
-  useEffect(() => {
-    fetchBranches();
-    fetchNotices();
-  }, []);
-
-  const fetchBranches = async () => {
+  async function fetchBranches() {
     console.log("Fetching branches...");
     const { data, error } = await supabase.from("branches").select("id, name");
     if (error) {
@@ -214,9 +209,9 @@ export default function NoticeManagement() {
         console.log("Branches fetched:", data);
         if (data) setBranches(data);
     }
-  };
+  }
 
-  const fetchNotices = async () => {
+  async function fetchNotices() {
     setLoading(true);
     const { data, error } = await supabase
       .from("notices")
@@ -226,7 +221,12 @@ export default function NoticeManagement() {
     if (error) console.error(error);
     else setNotices(data || []);
     setLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    fetchBranches();
+    fetchNotices();
+  }, []);
 
   // --- Handlers ---
 

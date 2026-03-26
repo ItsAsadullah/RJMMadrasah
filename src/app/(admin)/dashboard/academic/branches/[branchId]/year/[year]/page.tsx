@@ -22,7 +22,7 @@ export default function ClassListPage({ params }: { params: Promise<{ branchId: 
   const [branchInfo, setBranchInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState("");
-  
+
   // Sorting State
   const [sortType, setSortType] = useState("logical");
 
@@ -40,16 +40,26 @@ export default function ClassListPage({ params }: { params: Promise<{ branchId: 
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [password, setPassword] = useState("");
 
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) setUserEmail(user.email);
-    };
-    getUser();
-    fetchData();
-  }, [branchId, year]);
+  function sortClasses(data: any[], type: string) {
+    let sorted = [...data];
+    if (type === "logical") {
+        sorted.sort((a, b) => {
+            const indexA = classOrder.indexOf(a.name);
+            const indexB = classOrder.indexOf(b.name);
+            if (indexA === -1 && indexB === -1) return a.name.localeCompare(b.name);
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
+    } else if (type === "new_first") {
+        sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    } else if (type === "old_first") {
+        sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    }
+    setClasses(sorted);
+  }
 
-  const fetchData = async () => {
+  async function fetchData() {
     setLoading(true);
     // ১. ব্রাঞ্চ তথ্য
     const { data: branch } = await supabase.from("branches").select("name").eq("id", branchId).single();
@@ -87,26 +97,16 @@ export default function ClassListPage({ params }: { params: Promise<{ branchId: 
         sortClasses(mergedClasses, "logical");
     }
     setLoading(false);
-  };
+  }
 
-  const sortClasses = (data: any[], type: string) => {
-    let sorted = [...data];
-    if (type === "logical") {
-        sorted.sort((a, b) => {
-            const indexA = classOrder.indexOf(a.name);
-            const indexB = classOrder.indexOf(b.name);
-            if (indexA === -1 && indexB === -1) return a.name.localeCompare(b.name);
-            if (indexA === -1) return 1;
-            if (indexB === -1) return -1;
-            return indexA - indexB;
-        });
-    } else if (type === "new_first") {
-        sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    } else if (type === "old_first") {
-        sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    }
-    setClasses(sorted);
-  };
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) setUserEmail(user.email);
+    };
+    getUser();
+    fetchData();
+  }, [branchId, year]);
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
       const type = e.target.value;

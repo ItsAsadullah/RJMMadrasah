@@ -84,7 +84,7 @@ export default function ResultPage() {
 
   // Initial Data Fetch
   useEffect(() => {
-    const fetchData = async () => {
+    async function fetchData() {
       // Fetch Exams
       const { data: exData } = await supabase
         .from("exams")

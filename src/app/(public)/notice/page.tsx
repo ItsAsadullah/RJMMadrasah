@@ -36,7 +36,7 @@ type Notice = {
 export default function PublicNoticePage() {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // ফিল্টার স্টেট
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDate, setFilterDate] = useState("");
@@ -44,11 +44,7 @@ export default function PublicNoticePage() {
   const [selectedNotice, setSelectedNotice] = useState<Notice | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  useEffect(() => {
-    fetchNotices();
-  }, []);
-
-  const fetchNotices = async () => {
+  async function fetchNotices() {
     setLoading(true);
     const { data, error } = await supabase
       .from("notices")
@@ -58,7 +54,11 @@ export default function PublicNoticePage() {
     if (error) console.error(error);
     else setNotices(data || []);
     setLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    fetchNotices();
+  }, []);
 
   // অ্যাডভান্সড ফিল্টার লজিক
   const filteredNotices = notices.filter(notice => {

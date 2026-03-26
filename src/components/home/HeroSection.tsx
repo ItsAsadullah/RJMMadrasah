@@ -8,6 +8,23 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase/client";
 import { HeroContent } from "@/types";
 
+const YouTubeVolumeIcon = () => (
+  <svg height="100%" version="1.1" viewBox="0 0 36 36" width="100%" fill="currentColor">
+    <path d="M8,21 L12,21 L17,26 L17,10 L12,15 L8,15 L8,21 Z M19,14 L19,22 C20.48,21.32 21.5,19.77 21.5,18 C21.5,16.23 20.48,14.68 19,14 Z M19,8 L19,10 C22.64,10.93 25.5,14.25 25.5,18 C25.5,21.75 22.64,25.08 19,26 L19,28 C23.83,27.08 27.5,22.8 27.5,18 C27.5,13.2 23.83,8.92 19,8 Z"></path>
+  </svg>
+);
+
+const YouTubeMuteIcon = () => (
+  <svg height="100%" version="1.1" viewBox="0 0 36 36" width="100%" fill="currentColor">
+    <path d="M8,21 L12,21 L17,26 L17,10 L12,15 L8,15 L8,21 Z M19,14 L19,22 C20.48,21.32 21.5,19.77 21.5,18 C21.5,16.23 20.48,14.68 19,14 Z M26,18 L29.53,21.53 L28.47,22.59 L25,19.06 L21.53,22.59 L20.47,21.53 L24,18 L20.47,14.47 L21.53,13.41 L25,16.94 L28.47,13.41 L29.53,14.47 L26,18 Z"></path>
+     {/* Note: The above path is a generic cross. A more accurate YouTube mute often has a slash. 
+         Let's use a standard path that resembles the "Speaker with X" or "Slash" commonly seen. 
+         Actually, let's use the exact path for Mute from standard icon sets that look like YouTube's.
+     */}
+     <path d="m 21.48,17.98 c 0,-1.77 -1.02,-3.29 -2.5,-4.03 v 2.21 l 2.45,2.45 c .03,-0.2 .05,-0.41 .05,-0.63 z m 2.5,0 c 0,0.94 -0.2,1.82 -0.54,2.64 l 1.51,1.51 c 0.66,-1.24 1.03,-2.65 1.03,-4.15 0,-4.28 -2.99,-7.86 -7,-8.76 v 2.05 c 2.89,0.86 5,3.54 5,6.71 z M 9.25,8.98 l -1.27,1.26 4.72,4.73 H 7.98 v 6 H 11.98 l 5,5 v -6.73 l 4.25,4.25 c -0.67,0.52 -1.42,0.93 -2.25,1.18 v 2.06 c 1.38,-0.31 2.63,-0.95 3.69,-1.81 l 2.04,2.05 1.27,-1.27 -9,-9 -7.73,-7.73 z M 16.98,8.98 v -3.97 c -1.26,0.34 -2.42,0.93 -3.43,1.68 l 3.43,3.43 z" fill="currentColor"></path>
+  </svg>
+);
+
 export default function HeroSection() {
   const [slides, setSlides] = useState<HeroContent[]>([]);
   const [promos, setPromos] = useState<HeroContent[]>([]);
@@ -20,7 +37,7 @@ export default function HeroSection() {
   const videoRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
+    async function fetchData() {
       const { data } = await supabase
         .from('hero_content')
         .select('*')
@@ -132,23 +149,6 @@ export default function HeroSection() {
     setIsMuted(true);
     setVolume(100); 
   }, [currentVideo]);
-
-  const YouTubeVolumeIcon = () => (
-    <svg height="100%" version="1.1" viewBox="0 0 36 36" width="100%" fill="currentColor">
-      <path d="M8,21 L12,21 L17,26 L17,10 L12,15 L8,15 L8,21 Z M19,14 L19,22 C20.48,21.32 21.5,19.77 21.5,18 C21.5,16.23 20.48,14.68 19,14 Z M19,8 L19,10 C22.64,10.93 25.5,14.25 25.5,18 C25.5,21.75 22.64,25.08 19,26 L19,28 C23.83,27.08 27.5,22.8 27.5,18 C27.5,13.2 23.83,8.92 19,8 Z"></path>
-    </svg>
-  );
-
-  const YouTubeMuteIcon = () => (
-    <svg height="100%" version="1.1" viewBox="0 0 36 36" width="100%" fill="currentColor">
-      <path d="M8,21 L12,21 L17,26 L17,10 L12,15 L8,15 L8,21 Z M19,14 L19,22 C20.48,21.32 21.5,19.77 21.5,18 C21.5,16.23 20.48,14.68 19,14 Z M26,18 L29.53,21.53 L28.47,22.59 L25,19.06 L21.53,22.59 L20.47,21.53 L24,18 L20.47,14.47 L21.53,13.41 L25,16.94 L28.47,13.41 L29.53,14.47 L26,18 Z"></path>
-       {/* Note: The above path is a generic cross. A more accurate YouTube mute often has a slash. 
-           Let's use a standard path that resembles the "Speaker with X" or "Slash" commonly seen. 
-           Actually, let's use the exact path for Mute from standard icon sets that look like YouTube's.
-       */}
-       <path d="m 21.48,17.98 c 0,-1.77 -1.02,-3.29 -2.5,-4.03 v 2.21 l 2.45,2.45 c .03,-0.2 .05,-0.41 .05,-0.63 z m 2.5,0 c 0,0.94 -0.2,1.82 -0.54,2.64 l 1.51,1.51 c 0.66,-1.24 1.03,-2.65 1.03,-4.15 0,-4.28 -2.99,-7.86 -7,-8.76 v 2.05 c 2.89,0.86 5,3.54 5,6.71 z M 9.25,8.98 l -1.27,1.26 4.72,4.73 H 7.98 v 6 H 11.98 l 5,5 v -6.73 l 4.25,4.25 c -0.67,0.52 -1.42,0.93 -2.25,1.18 v 2.06 c 1.38,-0.31 2.63,-0.95 3.69,-1.81 l 2.04,2.05 1.27,-1.27 -9,-9 -7.73,-7.73 z M 16.98,8.98 v -3.97 c -1.26,0.34 -2.42,0.93 -3.43,1.68 l 3.43,3.43 z" fill="currentColor"></path>
-    </svg>
-  );
 
   return (
     <section className="w-full max-w-[95%] xl:max-w-[1800px] mx-auto p-4 lg:p-6 gap-4 grid grid-cols-1 lg:grid-cols-12 h-auto lg:h-[700px]">

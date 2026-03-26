@@ -101,9 +101,20 @@ export default function ClassSubjectSetup({ branchId, classId }: { branchId: str
     return true;
   };
 
-  useEffect(() => { fetchData(); }, [classId]);
+  function preparePresets(className: string, existingSubjects: any[]) {
+    const presetCodes = subjectCodes.class_wise[className as keyof typeof subjectCodes.class_wise] || [];
+    const initialSelection: any = {};
+    const existingCodes = new Set(existingSubjects.map((sub: any) => sub.code));
+    Object.keys(subjectCodes.common).forEach((codeStr: string) => {
+      const code = parseInt(codeStr);
+      const isAlreadyAdded = existingCodes.has(code.toString());
+      const isRecommended = presetCodes.includes(code);
+      initialSelection[code] = { selected: isRecommended && !isAlreadyAdded, full: 100, pass: 33, type: "Written", name: subjectCodes.common[code], codeStr: code.toString() };
+    });
+    setSelectedSubjects(initialSelection);
+  }
 
-  const fetchData = async () => {
+  async function fetchData() {
     setLoading(true);
     const { data: cls } = await supabase.from("academic_classes").select("*, branches(name)").eq("id", classId).single();
     if (cls) {
@@ -138,20 +149,9 @@ export default function ClassSubjectSetup({ branchId, classId }: { branchId: str
       }
     }
     setLoading(false);
-  };
+  }
 
-  const preparePresets = (className: string, existingSubjects: any[]) => {
-    const presetCodes = subjectCodes.class_wise[className as keyof typeof subjectCodes.class_wise] || [];
-    const initialSelection: any = {};
-    const existingCodes = new Set(existingSubjects.map((sub: any) => sub.code));
-    Object.keys(subjectCodes.common).forEach((codeStr: string) => {
-      const code = parseInt(codeStr);
-      const isAlreadyAdded = existingCodes.has(code.toString());
-      const isRecommended = presetCodes.includes(code);
-      initialSelection[code] = { selected: isRecommended && !isAlreadyAdded, full: 100, pass: 33, type: "Written", name: subjectCodes.common[code], codeStr: code.toString() };
-    });
-    setSelectedSubjects(initialSelection);
-  };
+  useEffect(() => { fetchData(); }, [classId]);
 
   const openAddModal = () => {
     const map: { [id: string]: ExistingEditable } = {};

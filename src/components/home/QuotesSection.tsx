@@ -37,7 +37,7 @@ export default function QuotesSection() {
   const [direction, setDirection] = useState(1);
 
   useEffect(() => {
-    const fetchData = async () => {
+    async function fetchData() {
       const { data } = await supabase
         .from("home_sections")
         .select("*")

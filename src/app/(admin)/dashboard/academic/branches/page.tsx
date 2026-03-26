@@ -27,7 +27,7 @@ export default function BranchManagement() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const currentYear = new Date().getFullYear();
   const [userEmail, setUserEmail] = useState("");
-  
+
   const [formData, setFormData] = useState({ name: "", address: "", is_active: true });
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -36,17 +36,12 @@ export default function BranchManagement() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [password, setPassword] = useState("");
 
-  useEffect(() => { 
-    fetchBranches(); 
-    getUserEmail();
-  }, []);
-
-  const getUserEmail = async () => {
+  async function getUserEmail() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user?.email) setUserEmail(user.email);
-  };
+  }
 
-  const fetchBranches = async () => {
+  async function fetchBranches() {
     setLoading(true);
     const { data: branchData, error } = await supabase.from("branches").select("*").order("id", { ascending: true });
     
@@ -71,7 +66,12 @@ export default function BranchManagement() {
       setBranches(await Promise.all(statsPromises));
     }
     setLoading(false);
-  };
+  }
+
+  useEffect(() => { 
+    fetchBranches(); 
+    getUserEmail();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

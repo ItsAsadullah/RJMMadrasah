@@ -734,7 +734,7 @@ export default function AdminStudentAdd() {
                     
                     <div className="px-6 pb-6 pt-0 relative">
                         <div className="w-24 h-24 mx-auto rounded-full border-4 border-white shadow-lg overflow-hidden -mt-12 bg-gray-100 relative z-10">
-                            {formData.photo_url ? <img src={formData.photo_url} className="w-full h-full object-cover" /> : <User className="w-full h-full p-4 text-gray-400" />}
+                            {formData.photo_url ? <img src={formData.photo_url} alt="Student Photo" className="w-full h-full object-cover" /> : <User className="w-full h-full p-4 text-gray-400" />}
                         </div>
                         
                         <div className="mt-3 mb-5">

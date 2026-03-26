@@ -39,11 +39,7 @@ export default function FooterSettingsPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = async () => {
+  async function fetchSettings() {
     setLoading(true);
     const { data, error } = await supabase
       .from("footer_settings")
@@ -57,7 +53,11 @@ export default function FooterSettingsPage() {
       console.error("Error fetching footer settings:", error);
     }
     setLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
 
   const handleChange = (field: keyof FooterSettings, value: string) => {
     setSettings((prev) => ({ ...prev, [field]: value }));

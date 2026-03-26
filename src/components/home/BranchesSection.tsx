@@ -8,7 +8,7 @@ export default function BranchesSection() {
   const [branches, setBranches] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchBranches = async () => {
+    async function fetchBranches() {
       const { data } = await supabase
         .from("branches")
         .select("*")

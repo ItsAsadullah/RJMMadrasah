@@ -104,7 +104,6 @@ export default function BrandingSettingsPage() {
         <div className="w-16 h-16 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
           {form[field] ? (
             isExternal(form[field]) ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={form[field]} alt={label} className="w-full h-full object-contain p-1" />
             ) : (
               <Image src={form[field]} alt={label} width={60} height={60} className="object-contain p-1" unoptimized />

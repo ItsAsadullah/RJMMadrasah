@@ -31,11 +31,7 @@ export default function HeroManagementPage() {
     link: ''
   });
 
-  useEffect(() => {
-    fetchItems();
-  }, []);
-
-  const fetchItems = async () => {
+  async function fetchItems() {
     setLoading(true);
     const { data, error } = await supabase
       .from('hero_content')
@@ -48,7 +44,11 @@ export default function HeroManagementPage() {
       setItems(data || []);
     }
     setLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    fetchItems();
+  }, []);
 
   const CLOUD_NAME = "dfo1slmdy";
   const UPLOAD_PRESET = "rahima_preset";

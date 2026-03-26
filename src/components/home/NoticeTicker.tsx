@@ -9,7 +9,7 @@ export default function NoticeTicker() {
   const [notices, setNotices] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchNotices = async () => {
+    async function fetchNotices() {
       const { data } = await supabase
         .from("notices")
         .select("id, title")

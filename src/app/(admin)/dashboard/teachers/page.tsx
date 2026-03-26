@@ -37,7 +37,7 @@ export default function TeacherManagement() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState("all");
-  
+
   // Alert Dialog State
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{
@@ -60,25 +60,17 @@ export default function TeacherManagement() {
   });
   const [isEdit, setIsEdit] = useState(false);
   const [uploading, setUploading] = useState(false);
-  
+
   // Cloudinary Config
-  const CLOUD_NAME = "dfo1slmdy"; 
-  const UPLOAD_PRESET = "rahima_preset"; 
+  const CLOUD_NAME = "dfo1slmdy";
+  const UPLOAD_PRESET = "rahima_preset";
 
-  useEffect(() => {
-    fetchBranches();
-  }, []);
-
-  useEffect(() => {
-    fetchTeachers();
-  }, [selectedBranch]);
-
-  const fetchBranches = async () => {
+  async function fetchBranches() {
     const { data } = await supabase.from("branches").select("*");
     if (data) setBranches(data);
-  };
+  }
 
-  const fetchTeachers = async () => {
+  async function fetchTeachers() {
     setLoading(true);
     let query = supabase.from("teachers").select(`
       *,
@@ -94,7 +86,15 @@ export default function TeacherManagement() {
     const { data, error } = await query;
     if (data) setTeachers(data);
     setLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    fetchBranches();
+  }, []);
+
+  useEffect(() => {
+    fetchTeachers();
+  }, [selectedBranch]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
