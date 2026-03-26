@@ -3,6 +3,7 @@
 import Navbar from "@/components/shared/Navbar";
 import Footer from "@/components/shared/Footer";
 import Preloader from "@/components/ui/Preloader";
+import MobileBottomNav from "@/components/shared/MobileBottomNav";
 import { useState, useEffect } from "react";
 
 export default function PublicLayout({
@@ -26,7 +27,7 @@ export default function PublicLayout({
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen pb-16 md:pb-0">
       {/* পাবলিক ন্যাভবার */}
       <Navbar />
       
@@ -37,6 +38,9 @@ export default function PublicLayout({
       
       {/* ফুটার */}
       <Footer />
+
+      {/* মোবাইল বটম ন্যাভিগেশন */}
+      <MobileBottomNav />
     </div>
   );
 }

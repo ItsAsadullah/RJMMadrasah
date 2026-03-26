@@ -172,7 +172,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
         <Table>
           <TableHeader className="bg-gray-50">
             <TableRow>
