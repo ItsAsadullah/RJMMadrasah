@@ -25,7 +25,7 @@ export default function AdminLayout({
           return;
         }
 
-        const { data: { session }, error } = await supabase.auth.getSession(); if (error) { await supabase.auth.signOut(); }
+        const { data: { session }, error } = await supabase.auth.getSession(); if (error) { await supabase.auth.signOut(); window.location.href = '/login'; }
         
         if (error || !session) {
           router.replace("/login");

@@ -50,7 +50,7 @@ export default function Navbar() {
 
     const checkUser = async () => {
       if (supabase && supabase.auth) {
-        const { data: { session }, error } = await supabase.auth.getSession(); if (error) { await supabase.auth.signOut(); }
+        const { data: { session }, error } = await supabase.auth.getSession(); if (error) { await supabase.auth.signOut(); window.location.href = '/login'; }
         setUser(session?.user ?? null);
       }
     };
