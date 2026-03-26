@@ -177,13 +177,29 @@ export default function AdminStudentAdd() {
     perm_division: "", perm_district: "", perm_upazila: "", perm_union: "", perm_village: "", perm_postcode: "",
   });
 
-  const generateID = async () => {
+  const generateID = async (): Promise<string> => {
     const yearPrefix = formData.academic_year.slice(-2);
-    const { count, error } = await supabase.from('students').select('id', { count: 'exact', head: true }).eq('academic_year', parseInt(formData.academic_year));
+    const { data, error } = await supabase
+      .from('students')
+      .select('student_id')
+      .eq('academic_year', parseInt(formData.academic_year))
+      .order('student_id', { ascending: false })
+      .limit(1);
+
+    let newID = `${yearPrefix}0001`;
     if (!error) {
-      const serial = (count || 0) + 1;
-      setGeneratedID(`${yearPrefix}${serial.toString().padStart(4, '0')}`);
+      let serial = 1;
+      if (data && data.length > 0 && data[0].student_id) {
+         const currentIdStr = data[0].student_id;
+         const currentSerial = parseInt(currentIdStr.slice(yearPrefix.length));
+         if (!isNaN(currentSerial)) {
+             serial = currentSerial + 1;
+         }
+      }
+      newID = `${yearPrefix}${serial.toString().padStart(4, '0')}`;
+      setGeneratedID(newID);
     }
+    return newID;
   };
 
   useEffect(() => { generateID(); }, [formData.academic_year]);
@@ -363,35 +379,55 @@ export default function AdminStudentAdd() {
     }
 
     setLoading(true);
-    await generateID();
-    const payload = {
-      ...formData,
-      // সেইফটি: খালি স্ট্রিং থাকলে null পাঠান (যদি ডাটাবেস এরর দেয়)
-      dob: formData.dob || null, 
-      student_id: generatedID,
-      roll_number: formData.roll_number || null,
-      branch_id: parseInt(formData.branch_id),
-      academic_year: parseInt(formData.academic_year),
-      father_alive: formData.father_alive === "yes",
-      mother_alive: formData.mother_alive === "yes",
-      father_mobile: formData.father_mobile ? "01" + formData.father_mobile : "",
-      mother_mobile: formData.mother_mobile ? "01" + formData.mother_mobile : "",
-      guardian_mobile: formData.guardian_mobile ? "01" + formData.guardian_mobile : "",
-    };
-    
-    // এরর হ্যান্ডলিং (Database Constraint Error Check)
-    const { data, error } = await supabase.from("students").insert([payload]).select();
-    
-    if (error) {
-        if (error.code === '23505') { // Unique Violation Code
-            alert("এই শিক্ষার্থী ইতিমধ্যে ডাটাবেসে আছে (জন্ম নিবন্ধন বা স্টুডেন্ট আইডি ডুপ্লিকেট)।");
-        } else {
-            alert("সেভ করা যায়নি: " + error.message);
-        }
-    } else {
-        if(data) setCreatedStudentId(data[0].id);
-        setShowSuccessModal(true);
+
+    let attempts = 0;
+    let success = false;
+    let finalID = "";
+
+    while (!success && attempts < 3) {
+      finalID = await generateID();
+      const payload = {
+        ...formData,
+        // সেইফটি: খালি স্ট্রিং থাকলে null পাঠান (যদি ডাটাবেস এরর দেয়)
+        dob: formData.dob || null, 
+        student_id: finalID,
+        roll_number: formData.roll_number || null,
+        branch_id: parseInt(formData.branch_id),
+        academic_year: parseInt(formData.academic_year),
+        father_alive: formData.father_alive === "yes",
+        mother_alive: formData.mother_alive === "yes",
+        father_mobile: formData.father_mobile ? "01" + formData.father_mobile : "",
+        mother_mobile: formData.mother_mobile ? "01" + formData.mother_mobile : "",
+        guardian_mobile: formData.guardian_mobile ? "01" + formData.guardian_mobile : "",
+      };
+      
+      // এরর হ্যান্ডলিং (Database Constraint Error Check)
+      const { data, error } = await supabase.from("students").insert([payload]).select();
+      
+      if (error) {
+          if (error.code === '23505') { // Unique Violation Code
+              // If it's a student_id duplication, we can retry. If it's birth_reg_no, we should stop and alert.
+              if(error.message && error.message.includes('birth_reg_no')) {
+                  alert("এই জন্ম নিবন্ধন দিয়ে ইতিমধ্যে শিক্ষার্থী ভর্তি আছে।");
+                  break;
+              }
+              attempts++;
+              continue; // Try again with a new ID
+          } else {
+              alert("সেভ করা যায়নি: " + error.message);
+              break;
+          }
+      } else {
+          success = true;
+          if(data) setCreatedStudentId(data[0].id);
+          setShowSuccessModal(true);
+      }
     }
+    
+    if(!success && attempts >= 3) {
+       alert("কয়েকবার চেষ্টার পরও ইউনিক আইডি তৈরি করা যায়নি। দয়া করে আবার চেষ্টা করুন।");
+    }
+    
     setLoading(false);
   };
 
