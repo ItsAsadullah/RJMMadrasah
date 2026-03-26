@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Users, ChevronLeft, ArrowRight, Eye, CheckCircle, Search, X } from "lucide-react";
+import { Plus, Users, ChevronLeft, ArrowRight, Eye, CheckCircle, Search, X, Filter } from "lucide-react";
 import Link from "next/link";
 
 export default function ClassDashboard({ params }: { params: Promise<{ branchId: string, year: string, classId: string }> }) {

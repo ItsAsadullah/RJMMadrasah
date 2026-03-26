@@ -50,7 +50,7 @@ export default function ClassSubjectSetup({ branchId, classId }: { branchId: str
 
   const [modalSearch, setModalSearch] = useState("");
   const [selectedSubjects, setSelectedSubjects] = useState<{
-    [code: number]: { selected: boolean; full: number; pass: number; type: string };
+    [code: number]: { selected: boolean; full: number; pass: number; type: string; name?: string; codeStr?: string };
   }>({});
   const [editableExisting, setEditableExisting] = useState<{ [id: string]: ExistingEditable }>({});
   const [manualRows, setManualRows] = useState<ManualRow[]>([
