@@ -19,7 +19,7 @@ type Student = {
   id: string;
   name_bn: string;
   student_id: string;
-  roll_no: string;
+  roll_number?: string;
   class_name: string;
   department: string;
   father_mobile: string;
@@ -116,7 +116,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
         const studentData = [
           student.student_id || "N/A",
           student.name_bn,
-          `${student.class_name} (${student.roll_no || '-'})`,
+          `${student.class_name} (${student.roll_number || student.roll_no || '-'})`,
           student.department || "-",
           student.branches?.name || "-",
       ];
@@ -233,7 +233,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
                   </TableCell>
                   <TableCell>
                     <span className="badge bg-gray-100 px-2 py-0.5 rounded text-xs font-medium">{student.class_name}</span>
-                    <div className="text-xs text-gray-500 mt-1">রোল: {student.roll_no || "-"}</div>
+                    <div className="text-xs text-gray-500 mt-1">রোল: {student.roll_number || student.roll_no || "-"}</div>
                   </TableCell>
                   <TableCell>
                     <span className="text-sm text-gray-600">{student.department || "-"}</span>

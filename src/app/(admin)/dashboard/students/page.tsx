@@ -30,7 +30,7 @@ export default function StudentManagement() {
       setLoading(true);
       const { data, error } = await supabase
         .from("students")
-        .select("*, branches(name)")
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) console.error("Error fetching students:", error);
@@ -204,9 +204,9 @@ export default function StudentManagement() {
                   {loading ? (
                       <div className="flex justify-center py-20"><Loader2 className="animate-spin text-green-600 w-10 h-10" /></div>
                   ) : (
-                      <StudentTable 
-                          data={activeStudents} 
-                          onEdit={handleEdit} 
+                      <StudentTable
+                          data={activeStudents.map(s => ({ ...s, branches: { name: branches.find(b => String(b.id) === String(s.branch_id))?.name || "-" } }))}
+                          onEdit={handleEdit}
                           onDelete={handleDelete}
                           onBulkDelete={handleBulkDelete}
                       />
@@ -221,9 +221,9 @@ export default function StudentManagement() {
                           কোনো অপেক্ষমাণ শিক্ষার্থী নেই
                       </div>
                   ) : (
-                      <StudentTable 
-                          data={pendingStudents} 
-                          onEdit={handleEdit} 
+                      <StudentTable
+                          data={pendingStudents.map(s => ({ ...s, branches: { name: branches.find(b => String(b.id) === String(s.branch_id))?.name || "-" } }))}
+                          onEdit={handleEdit}
                           onDelete={handleDelete}
                           onBulkDelete={handleBulkDelete}
                       />
