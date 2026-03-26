@@ -290,12 +290,11 @@ export default function AcademicSettings() {
       <h1 className="text-2xl font-bold text-gray-800">একাডেমিক সেটিংস</h1>
 
       <Tabs defaultValue="branches" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 max-w-4xl">
+        <TabsList className="grid w-full grid-cols-4 max-w-4xl">
           <TabsTrigger value="branches">শাখা</TabsTrigger>
           <TabsTrigger value="departments">বিভাগ</TabsTrigger>
           <TabsTrigger value="classes">শ্রেণি</TabsTrigger>
           <TabsTrigger value="subjects">বিষয়</TabsTrigger>
-          <TabsTrigger value="exams">পরীক্ষা</TabsTrigger>
         </TabsList>
 
         {/* --- Branches Tab --- */}
@@ -562,66 +561,6 @@ export default function AcademicSettings() {
               বিষয় সেটআপ দেখতে শাখা, শিক্ষাবর্ষ এবং ক্লাস নির্বাচন করুন।
             </div>
           )}
-        </TabsContent>
-
-        {/* --- Exam Management Tab --- */}
-        <TabsContent value="exams" className="space-y-6 mt-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-blue-600" /> {editingExam ? "পরীক্ষা হালনাগাদ করুন" : "নতুন পরীক্ষা তৈরি করুন"}
-            </h3>
-            <div className="flex gap-4 items-end">
-              <div className="space-y-1 flex-1">
-                <label className="text-sm font-medium">পরীক্ষার নাম</label>
-                <Input placeholder="উদাঃ বার্ষিক পরীক্ষা" value={newExam.name} onChange={(e) => setNewExam({ ...newExam, name: e.target.value })} />
-              </div>
-              <div className="space-y-1 w-32">
-                <label className="text-sm font-medium">সাল</label>
-                <Input type="number" value={newExam.year} onChange={(e) => setNewExam({ ...newExam, year: e.target.value })} />
-              </div>
-              <div className="flex gap-2">
-                  {editingExam && (
-                      <Button variant="outline" onClick={() => { setEditingExam(null); setNewExam({ name: "", year: new Date().getFullYear().toString() }); }} className="text-gray-500">
-                          বাতিল
-                      </Button>
-                  )}
-                  <Button onClick={handleAddExam} disabled={loading} className="bg-blue-600 hover:bg-blue-700">
-                    {editingExam ? <><Save className="w-4 h-4 mr-2"/> আপডেট করুন</> : <><Save className="w-4 h-4 mr-2"/> সেভ করুন</>}
-                  </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <h4 className="font-bold mb-4">পরীক্ষার তালিকা</h4>
-            {/* Filter Bar */}
-            <div className="flex flex-wrap gap-3 items-center mb-4 p-3 bg-gray-50 rounded-lg border">
-                <Input type="number" value={filterExamYear} onChange={e => setFilterExamYear(e.target.value)} placeholder="সাল দিয়ে ফিল্টার" className="h-9 w-36" />
-                <div className="relative flex-1 max-w-xs">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input value={filterExamName} onChange={e => setFilterExamName(e.target.value)} placeholder="পরীক্ষার নাম..." className="pl-9 h-9" />
-                </div>
-                {(filterExamYear || filterExamName) && <Button size="sm" variant="ghost" onClick={() => { setFilterExamYear(""); setFilterExamName(""); }} className="text-gray-500 h-9"><X className="w-4 h-4 mr-1"/>রিসেট</Button>}
-                <span className="text-xs text-gray-400 ml-auto">{filteredExams.length}/{exams.length} পরীক্ষা</span>
-            </div>
-            <div className="space-y-2">
-              {filteredExams.map((exam) => (
-                <div key={exam.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50">
-                  <div>
-                    <p className="font-bold text-gray-800">{exam.title}</p>
-                    <p className="text-xs text-gray-500">{exam.academic_year} সাল</p>
-                  </div>
-                  <div>
-                      <Button size="icon" variant="ghost" onClick={() => handleEditExam(exam)} className="text-blue-500 mr-2"><Edit className="w-4 h-4"/></Button>
-                      <Button size="icon" variant="ghost" onClick={() => handleDeleteExam(exam.id)} className="text-red-500">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                  </div>
-                </div>
-              ))}
-              {filteredExams.length === 0 && <p className="text-center py-6 text-gray-400 italic">কোনো পরীক্ষা পাওয়া যায়নি।</p>}
-            </div>
-          </div>
         </TabsContent>
       </Tabs>
     </div>
