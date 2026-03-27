@@ -149,6 +149,8 @@ export default function AdminStudentAdd() {
   const [dbBranches, setDbBranches] = useState<any[]>([]);
   const [dbDepartments, setDbDepartments] = useState<any[]>([]);
   const [dbClasses, setDbClasses] = useState<any[]>([]);
+  const [rollStats, setRollStats] = useState({ count: 0, maxRoll: 0 });
+  const [rollStatsLoading, setRollStatsLoading] = useState(false);
 
   useEffect(() => {
     const fetchAcademicData = async () => {
@@ -219,6 +221,44 @@ export default function AdminStudentAdd() {
       setFormData(prev => ({ ...prev, residential_status: "non_residential" }));
     }
   }, [selectedClass, formData.residential_status]);
+
+  useEffect(() => {
+    const fetchRollStats = async () => {
+      if (!formData.branch_id || !formData.department || !formData.class_name || !formData.academic_year) {
+        setRollStats({ count: 0, maxRoll: 0 });
+        return;
+      }
+
+      setRollStatsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("students")
+          .select("roll_number")
+          .eq("branch_id", parseInt(formData.branch_id))
+          .eq("department", formData.department)
+          .eq("class_name", formData.class_name)
+          .eq("academic_year", parseInt(formData.academic_year));
+
+        if (error) {
+          console.error("Error fetching roll stats:", error);
+          setRollStats({ count: 0, maxRoll: 0 });
+        } else {
+          const rolls = (data || [])
+            .map(item => Number(item.roll_number))
+            .filter(num => Number.isFinite(num) && num > 0);
+
+          setRollStats({
+            count: rolls.length,
+            maxRoll: rolls.length ? Math.max(...rolls) : 0,
+          });
+        }
+      } finally {
+        setRollStatsLoading(false);
+      }
+    };
+
+    fetchRollStats();
+  }, [formData.branch_id, formData.department, formData.class_name, formData.academic_year]);
 
   const generateID = async (): Promise<string> => {
     if (!formData.academic_year) {
@@ -556,7 +596,26 @@ export default function AdminStudentAdd() {
                     ))}
                   </select>
                </div>
-               <InputGroup label="রোল নম্বর" name="roll_number" value={formData.roll_number} onChange={handleChange} placeholder="যেমন: ১২" />
+               <div className="space-y-1">
+                  {formData.branch_id && formData.department && formData.class_name && formData.academic_year ? (
+                    <p className="text-[11px] text-slate-500 px-1">
+                      {rollStatsLoading
+                        ? "এই শ্রেণির রোল তথ্য লোড হচ্ছে..."
+                        : rollStats.count > 0
+                          ? `এই শ্রেণিতে ইতিপূর্বে ${rollStats.count}টি রোল রয়েছে (সর্বশেষ: ${rollStats.maxRoll})`
+                          : "এই শ্রেণিতে এখনো কোনো রোল নম্বর দেওয়া হয়নি"}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-slate-400 px-1">রোল নম্বরের তথ্য দেখতে আগে শাখা, বিভাগ, শ্রেণি ও শিক্ষাবর্ষ সিলেক্ট করুন</p>
+                  )}
+                  <InputGroup
+                    label="রোল নম্বর"
+                    name="roll_number"
+                    value={formData.roll_number}
+                    onChange={handleChange}
+                    placeholder={rollStats.maxRoll > 0 ? `যেমন: ${rollStats.maxRoll + 1}` : "যেমন: ১২"}
+                  />
+               </div>
             </div>
         </div>
 
