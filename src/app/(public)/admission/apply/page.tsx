@@ -28,6 +28,13 @@ const relations = ["পিতা", "মাতা", "চাচা", "চাচী
 const days = Array.from({ length: 31 }, (_, i) => i + 1);
 const months = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
 const years = Array.from({ length: 25 }, (_, i) => new Date().getFullYear() - i);
+const DIGIT_MAP: Record<string, string> = {
+  "০": "0", "১": "1", "২": "2", "৩": "3", "৪": "4",
+  "৫": "5", "৬": "6", "৭": "7", "৮": "8", "৯": "9",
+  "٠": "0", "١": "1", "٢": "2", "٣": "3", "٤": "4",
+  "٥": "5", "٦": "6", "٧": "7", "٨": "8", "٩": "9",
+};
+const normalizeDigits = (text: string) => text.replace(/[০-৯٠-٩]/g, d => DIGIT_MAP[d] ?? d);
 
 // --- কম্পোনেন্টস ---
 const SectionHeader = ({ icon: Icon, title, step }: { icon: any, title: string, step: string }) => (
@@ -158,15 +165,32 @@ export default function PublicAdmissionPage() {
 
   const academicYearOptions = Array.from(
     new Set(
-      [
-        ...dbClasses
-          .filter(c => !formData.branch_id || String(c.branch_id) === String(formData.branch_id))
-          .map(c => String(c.academic_year || ""))
-          .filter(Boolean),
-        formData.academic_year || String(new Date().getFullYear())
-      ]
+      dbClasses
+        .filter(c => !formData.branch_id || String(c.branch_id) === String(formData.branch_id))
+        .map(c => String(c.academic_year || ""))
+        .filter(Boolean)
     )
   ).sort((a, b) => Number(b) - Number(a));
+
+  useEffect(() => {
+    if (!formData.branch_id) {
+      if (formData.academic_year !== "") {
+        setFormData(prev => ({ ...prev, academic_year: "" }));
+      }
+      return;
+    }
+
+    if (academicYearOptions.length === 0) {
+      if (formData.academic_year !== "") {
+        setFormData(prev => ({ ...prev, academic_year: "" }));
+      }
+      return;
+    }
+
+    if (!academicYearOptions.includes(formData.academic_year)) {
+      setFormData(prev => ({ ...prev, academic_year: academicYearOptions[0] }));
+    }
+  }, [formData.branch_id, formData.academic_year, academicYearOptions]);
 
   useEffect(() => { setIsClient(true); }, []);
 
@@ -290,20 +314,21 @@ export default function PublicAdmissionPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    if ((name.includes("mobile") || name.includes("nid") || name.includes("reg_no")) && isNaN(Number(value))) return;
+    const normalizedValue = normalizeDigits(value);
+    if ((name.includes("mobile") || name.includes("nid") || name.includes("reg_no")) && isNaN(Number(normalizedValue))) return;
     setFormData(prev => {
-      const updated = { ...prev, [name]: value };
-      if (sameAddress && name.startsWith("present_")) updated[`perm_${name.replace("present_", "")}` as keyof typeof formData] = value;
+      const updated = { ...prev, [name]: normalizedValue };
+      if (sameAddress && name.startsWith("present_")) updated[`perm_${name.replace("present_", "")}` as keyof typeof formData] = normalizedValue;
       return updated;
     });
 
-    if (name === "present_division") setFormData(prev => ({ ...prev, present_division: value, present_district: "", present_upazila: "", present_union: "" }));
-    if (name === "present_district") setFormData(prev => ({ ...prev, present_district: value, present_upazila: "", present_union: "" }));
-    if (name === "present_upazila") setFormData(prev => ({ ...prev, present_upazila: value, present_union: "" }));
+    if (name === "present_division") setFormData(prev => ({ ...prev, present_division: normalizedValue, present_district: "", present_upazila: "", present_union: "" }));
+    if (name === "present_district") setFormData(prev => ({ ...prev, present_district: normalizedValue, present_upazila: "", present_union: "" }));
+    if (name === "present_upazila") setFormData(prev => ({ ...prev, present_upazila: normalizedValue, present_union: "" }));
     
-    if (name === "perm_division") setFormData(prev => ({ ...prev, perm_division: value, perm_district: "", perm_upazila: "", perm_union: "" }));
-    if (name === "perm_district") setFormData(prev => ({ ...prev, perm_district: value, perm_upazila: "", perm_union: "" }));
-    if (name === "perm_upazila") setFormData(prev => ({ ...prev, perm_upazila: value, perm_union: "" }));
+    if (name === "perm_division") setFormData(prev => ({ ...prev, perm_division: normalizedValue, perm_district: "", perm_upazila: "", perm_union: "" }));
+    if (name === "perm_district") setFormData(prev => ({ ...prev, perm_district: normalizedValue, perm_upazila: "", perm_union: "" }));
+    if (name === "perm_upazila") setFormData(prev => ({ ...prev, perm_upazila: normalizedValue, perm_union: "" }));
 
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
   };
@@ -372,6 +397,7 @@ export default function PublicAdmissionPage() {
       if (duplicateStudent) return alert("ডুপ্লিকেট শিক্ষার্থী!");
       if (Object.values(errors).some(e => e)) return alert("অনুগ্রহ করে এররগুলো সংশোধন করুন।");
       if (!formData.name_bn || !formData.guardian_mobile || !formData.dob) return alert("আবশ্যকীয় তথ্য দিন।");
+      if (!formData.academic_year) return alert("নির্বাচিত শাখার জন্য কোনো শিক্ষাবর্ষ চালু নেই। আগে শিক্ষাবর্ষ চালু করুন।");
 
       setViewState('preview');
       window.scrollTo(0, 0);
@@ -575,7 +601,7 @@ export default function PublicAdmissionPage() {
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                     <div className="space-y-1.5">
                         <label className="text-sm font-semibold text-slate-700">শাখা <span className="text-red-500">*</span></label>
-                        <select name="branch_id" value={formData.branch_id} onChange={(e) => setFormData({...formData, branch_id: e.target.value, department: "", class_name: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                        <select name="branch_id" value={formData.branch_id} onChange={(e) => setFormData({...formData, branch_id: e.target.value, department: "", class_name: "", academic_year: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
                             <option value="">সিলেক্ট করুন</option>
                             {dbBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                         </select>
@@ -614,9 +640,10 @@ export default function PublicAdmissionPage() {
                           value={formData.academic_year}
                           onChange={handleChange}
                           required
+                          disabled={!formData.branch_id || academicYearOptions.length === 0}
                           className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
                         >
-                          <option value="">সিলেক্ট করুন</option>
+                          <option value="">{!formData.branch_id ? "আগে শাখা সিলেক্ট করুন" : academicYearOptions.length === 0 ? "এই শাখায় শিক্ষাবর্ষ চালু নেই" : "সিলেক্ট করুন"}</option>
                           {academicYearOptions.map(y => (
                             <option key={y} value={y}>{y}</option>
                           ))}

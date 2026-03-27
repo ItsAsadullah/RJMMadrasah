@@ -26,6 +26,13 @@ const relations = ["চাচা", "চাচী", "মামা", "মামী
 const days = Array.from({ length: 31 }, (_, i) => i + 1);
 const months = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
 const years = Array.from({ length: 25 }, (_, i) => new Date().getFullYear() - i);
+const DIGIT_MAP: Record<string, string> = {
+  "০": "0", "১": "1", "২": "2", "৩": "3", "৪": "4",
+  "৫": "5", "৬": "6", "৭": "7", "৮": "8", "৯": "9",
+  "٠": "0", "١": "1", "٢": "2", "٣": "3", "٤": "4",
+  "٥": "5", "٦": "6", "٧": "7", "٨": "8", "٩": "9",
+};
+const normalizeDigits = (text: string) => text.replace(/[০-৯٠-٩]/g, d => DIGIT_MAP[d] ?? d);
 
 // --- কাস্টম ইনপুট কম্পোনেন্ট ---
 const InputGroup = ({ label, name, value, onChange, onBlur, type = "text", placeholder = "", required = false, readOnly = false, error, className = "" }: any) => (
@@ -319,10 +326,11 @@ export default function AdminStudentAdd() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    if ((name.includes("mobile") || name.includes("nid") || name.includes("reg_no")) && isNaN(Number(value))) return;
+    const normalizedValue = normalizeDigits(value);
+    if ((name.includes("mobile") || name.includes("nid") || name.includes("reg_no")) && isNaN(Number(normalizedValue))) return;
     setFormData(prev => {
-      const updated = { ...prev, [name]: value };
-      if (sameAddress && name.startsWith("present_")) updated[`perm_${name.replace("present_", "")}` as keyof typeof formData] = value;
+      const updated = { ...prev, [name]: normalizedValue };
+      if (sameAddress && name.startsWith("present_")) updated[`perm_${name.replace("present_", "")}` as keyof typeof formData] = normalizedValue;
       return updated;
     });
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
@@ -596,18 +604,7 @@ export default function AdminStudentAdd() {
                     ))}
                   </select>
                </div>
-               <div className="space-y-1">
-                  {formData.branch_id && formData.department && formData.class_name && formData.academic_year ? (
-                    <p className="text-[11px] text-slate-500 px-1">
-                      {rollStatsLoading
-                        ? "এই শ্রেণির রোল তথ্য লোড হচ্ছে..."
-                        : rollStats.count > 0
-                          ? `এই শ্রেণিতে ইতিপূর্বে ${rollStats.count}টি রোল রয়েছে (সর্বশেষ: ${rollStats.maxRoll})`
-                          : "এই শ্রেণিতে এখনো কোনো রোল নম্বর দেওয়া হয়নি"}
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-slate-400 px-1">রোল নম্বরের তথ্য দেখতে আগে শাখা, বিভাগ, শ্রেণি ও শিক্ষাবর্ষ সিলেক্ট করুন</p>
-                  )}
+               <div className="space-y-1.5">
                   <InputGroup
                     label="রোল নম্বর"
                     name="roll_number"
@@ -615,6 +612,17 @@ export default function AdminStudentAdd() {
                     onChange={handleChange}
                     placeholder={rollStats.maxRoll > 0 ? `যেমন: ${rollStats.maxRoll + 1}` : "যেমন: ১২"}
                   />
+                  {formData.branch_id && formData.department && formData.class_name && formData.academic_year ? (
+                    <p className="text-[10px] text-slate-400 px-1 leading-tight">
+                      {rollStatsLoading
+                        ? "রোল তথ্য লোড হচ্ছে..."
+                        : rollStats.count > 0
+                          ? `এই শ্রেণিতে ${rollStats.count}টি রোল আছে (সর্বশেষ: ${rollStats.maxRoll})`
+                          : "এই শ্রেণিতে এখনো কোনো রোল নম্বর দেওয়া হয়নি"}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-slate-300 px-1 leading-tight">রোল তথ্য দেখতে আগে শাখা, বিভাগ, শ্রেণি ও শিক্ষাবর্ষ সিলেক্ট করুন</p>
+                  )}
                </div>
             </div>
         </div>
