@@ -9,7 +9,7 @@ import {
 import { 
   Loader2, Save, School, UploadCloud, User, FileText, 
   RefreshCw, AlertTriangle, CheckCircle, Printer, Download, X, 
-  MapPin, CheckCircle2, ChevronRight, GraduationCap, Users, Shield, Crop, ZoomIn, ZoomOut
+  MapPin, CheckCircle2, ChevronRight, GraduationCap, Users, Shield, Crop, ZoomIn, ZoomOut, ArrowLeft
 } from "lucide-react";
 import { divisions, districts, upazilas } from "@/data/bangladesh-data";
 import { differenceInYears, differenceInMonths, differenceInDays } from "date-fns";
@@ -184,10 +184,15 @@ export default function AdminStudentEdit() {
           .single();
         if (error) throw error;
         if (data) {
-          setFormData({
-            ...data,
+          setFormData(prev => ({
+            ...prev,
+            ...Object.fromEntries(
+              Object.entries(data).map(([key, value]) => [key, value ?? ""])
+            ),
+            branch_id: data.branch_id ? String(data.branch_id) : "",
             academic_year: String(data.academic_year || new Date().getFullYear()),
-          });
+            roll_number: String(data.roll_number || data.roll_no || ""),
+          }));
           setStudentIdForDisplay(data.student_id);
           setGeneratedID(data.student_id);
           if (data.dob) {
@@ -462,7 +467,9 @@ export default function AdminStudentEdit() {
       } else {
           success = true;
           if(data) setCreatedStudentId(data[0].id);
-          setShowSuccessModal(true);
+          setLoading(false);
+          router.push('/dashboard/students');
+          return;
       }
     }
     
@@ -480,6 +487,15 @@ return (
       {/* Header Card */}
       <div className="bg-gradient-to-r from-green-50 to-white p-6 rounded-2xl shadow-sm border border-green-100 flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push('/dashboard/students')}
+            className="mb-3 border-green-200 text-green-700 hover:bg-green-50"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            শিক্ষার্থী ব্যবস্থাপনায় ফিরে যান
+          </Button>
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
             <div className="p-2 bg-green-600 rounded-lg text-white"><School className="w-6 h-6" /></div>
             শিক্ষার্থীর তথ্য আপডেট
