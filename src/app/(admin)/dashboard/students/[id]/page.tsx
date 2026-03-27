@@ -422,7 +422,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
               <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2 hidden md:flex">
                   <Printer className="w-4 h-4" /> প্রিন্ট প্রোফাইল
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)} className="gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200">
+                <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/students/edit/${id}`)} className="gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200">
                   <Edit className="w-4 h-4" /> তথ্য সংশোধন
               </Button>
               {student.status === 'active' ? (
