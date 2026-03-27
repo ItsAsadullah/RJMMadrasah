@@ -179,16 +179,33 @@ export default function AdminStudentAdd() {
 
   const academicYearOptions = Array.from(
     new Set(
-      [
-        ...dbClasses
-          .filter(c => !formData.branch_id || String(c.branch_id) === String(formData.branch_id))
-          .map(c => String(c.academic_year || ""))
-          .filter(Boolean),
-        formData.academic_year || String(new Date().getFullYear())
-      ]
+      dbClasses
+        .filter(c => !formData.branch_id || String(c.branch_id) === String(formData.branch_id))
+        .map(c => String(c.academic_year || ""))
+        .filter(Boolean)
     )
   )
     .sort((a, b) => Number(b) - Number(a));
+
+  useEffect(() => {
+    if (!formData.branch_id) {
+      if (formData.academic_year !== "") {
+        setFormData(prev => ({ ...prev, academic_year: "" }));
+      }
+      return;
+    }
+
+    if (academicYearOptions.length === 0) {
+      if (formData.academic_year !== "") {
+        setFormData(prev => ({ ...prev, academic_year: "" }));
+      }
+      return;
+    }
+
+    if (!academicYearOptions.includes(formData.academic_year)) {
+      setFormData(prev => ({ ...prev, academic_year: academicYearOptions[0] }));
+    }
+  }, [formData.branch_id, academicYearOptions, formData.academic_year]);
 
   const generateID = async (): Promise<string> => {
     const yearPrefix = formData.academic_year.slice(-2);
@@ -385,6 +402,7 @@ export default function AdminStudentAdd() {
     if (duplicateStudent) return alert("ডুপ্লিকেট শিক্ষার্থী! জন্ম নিবন্ধন নম্বর চেক করুন।");
     if (Object.values(errors).some(e => e)) return alert("অনুগ্রহ করে এররগুলো সংশোধন করুন।");
     if (!formData.name_bn || !formData.guardian_mobile) return alert("আবশ্যকীয় তথ্য দিন।");
+    if (!formData.academic_year) return alert("নির্বাচিত শাখার জন্য কোনো শিক্ষাবর্ষ চালু নেই। আগে শিক্ষাবর্ষ চালু করুন।");
 
     // ফিক্স: জন্ম তারিখ চেক (Date Check)
     if (!formData.dob) {
@@ -474,7 +492,7 @@ export default function AdminStudentAdd() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
                <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-slate-700">শাখা <span className="text-red-500">*</span></label>
-                  <select name="branch_id" value={formData.branch_id} onChange={(e) => setFormData({...formData, branch_id: e.target.value, department: "", class_name: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                  <select name="branch_id" value={formData.branch_id} onChange={(e) => setFormData({...formData, branch_id: e.target.value, department: "", class_name: "", academic_year: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
                      <option value="">সিলেক্ট করুন</option>
                      {dbBranches.length > 0
                        ? dbBranches.map(b => <option key={b.id} value={String(b.id)}>{b.name}</option>)
@@ -515,9 +533,10 @@ export default function AdminStudentAdd() {
                     value={formData.academic_year}
                     onChange={handleChange}
                     required
+                    disabled={!formData.branch_id || academicYearOptions.length === 0}
                     className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
                   >
-                    <option value="">সিলেক্ট করুন</option>
+                    <option value="">{!formData.branch_id ? "আগে শাখা সিলেক্ট করুন" : academicYearOptions.length === 0 ? "এই শাখায় শিক্ষাবর্ষ চালু নেই" : "সিলেক্ট করুন"}</option>
                     {academicYearOptions.map(y => (
                       <option key={y} value={y}>{y}</option>
                     ))}
