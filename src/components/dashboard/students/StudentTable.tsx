@@ -20,6 +20,7 @@ type Student = {
   name_bn: string;
   student_id: string;
   roll_number?: string;
+  roll_no?: string;
   class_name: string;
   department: string;
   father_mobile: string;
