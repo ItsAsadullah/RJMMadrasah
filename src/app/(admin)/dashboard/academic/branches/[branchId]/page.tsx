@@ -47,6 +47,16 @@ export default function AcademicYearPage({ params }: { params: Promise<{ branchI
   const [deleteYear, setDeleteYear] = useState<number | null>(null);
   const [password, setPassword] = useState("");
 
+  const yearOptions = Array.from(
+    new Set([
+      ...yearsData.map(y => y.year),
+      currentYear,
+      currentYear + 1,
+      currentYear + 2,
+      currentYear + 3,
+    ])
+  ).sort((a, b) => b - a);
+
   async function fetchData() {
     setLoading(true);
     // ১. ব্রাঞ্চ তথ্য
@@ -313,13 +323,16 @@ export default function AcademicYearPage({ params }: { params: Promise<{ branchI
             
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-gray-700">শিক্ষাবর্ষ (Year)</label>
-              <Input 
-                type="number" 
-                value={formData.academic_year} 
-                onChange={(e) => setFormData({...formData, academic_year: parseInt(e.target.value)})} 
-                required 
-                className="font-bold text-lg h-12 text-center bg-gray-50 focus:bg-white"
-              />
+              <select
+                value={formData.academic_year}
+                onChange={(e) => setFormData({ ...formData, academic_year: parseInt(e.target.value) })}
+                required
+                className="w-full h-12 px-3 border border-gray-300 rounded-md bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-500 font-bold text-lg text-center"
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -369,13 +382,16 @@ export default function AcademicYearPage({ params }: { params: Promise<{ branchI
           <form onSubmit={handleUpdateYear} className="space-y-4 mt-2">
             <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">নতুন শিক্ষাবর্ষ (Year)</label>
-                <Input 
-                  type="number" 
-                  value={editingYear?.new} 
-                  onChange={(e) => setEditingYear(prev => prev ? ({...prev, new: parseInt(e.target.value)}) : null)} 
-                  required 
-                  className="font-bold text-lg text-center"
-                />
+                <select
+                  value={editingYear?.new || currentYear}
+                  onChange={(e) => setEditingYear(prev => prev ? ({ ...prev, new: parseInt(e.target.value) }) : null)}
+                  required
+                  className="w-full h-11 px-3 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-green-500 font-bold text-lg text-center"
+                >
+                  {yearOptions.map((year) => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
             </div>
             <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>বাতিল</Button>
