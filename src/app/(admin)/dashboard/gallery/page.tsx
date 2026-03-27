@@ -40,6 +40,9 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 
+const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dfo1slmdy";
+const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "rahima_preset";
+
 type GalleryItem = {
   id: string;
   title: string;
@@ -124,27 +127,35 @@ export default function GalleryManagement() {
     else setUploading(true);
 
     const file = e.target.files[0];
-    const fileExt = file.name.split('.').pop();
-    const fileName = `gallery/${Date.now()}_${Math.random()}.${fileExt}`;
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", file);
+      formDataUpload.append("upload_preset", UPLOAD_PRESET);
+      formDataUpload.append("folder", "gallery");
 
-    const { error } = await supabase.storage.from("images").upload(fileName, file);
-    
-    if (error) {
-      console.error("Upload error:", error);
-      alert("ফাইল আপলোড হয়নি! (নিশ্চিত করুন 'images' বাকেট তৈরি আছে)");
-    } else {
-      const { data } = supabase.storage.from("images").getPublicUrl(fileName);
-      if (isThumbnail) {
-        setFormData(prev => ({ ...prev, thumbnail_url: data.publicUrl }));
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+        method: "POST",
+        body: formDataUpload,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.secure_url) {
+        console.error("Cloudinary upload error:", data);
+        alert("ফাইল আপলোড হয়নি! Cloudinary configuration চেক করুন।");
       } else {
-        // If uploading main image, set URL and also set thumbnail if empty
-        setFormData(prev => ({ 
-            ...prev, 
-            url: data.publicUrl,
-            // If it's an image, we can use the same URL as thumbnail by default
-            thumbnail_url: prev.type === 'image' && !prev.thumbnail_url ? data.publicUrl : prev.thumbnail_url 
-        }));
+        if (isThumbnail) {
+          setFormData(prev => ({ ...prev, thumbnail_url: data.secure_url }));
+        } else {
+          setFormData(prev => ({
+            ...prev,
+            url: data.secure_url,
+            thumbnail_url: prev.type === 'image' && !prev.thumbnail_url ? data.secure_url : prev.thumbnail_url,
+          }));
+        }
       }
+    } catch (error) {
+      console.error("Cloudinary upload exception:", error);
+      alert("ফাইল আপলোড হয়নি! Cloudinary configuration চেক করুন।");
     }
     
     if (isThumbnail) setThumbUploading(false);
