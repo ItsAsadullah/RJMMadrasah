@@ -150,6 +150,18 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
     const [dbDepartments, setDbDepartments] = useState<any[]>([]);
     const [dbClasses, setDbClasses] = useState<any[]>([]);
 
+    const academicYearOptions = Array.from(
+      new Set(
+        [
+          ...dbClasses
+            .filter(c => !editFormData.branch_id || String(c.branch_id) === String(editFormData.branch_id))
+            .map(c => String(c.academic_year || ""))
+            .filter(Boolean),
+          editFormData.academic_year || String(new Date().getFullYear())
+        ]
+      )
+    ).sort((a, b) => Number(b) - Number(a));
+
     async function fetchAllData() {
       setLoading(true);
       const { data: stu } = await supabase.from("students").select("*").eq("id", id).single();
@@ -192,7 +204,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
       const fetchAcademicData = async () => {
         const { data: b } = await supabase.from("branches").select("id, name");
         const { data: d } = await supabase.from("departments").select("id, name, branch_id");
-        const { data: c } = await supabase.from("academic_classes").select("id, name, branch_id, department_id, allow_residential");
+        const { data: c } = await supabase.from("academic_classes").select("id, name, branch_id, department_id, allow_residential, academic_year");
         if (b) setDbBranches(b);
         if (d) setDbDepartments(d);
         if (c) setDbClasses(c);
@@ -568,7 +580,20 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                             }).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                           </select>
                         </div>
-                        <InputGroup label="শিক্ষাবর্ষ" name="academic_year" value={editFormData.academic_year} onChange={handleEditChange} type="number" />
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-semibold text-slate-700">শিক্ষাবর্ষ</label>
+                          <select
+                            name="academic_year"
+                            value={editFormData.academic_year || ""}
+                            onChange={handleEditChange}
+                            className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                          >
+                            <option value="">সিলেক্ট করুন</option>
+                            {academicYearOptions.map(y => (
+                              <option key={y} value={y}>{y}</option>
+                            ))}
+                          </select>
+                        </div>
                         <InputGroup label="রোল নম্বর" name="roll_number" value={editFormData.roll_number} onChange={handleEditChange} placeholder="যেমন: ১২" />
                      </div>
                   </div>

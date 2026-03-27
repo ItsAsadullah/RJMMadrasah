@@ -155,7 +155,7 @@ export default function AdminStudentAdd() {
       try {
         const { data: b } = await supabase.from("branches").select("id, name");
         const { data: d } = await supabase.from("departments").select("id, name, branch_id");
-        const { data: c } = await supabase.from("academic_classes").select("id, name, branch_id, department_id, allow_residential");
+        const { data: c } = await supabase.from("academic_classes").select("id, name, branch_id, department_id, allow_residential, academic_year");
         if (b) setDbBranches(b);
         if (d) setDbDepartments(d);
         if (c) setDbClasses(c);
@@ -176,6 +176,19 @@ export default function AdminStudentAdd() {
     present_division: "", present_district: "", present_upazila: "", present_union: "", present_village: "", present_postcode: "",
     perm_division: "", perm_district: "", perm_upazila: "", perm_union: "", perm_village: "", perm_postcode: "",
   });
+
+  const academicYearOptions = Array.from(
+    new Set(
+      [
+        ...dbClasses
+          .filter(c => !formData.branch_id || String(c.branch_id) === String(formData.branch_id))
+          .map(c => String(c.academic_year || ""))
+          .filter(Boolean),
+        formData.academic_year || String(new Date().getFullYear())
+      ]
+    )
+  )
+    .sort((a, b) => Number(b) - Number(a));
 
   const generateID = async (): Promise<string> => {
     const yearPrefix = formData.academic_year.slice(-2);
@@ -495,7 +508,21 @@ export default function AdminStudentAdd() {
                      })()}
                   </select>
                </div>
-               <InputGroup label="শিক্ষাবর্ষ" name="academic_year" value={formData.academic_year} onChange={handleChange} type="number" required />
+               <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700">শিক্ষাবর্ষ <span className="text-red-500">*</span></label>
+                  <select
+                    name="academic_year"
+                    value={formData.academic_year}
+                    onChange={handleChange}
+                    required
+                    className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
+                  >
+                    <option value="">সিলেক্ট করুন</option>
+                    {academicYearOptions.map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+               </div>
                <InputGroup label="রোল নম্বর" name="roll_number" value={formData.roll_number} onChange={handleChange} placeholder="যেমন: ১২" />
             </div>
         </div>

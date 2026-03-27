@@ -156,6 +156,18 @@ export default function PublicAdmissionPage() {
     perm_division: "", perm_district: "", perm_upazila: "", perm_union: "", perm_village: "", perm_postcode: "",
   });
 
+  const academicYearOptions = Array.from(
+    new Set(
+      [
+        ...dbClasses
+          .filter(c => !formData.branch_id || String(c.branch_id) === String(formData.branch_id))
+          .map(c => String(c.academic_year || ""))
+          .filter(Boolean),
+        formData.academic_year || String(new Date().getFullYear())
+      ]
+    )
+  ).sort((a, b) => Number(b) - Number(a));
+
   useEffect(() => { setIsClient(true); }, []);
 
   // --- একাডেমিক ডাটা ফেচ ---
@@ -164,7 +176,7 @@ export default function PublicAdmissionPage() {
       try {
         const { data: b } = await supabase.from("branches").select("id, name");
         const { data: d } = await supabase.from("departments").select("id, name, branch_id");
-        const { data: c } = await supabase.from("academic_classes").select("id, name, branch_id, department_id, allow_residential");
+        const { data: c } = await supabase.from("academic_classes").select("id, name, branch_id, department_id, allow_residential, academic_year");
 
         if (b) setDbBranches(b);
         if (d) setDbDepartments(d);
@@ -560,7 +572,7 @@ export default function PublicAdmissionPage() {
             <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-green-500"></div>
                 <SectionHeader icon={GraduationCap} title="একাডেমিক তথ্য" step="১" />
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                     <div className="space-y-1.5">
                         <label className="text-sm font-semibold text-slate-700">শাখা <span className="text-red-500">*</span></label>
                         <select name="branch_id" value={formData.branch_id} onChange={(e) => setFormData({...formData, branch_id: e.target.value, department: "", class_name: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
@@ -593,6 +605,21 @@ export default function PublicAdmissionPage() {
                                 const selectedClass = dbClasses.find(c => c.name === formData.class_name && String(c.branch_id) === formData.branch_id);
                                 return selectedClass?.allow_residential ? <option value="residential">আবাসিক</option> : null;
                             })()}
+                        </select>
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-semibold text-slate-700">শিক্ষাবর্ষ <span className="text-red-500">*</span></label>
+                        <select
+                          name="academic_year"
+                          value={formData.academic_year}
+                          onChange={handleChange}
+                          required
+                          className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
+                        >
+                          <option value="">সিলেক্ট করুন</option>
+                          {academicYearOptions.map(y => (
+                            <option key={y} value={y}>{y}</option>
+                          ))}
                         </select>
                     </div>
                 </div>
