@@ -173,6 +173,41 @@ export default function AdminStudentEdit() {
     fetchAcademicData();
   }, []);
 
+  useEffect(() => {
+    const fetchStudentData = async () => {
+      if (!id) return;
+      try {
+        const { data, error } = await supabase
+          .from('students')
+          .select('*')
+          .eq('id', id)
+          .single();
+        if (error) throw error;
+        if (data) {
+          setFormData({
+            ...data,
+            academic_year: String(data.academic_year || new Date().getFullYear()),
+          });
+          setStudentIdForDisplay(data.student_id);
+          setGeneratedID(data.student_id);
+          if (data.dob) {
+            const [y, m, d] = data.dob.split('-');
+            setDobState({
+              day: String(parseInt(d, 10)),
+              month: months[parseInt(m, 10) - 1],
+              year: y,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching student:', err);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    fetchStudentData();
+  }, [id]);
+
   const [formData, setFormData] = useState({
       branch_id: "", department: "", class_name: "", roll_number: "", academic_year: new Date().getFullYear().toString(),
     residential_status: "residential", status: "active", guardian_type: "", 
@@ -579,13 +614,13 @@ return (
                  </div>
                  <div className="grid grid-cols-2 gap-3 mt-2">
                     <div className="relative border bg-white rounded-lg p-2 text-center hover:bg-slate-50 transition cursor-pointer border-dashed border-blue-200 h-16 flex flex-col justify-center items-center overflow-hidden">
-                        {formData.father_photo_url ? <Image src={formData.father_photo_url} alt="F" className="w-full h-full object-cover opacity-50" /> : null}
+                        {formData.father_photo_url ? <Image src={formData.father_photo_url} alt="F" fill sizes="64px" className="object-cover opacity-50" /> : null}
                         <span className="text-[10px] font-bold flex items-center justify-center gap-1 text-slate-600 relative z-10"><User className="w-3 h-3 text-blue-500"/> ছবি</span>
                         <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-20" onChange={(e) => handleFileUpload(e, 'father_photo_url')} accept="image/*" />
                         {formData.father_photo_url && <CheckCircle className="w-3 h-3 text-green-600 absolute top-1 right-1 z-30"/>}
                     </div>
                     <div className="relative border bg-white rounded-lg p-2 text-center hover:bg-slate-50 transition cursor-pointer border-dashed border-blue-200 h-16 flex flex-col justify-center items-center overflow-hidden">
-                        {formData.father_nid_url ? <Image src={formData.father_nid_url} alt="NID" className="w-full h-full object-cover opacity-50" /> : null}
+                        {formData.father_nid_url ? <Image src={formData.father_nid_url} alt="NID" fill sizes="64px" className="object-cover opacity-50" /> : null}
                         <span className="text-[10px] font-bold flex items-center justify-center gap-1 text-slate-600 relative z-10"><FileText className="w-3 h-3 text-blue-500"/> আইডি</span>
                         <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-20" onChange={(e) => handleFileUpload(e, 'father_nid_url')} accept="image/*" />
                         {formData.father_nid_url && <CheckCircle className="w-3 h-3 text-green-600 absolute top-1 right-1 z-30"/>}
@@ -606,13 +641,13 @@ return (
                  </div>
                  <div className="grid grid-cols-2 gap-3 mt-2">
                     <div className="relative border bg-white rounded-lg p-2 text-center hover:bg-slate-50 transition cursor-pointer border-dashed border-pink-200 h-16 flex flex-col justify-center items-center overflow-hidden">
-                        {formData.mother_photo_url ? <Image src={formData.mother_photo_url} alt="M" className="w-full h-full object-cover opacity-50" /> : null}
+                        {formData.mother_photo_url ? <Image src={formData.mother_photo_url} alt="M" fill sizes="64px" className="object-cover opacity-50" /> : null}
                         <span className="text-[10px] font-bold flex items-center justify-center gap-1 text-slate-600 relative z-10"><User className="w-3 h-3 text-pink-500"/> ছবি</span>
                         <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-20" onChange={(e) => handleFileUpload(e, 'mother_photo_url')} accept="image/*" />
                         {formData.mother_photo_url && <CheckCircle className="w-3 h-3 text-green-600 absolute top-1 right-1 z-30"/>}
                     </div>
                     <div className="relative border bg-white rounded-lg p-2 text-center hover:bg-slate-50 transition cursor-pointer border-dashed border-pink-200 h-16 flex flex-col justify-center items-center overflow-hidden">
-                        {formData.mother_nid_url ? <Image src={formData.mother_nid_url} alt="NID" className="w-full h-full object-cover opacity-50" /> : null}
+                        {formData.mother_nid_url ? <Image src={formData.mother_nid_url} alt="NID" fill sizes="64px" className="object-cover opacity-50" /> : null}
                         <span className="text-[10px] font-bold flex items-center justify-center gap-1 text-slate-600 relative z-10"><FileText className="w-3 h-3 text-pink-500"/> আইডি</span>
                         <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-20" onChange={(e) => handleFileUpload(e, 'mother_nid_url')} accept="image/*" />
                         {formData.mother_nid_url && <CheckCircle className="w-3 h-3 text-green-600 absolute top-1 right-1 z-30"/>}
