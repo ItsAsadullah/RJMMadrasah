@@ -73,8 +73,7 @@ export default function StudentManagement() {
 
     // --- Handlers ---
     const handleEdit = (student: any) => {
-      setEditingStudent(student);
-      setIsFormOpen(true);
+      router.push(`/dashboard/students/edit/${student.id}`);
     };
 
     const handleDelete = async (id: string) => {
