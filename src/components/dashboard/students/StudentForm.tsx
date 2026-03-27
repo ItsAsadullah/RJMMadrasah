@@ -27,6 +27,7 @@ type StudentFormProps = {
   onOpenChange: (open: boolean) => void;
   student?: any;
   onSuccess: () => void;
+  branches?: any[];
 };
 
 export default function StudentForm({
@@ -34,6 +35,7 @@ export default function StudentForm({
   onOpenChange,
   student,
   onSuccess,
+  branches = [] // Default to empty array just in case
 }: StudentFormProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -43,7 +45,7 @@ export default function StudentForm({
     department: "",
     father_mobile: "",
     status: "active",
-    branch_id: "1",
+    branch_id: "",
   });
 
   useEffect(() => {
@@ -55,7 +57,7 @@ export default function StudentForm({
         department: student.department || "",
         father_mobile: student.father_mobile || "",
         status: student.status || "active",
-        branch_id: student.branch_id?.toString() || "1",
+        branch_id: student.branch_id?.toString() || "",
       });
     } else {
       setFormData({
@@ -65,7 +67,7 @@ export default function StudentForm({
         department: "",
         father_mobile: "",
         status: "active",
-        branch_id: "1",
+        branch_id: "",
       });
     }
   }, [student, open]);
@@ -222,8 +224,11 @@ export default function StudentForm({
                   <SelectValue placeholder="শাখা নির্বাচন" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">হলিধানী</SelectItem>
-                  <SelectItem value="2">চাঁন্দুয়ালী</SelectItem>
+                    {branches.map((b: any) => (
+                      <SelectItem key={b.id} value={String(b.id)}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

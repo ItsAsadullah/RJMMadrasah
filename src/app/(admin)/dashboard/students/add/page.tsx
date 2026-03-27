@@ -167,7 +167,7 @@ export default function AdminStudentAdd() {
   }, []);
 
   const [formData, setFormData] = useState({
-    branch_id: "1", department: "", class_name: "", roll_number: "", academic_year: new Date().getFullYear().toString(),
+      branch_id: "", department: "", class_name: "", roll_number: "", academic_year: new Date().getFullYear().toString(),
     residential_status: "residential", status: "active", guardian_type: "", 
     name_bn: "", name_en: "", dob: "", age_info: "", birth_reg_no: "", blood_group: "", photo_url: "", birth_cert_url: "",
     father_alive: "yes", father_name_bn: "", father_name_en: "", father_nid: "", father_occupation: "", father_mobile: "", father_nid_url: "", father_photo_url: "",
@@ -465,7 +465,7 @@ export default function AdminStudentAdd() {
                      <option value="">সিলেক্ট করুন</option>
                      {dbBranches.length > 0
                        ? dbBranches.map(b => <option key={b.id} value={String(b.id)}>{b.name}</option>)
-                       : <><option value="1">হলিধানী বাজার</option><option value="2">চাঁন্দুয়ালী বাজার</option></>}
+                         : <option value="" disabled>লোড হচ্ছে...</option>}
                   </select>
                </div>
                <div className="space-y-1.5">
