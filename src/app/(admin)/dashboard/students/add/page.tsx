@@ -187,6 +187,13 @@ export default function AdminStudentAdd() {
   )
     .sort((a, b) => Number(b) - Number(a));
 
+  const departmentOptions = dbDepartments.filter(d => String(d.branch_id) === formData.branch_id);
+  const classOptions = dbClasses.filter(c => {
+    const dept = dbDepartments.find(d => d.name === formData.department && String(d.branch_id) === formData.branch_id);
+    return String(c.branch_id) === formData.branch_id && c.department_id === dept?.id;
+  });
+  const selectedClass = dbClasses.find(c => c.name === formData.class_name && String(c.branch_id) === formData.branch_id);
+
   useEffect(() => {
     if (!formData.branch_id) {
       if (formData.academic_year !== "") {
@@ -207,7 +214,18 @@ export default function AdminStudentAdd() {
     }
   }, [formData.branch_id, academicYearOptions, formData.academic_year]);
 
+  useEffect(() => {
+    if (selectedClass && !selectedClass.allow_residential && formData.residential_status === "residential") {
+      setFormData(prev => ({ ...prev, residential_status: "non_residential" }));
+    }
+  }, [selectedClass, formData.residential_status]);
+
   const generateID = async (): Promise<string> => {
+    if (!formData.academic_year) {
+      setGeneratedID("");
+      return "";
+    }
+
     const yearPrefix = formData.academic_year.slice(-2);
     const { data, error } = await supabase
       .from('students')
@@ -492,7 +510,7 @@ export default function AdminStudentAdd() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
                <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-slate-700">শাখা <span className="text-red-500">*</span></label>
-                  <select name="branch_id" value={formData.branch_id} onChange={(e) => setFormData({...formData, branch_id: e.target.value, department: "", class_name: "", academic_year: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                  <select name="branch_id" value={formData.branch_id} onChange={(e) => setFormData({...formData, branch_id: e.target.value, department: "", class_name: "", residential_status: "non_residential", academic_year: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
                      <option value="">সিলেক্ট করুন</option>
                      {dbBranches.length > 0
                        ? dbBranches.map(b => <option key={b.id} value={String(b.id)}>{b.name}</option>)
@@ -501,27 +519,23 @@ export default function AdminStudentAdd() {
                </div>
                <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-slate-700">বিভাগ <span className="text-red-500">*</span></label>
-                  <select name="department" value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value, class_name: ""})} required className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                  <select name="department" value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value, class_name: "", residential_status: "non_residential"})} required disabled={!formData.branch_id} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
                      <option value="">সিলেক্ট করুন</option>
-                     {dbDepartments.filter(d => String(d.branch_id) === formData.branch_id).map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                    {departmentOptions.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
                   </select>
                </div>
                <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-slate-700">শ্রেণি <span className="text-red-500">*</span></label>
-                  <select name="class_name" value={formData.class_name} onChange={handleChange} required className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                  <select name="class_name" value={formData.class_name} onChange={handleChange} required disabled={!formData.branch_id || !formData.department} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
                      <option value="">সিলেক্ট করুন</option>
-                     {dbClasses.filter(c => {
-                       const dept = dbDepartments.find(d => d.name === formData.department && String(d.branch_id) === formData.branch_id);
-                       return String(c.branch_id) === formData.branch_id && c.department_id === dept?.id;
-                     }).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    {classOptions.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                   </select>
                </div>
                <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-slate-700">আবাসন <span className="text-red-500">*</span></label>
-                  <select name="residential_status" value={formData.residential_status} onChange={handleChange} required className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                  <select name="residential_status" value={formData.residential_status} onChange={handleChange} required disabled={!formData.branch_id || !formData.department || !formData.class_name} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
                      <option value="non_residential">অনাবাসিক</option>
                      {(() => {
-                       const selectedClass = dbClasses.find(c => c.name === formData.class_name && String(c.branch_id) === formData.branch_id);
                        return !selectedClass || selectedClass?.allow_residential ? <option value="residential">আবাসিক</option> : null;
                      })()}
                   </select>
@@ -534,7 +548,7 @@ export default function AdminStudentAdd() {
                     onChange={handleChange}
                     required
                     disabled={!formData.branch_id || academicYearOptions.length === 0}
-                    className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
+                    className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                   >
                     <option value="">{!formData.branch_id ? "আগে শাখা সিলেক্ট করুন" : academicYearOptions.length === 0 ? "এই শাখায় শিক্ষাবর্ষ চালু নেই" : "সিলেক্ট করুন"}</option>
                     {academicYearOptions.map(y => (
