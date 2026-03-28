@@ -38,8 +38,19 @@ export default function StudentManagement() {
       setLoading(false);
     }
 
+    async function fetchBranches() {
+      const { data, error } = await supabase
+        .from("branches")
+        .select("id, name")
+        .order("id", { ascending: true });
+
+      if (error) console.error("Error fetching branches:", error);
+      else setBranches(data || []);
+    }
+
     useEffect(() => {
       fetchStudents();
+      fetchBranches();
 
       // Real-time subscription
       const channel = supabase

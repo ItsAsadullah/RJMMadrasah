@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from "@/components/ui/table";
@@ -8,11 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox"; 
 import { 
-  Search, Edit, Trash2, Download, Printer, ArrowUpDown, ChevronLeft, ChevronRight, Eye
+  Search, Edit, Trash2, Download, Printer, ArrowUpDown, ChevronLeft, ChevronRight, Eye, Columns3
 } from "lucide-react";
 import Link from "next/link";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
+import { supabase } from "@/lib/supabase/client";
 
 // Define Student Type (Needs to match your data)
 type Student = {
@@ -24,11 +23,17 @@ type Student = {
   class_name: string;
   department: string;
   father_mobile: string;
+  guardian_name?: string;
+  guardian_mobile?: string;
   email?: string;
   status: string;
   created_at: string;
   branch_id: number;
   photo_url?: string;
+  present_village?: string;
+  present_union?: string;
+  present_upazila?: string;
+  present_district?: string;
   branches?: { name: string };
 };
 
@@ -40,12 +45,52 @@ type StudentTableProps = {
 };
 
 export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: StudentTableProps) {
+  type ExtraColumns = {
+    guardianName: boolean;
+    guardianMobile: boolean;
+    address: boolean;
+  };
+
   // States
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: keyof Student, direction: 'asc' | 'desc' } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [showExtraColumnOptions, setShowExtraColumnOptions] = useState(false);
+  const [printSchoolName, setPrintSchoolName] = useState("রহিমা জান্নাত মহিলা মাদ্রাসা");
+  const [printLongLogoUrl, setPrintLongLogoUrl] = useState("/images/long_logo.svg");
+  const [extraColumns, setExtraColumns] = useState<ExtraColumns>({
+    guardianName: true,
+    guardianMobile: true,
+    address: true,
+  });
+
+  const visibleExtraColumnCount = Object.values(extraColumns).filter(Boolean).length;
+
+  useEffect(() => {
+    supabase
+      .from("footer_settings")
+      .select("school_name")
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data?.school_name) setPrintSchoolName(data.school_name);
+      });
+
+    supabase
+      .from("branding_settings")
+      .select("long_logo_url, logo_url")
+      .eq("id", 1)
+      .single()
+      .then(({ data }) => {
+        if (data?.long_logo_url) {
+          setPrintLongLogoUrl(data.long_logo_url);
+          return;
+        }
+        if (data?.logo_url) setPrintLongLogoUrl(data.logo_url);
+      });
+  }, []);
 
   // Filter & Sort Logic
   const filteredData = useMemo(() => {
@@ -104,33 +149,143 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
     setSelectedRows(newSelected);
   };
 
-  const exportPDF = () => {
-    const doc = new jsPDF();
-      const tableColumn = ["ID", "Name", "Class & Roll", "Dept", "Branch", "Mobile", "Status"];
-      const tableRows: any[] = [];
+  const printTable = (documentTitle = "Students Print") => {
+    const escapeHtml = (value: string) =>
+      value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
 
-      const exportData = selectedRows.size > 0
-        ? filteredData.filter(s => selectedRows.has(s.id))
-        : filteredData;
+    const resolveLogoUrl = (logoUrl: string) => {
+      if (!logoUrl) return "";
+      if (
+        logoUrl.startsWith("http://") ||
+        logoUrl.startsWith("https://") ||
+        logoUrl.startsWith("data:") ||
+        logoUrl.startsWith("blob:")
+      ) {
+        return logoUrl;
+      }
+      if (logoUrl.startsWith("//")) {
+        return `${window.location.protocol}${logoUrl}`;
+      }
+      return `${window.location.origin}${logoUrl.startsWith("/") ? "" : "/"}${logoUrl}`;
+    };
 
-      exportData.forEach(student => {
-        const studentData = [
-          student.student_id || "N/A",
-          student.name_bn,
-          `${student.class_name} (${student.roll_number || student.roll_no || '-'})`,
-          student.department || "-",
-          student.branches?.name || "-",
+    const resolvedLongLogoUrl = resolveLogoUrl(printLongLogoUrl);
+
+    const printData = selectedRows.size > 0
+      ? filteredData.filter(s => selectedRows.has(s.id))
+      : filteredData;
+
+    const headers = [
+      "ID",
+      "Name",
+      "Class & Roll",
+      "Dept",
+      "Branch",
+      "Contact",
+      ...(extraColumns.guardianName ? ["Guardian Name"] : []),
+      ...(extraColumns.guardianMobile ? ["Guardian Mobile"] : []),
+      ...(extraColumns.address ? ["Address"] : []),
+      "Status",
+    ];
+
+    const rows = printData.map(student => {
+      const address = [
+        student.present_village,
+        student.present_union,
+        student.present_upazila,
+        student.present_district,
+      ].filter(Boolean).join(", ");
+
+      return [
+        student.student_id || "N/A",
+        student.name_bn || "-",
+        `${student.class_name || "-"} (${student.roll_number || student.roll_no || '-'})`,
+        student.department || "-",
+        student.branches?.name || "-",
+        student.father_mobile || "-",
+        ...(extraColumns.guardianName ? [student.guardian_name || "-"] : []),
+        ...(extraColumns.guardianMobile ? [student.guardian_mobile || "-"] : []),
+        ...(extraColumns.address ? [address || "-"] : []),
+        student.status || "-",
       ];
-      tableRows.push(studentData);
     });
 
-    // @ts-ignore
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      styles: { font: "helvetica", fontSize: 10 }, 
+    const html = `
+      <html>
+        <head>
+          <title>${escapeHtml(documentTitle)}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            .print-pad { display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 2px solid #16a34a; margin-bottom: 14px; padding-bottom: 10px; }
+            .print-pad img { width: 420px; max-width: 95%; height: auto; object-fit: contain; }
+            .print-pad h1 { margin: 0; font-size: 20px; color: #166534; line-height: 1.2; }
+            .print-pad p { margin: 2px 0 0; font-size: 12px; color: #4b5563; }
+            .meta { margin: 8px 0 12px; font-size: 12px; color: #4b5563; text-align: right; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+            th { background: #f3f4f6; }
+          </style>
+        </head>
+        <body>
+          <div class="print-pad">
+            ${resolvedLongLogoUrl ? `<img src="${escapeHtml(resolvedLongLogoUrl)}" alt="${escapeHtml(printSchoolName)}" />` : `<h1>${escapeHtml(printSchoolName)}</h1>`}
+            <p>শিক্ষার্থী তথ্য তালিকা</p>
+          </div>
+          <div class="meta">প্রিন্ট তারিখ: ${new Date().toLocaleDateString("bn-BD")}</div>
+          <table>
+            <thead>
+              <tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `<tr>${r.map(c => `<td>${escapeHtml(String(c ?? "-"))}</td>`).join("")}</tr>`).join("")}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    const images = Array.from(printWindow.document.images);
+    const finalizePrint = () => {
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    };
+
+    if (images.length === 0) {
+      setTimeout(finalizePrint, 100);
+      return;
+    }
+
+    let loadedCount = 0;
+    const onDone = () => {
+      loadedCount += 1;
+      if (loadedCount >= images.length) {
+        setTimeout(finalizePrint, 120);
+      }
+    };
+
+    images.forEach((img) => {
+      if (img.complete) {
+        onDone();
+      } else {
+        img.addEventListener("load", onDone, { once: true });
+        img.addEventListener("error", onDone, { once: true });
+      }
     });
-    doc.save("students_list.pdf");
+  };
+
+  const exportPDF = () => {
+    printTable("students_list");
   };
 
   const handleBulkDelete = () => {
@@ -154,7 +309,40 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
           />
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 relative">
+          <Button
+            size="sm"
+            variant={visibleExtraColumnCount > 0 ? "default" : "outline"}
+            onClick={() => setShowExtraColumnOptions(prev => !prev)}
+            title="Select extra columns"
+          >
+            <Columns3 className="w-4 h-4 mr-2" /> Extra Columns
+          </Button>
+          {showExtraColumnOptions && (
+            <div className="absolute top-11 left-0 z-20 w-52 rounded-md border bg-white p-3 shadow-lg space-y-3">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={extraColumns.guardianName}
+                  onCheckedChange={(checked) => setExtraColumns(prev => ({ ...prev, guardianName: checked === true }))}
+                />
+                <span>অভিভাবকের নাম</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={extraColumns.guardianMobile}
+                  onCheckedChange={(checked) => setExtraColumns(prev => ({ ...prev, guardianMobile: checked === true }))}
+                />
+                <span>অভিভাবকের মোবাইল</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={extraColumns.address}
+                  onCheckedChange={(checked) => setExtraColumns(prev => ({ ...prev, address: checked === true }))}
+                />
+                <span>ঠিকানা</span>
+              </label>
+            </div>
+          )}
           {selectedRows.size > 0 && (
             <div className="flex items-center gap-2 bg-red-50 px-3 py-1 rounded text-red-600 animate-in fade-in">
               <span className="text-xs font-bold">{selectedRows.size} Selected</span>
@@ -167,7 +355,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
           <Button size="sm" variant="outline" onClick={exportPDF} title="Export PDF">
             <Download className="w-4 h-4 mr-2" /> Export
           </Button>
-          <Button size="sm" variant="outline" onClick={() => window.print()} title="Print">
+          <Button size="sm" variant="outline" onClick={printTable} title="Print">
             <Printer className="w-4 h-4 mr-2" /> Print
           </Button>
         </div>
@@ -178,7 +366,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
         <Table>
           <TableHeader className="bg-gray-50">
             <TableRow>
-              <TableHead className="w-[40px]">
+              <TableHead className="w-10">
                 <Checkbox 
                   checked={paginatedData.length > 0 && selectedRows.size === paginatedData.length}
                   onCheckedChange={toggleSelectAll}
@@ -194,6 +382,9 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
               <TableHead>বিভাগ</TableHead>
               <TableHead>শাখা</TableHead>
               <TableHead>যোগাযোগ</TableHead>
+              {extraColumns.guardianName && <TableHead>অভিভাবকের নাম</TableHead>}
+              {extraColumns.guardianMobile && <TableHead>অভিভাবকের মোবাইল</TableHead>}
+              {extraColumns.address && <TableHead>ঠিকানা</TableHead>}
               <TableHead>স্ট্যাটাস</TableHead>
               <TableHead className="text-right">অ্যাকশন</TableHead>
             </TableRow>
@@ -201,7 +392,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
           <TableBody>
             {paginatedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-10 text-gray-400">
+                <TableCell colSpan={9 + visibleExtraColumnCount} className="text-center py-10 text-gray-400">
                   কোনো শিক্ষার্থী পাওয়া যায়নি।
                 </TableCell>
               </TableRow>
@@ -243,6 +434,17 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
                     <span className="text-sm text-gray-600">{student.branches?.name || "-"}</span>
                   </TableCell>
                   <TableCell className="font-mono text-sm">{student.father_mobile}</TableCell>
+                  {extraColumns.guardianName && (
+                    <TableCell className="text-sm text-gray-700 font-medium">{student.guardian_name || "-"}</TableCell>
+                  )}
+                  {extraColumns.guardianMobile && (
+                    <TableCell className="text-sm text-gray-700">{student.guardian_mobile || "-"}</TableCell>
+                  )}
+                  {extraColumns.address && (
+                    <TableCell className="text-xs text-gray-600 max-w-55">
+                      {[student.present_village, student.present_union, student.present_upazila, student.present_district].filter(Boolean).join(", ") || "-"}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${student.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                       {student.status}
