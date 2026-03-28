@@ -101,6 +101,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
       const lower = searchTerm.toLowerCase();
       processed = processed.filter(s => 
         s.name_bn?.toLowerCase().includes(lower) || 
+        s.guardian_name?.toLowerCase().includes(lower) ||
         s.student_id?.toLowerCase().includes(lower) || 
         s.father_mobile?.includes(lower) ||
         s.email?.toLowerCase().includes(lower)
@@ -313,14 +314,15 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
           />
         </div>
         
-        <div className="flex items-center gap-2 relative">
+        <div className="flex flex-wrap items-center gap-2 relative">
           <Button
             size="sm"
             variant={visibleExtraColumnCount > 0 ? "default" : "outline"}
             onClick={() => setShowExtraColumnOptions(prev => !prev)}
             title="Select extra columns"
+            className="h-8 text-xs sm:text-sm"
           >
-            <Columns3 className="w-4 h-4 mr-2" /> Extra Columns
+            <Columns3 className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">Extra Columns</span>
           </Button>
           {showExtraColumnOptions && (
             <div className="absolute top-11 left-0 z-20 w-52 rounded-md border bg-white p-3 shadow-lg space-y-3">
@@ -356,17 +358,17 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
             </div>
           )}
           
-          <Button size="sm" variant="outline" onClick={exportPDF} title="Export PDF">
-            <Download className="w-4 h-4 mr-2" /> Export
+          <Button size="sm" variant="outline" onClick={exportPDF} title="Export PDF" className="h-8 text-xs sm:text-sm">
+            <Download className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">Export</span>
           </Button>
-          <Button size="sm" variant="outline" onClick={printTable} title="Print">
-            <Printer className="w-4 h-4 mr-2" /> Print
+          <Button size="sm" variant="outline" onClick={printTable} title="Print" className="h-8 text-xs sm:text-sm">
+            <Printer className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">Print</span>
           </Button>
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
+      <div className="hidden md:block bg-white rounded-lg border shadow-sm overflow-x-auto">
         <Table>
           <TableHeader className="bg-gray-50">
             <TableRow>
@@ -422,7 +424,9 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
                         )}
                       </div>
                       <div>
-                        <p className="font-bold text-gray-800">{student.name_bn}</p>
+                        <Link href={`/dashboard/students/${student.id}`} className="font-bold text-gray-800 hover:text-green-700 hover:underline">
+                          {student.name_bn}
+                        </Link>
                         <p className="text-xs text-gray-500">{student.email || ""}</p>
                       </div>
                     </div>
@@ -476,21 +480,86 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
         </Table>
       </div>
 
+      <div className="md:hidden space-y-2">
+        {paginatedData.length === 0 ? (
+          <div className="bg-white rounded-lg border p-6 text-center text-gray-400 text-sm">
+            কোনো শিক্ষার্থী পাওয়া যায়নি।
+          </div>
+        ) : (
+          paginatedData.map((student) => (
+            <div key={student.id} className={`bg-white rounded-lg border p-3 space-y-2 ${selectedRows.has(student.id) ? "ring-1 ring-blue-300" : ""}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Checkbox 
+                    checked={selectedRows.has(student.id)}
+                    onCheckedChange={() => toggleSelectRow(student.id)}
+                  />
+                  <div className="h-8 w-8 rounded-full bg-gray-100 overflow-hidden border shrink-0">
+                    {student.photo_url ? (
+                      <img src={student.photo_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-xs font-bold text-gray-400">
+                        {student.name_bn?.[0]}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <Link href={`/dashboard/students/${student.id}`} className="font-semibold text-sm text-gray-800 truncate block hover:text-green-700 hover:underline">
+                      {student.name_bn || "-"}
+                    </Link>
+                    <p className="text-[11px] text-gray-500">ID: {student.student_id || "-"}</p>
+                  </div>
+                </div>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${student.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                  {student.status}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-gray-600">
+                <p><span className="font-medium">শ্রেণি:</span> {student.class_name || "-"}</p>
+                <p><span className="font-medium">রোল:</span> {student.roll_number || student.roll_no || "-"}</p>
+                <p><span className="font-medium">বিভাগ:</span> {student.department || "-"}</p>
+                <p><span className="font-medium">শাখা:</span> {student.branches?.name || "-"}</p>
+                <p className="col-span-2"><span className="font-medium">যোগাযোগ:</span> {student.father_mobile || "-"}</p>
+                {extraColumns.guardianName && <p className="col-span-2"><span className="font-medium">অভিভাবকের নাম:</span> {student.guardian_name || "-"}</p>}
+                {extraColumns.guardianMobile && <p className="col-span-2"><span className="font-medium">অভিভাবকের মোবাইল:</span> {student.guardian_mobile || "-"}</p>}
+                {extraColumns.address && <p className="col-span-2"><span className="font-medium">ঠিকানা:</span> {[student.present_village, student.present_union, student.present_upazila, student.present_district].filter(Boolean).join(", ") || "-"}</p>}
+              </div>
+
+              <div className="flex items-center justify-end gap-1 pt-1">
+                <Link href={`/dashboard/students/${student.id}`}>
+                  <Button variant="outline" size="sm" className="h-7 px-2 text-[11px] bg-green-50 text-green-700 hover:bg-green-100 border-green-200">
+                    <Eye className="w-3 h-3 mr-1" /> প্রোফাইল
+                  </Button>
+                </Link>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => onEdit(student)}>
+                  <Edit className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => onDelete(student.id)}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {/* Pagination */}
-      <div className="flex items-center justify-between px-2">
-        <div className="text-sm text-gray-500">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-2">
+        <div className="text-xs sm:text-sm text-gray-500">
           Showing {(currentPage - 1) * rowsPerPage + 1} to {Math.min(currentPage * rowsPerPage, filteredData.length)} of {filteredData.length} entries
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <Button 
             variant="outline" 
             size="sm" 
             disabled={currentPage === 1}
             onClick={() => setCurrentPage(p => p - 1)}
+            className="h-8 w-8 p-0"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 const p = i + 1;
                 return (
@@ -498,7 +567,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
                         key={p}
                         variant={currentPage === p ? "default" : "outline"}
                         size="sm"
-                        className="w-8 h-8 p-0"
+                        className="w-8 h-8 p-0 text-xs"
                         onClick={() => setCurrentPage(p)}
                     >
                         {p}
@@ -511,6 +580,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
             size="sm" 
             disabled={currentPage === totalPages}
             onClick={() => setCurrentPage(p => p + 1)}
+            className="h-8 w-8 p-0"
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
