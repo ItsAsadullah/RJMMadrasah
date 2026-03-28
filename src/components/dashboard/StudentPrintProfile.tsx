@@ -16,7 +16,7 @@ export default function StudentPrintProfile({ student }: { student: any }) {
             {/* --- ওয়াটারমার্ক --- */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
                 <div className="opacity-[0.08] w-[500px] h-[500px] relative">
-                    <Image src="/logo.png" alt="Watermark" fill className="object-contain grayscale" />
+                    <Image src="/logo.png" alt="Watermark" fill sizes="500px" className="object-contain grayscale" />
                 </div>
             </div>
 
@@ -42,7 +42,7 @@ export default function StudentPrintProfile({ student }: { student: any }) {
                     {/* ইনস্টিটিউশন হেডার */}
                     <div className="flex items-start justify-between border-b-2 border-green-900 pb-2 mb-3">
                         <div className="w-20 h-20 relative flex-shrink-0 mt-1">
-                            <Image src="/images/logo.png" alt="Logo" fill className="object-contain" />
+                            <Image src="/images/logo.png" alt="Logo" fill sizes="80px" className="object-contain" />
                         </div>
                         <div className="text-center flex-1 px-2 pt-1">
                             {/* মাদ্রাসার নাম (Hind Siliguri Font & Bold) */}

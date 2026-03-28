@@ -114,6 +114,19 @@ export default function Sidebar() {
      window.location.href = "/login";
    };
 
+    const closeSidebarOnMobile = () => {
+       if (typeof window !== "undefined" && window.innerWidth < 1024) {
+          setIsOpen(false);
+       }
+    };
+
+    const handleNavClick = (event: React.MouseEvent<HTMLElement>) => {
+       const target = event.target as HTMLElement;
+       if (target.closest("a[href]")) {
+          closeSidebarOnMobile();
+       }
+    };
+
    return (
      <>
        {/* মোবাইল টগল বাটন (শুধুমাত্র ছোট স্ক্রিনে দেখাবে) */}
@@ -139,7 +152,7 @@ export default function Sidebar() {
        )}>
          {/* লোগো সেকশন */}
          <div className="p-6 border-b border-gray-100 flex items-center justify-between lg:justify-start">
-           <Link href="/dashboard" className="flex items-center gap-2 text-green-700 hover:opacity-80 transition-opacity">
+                <Link href="/dashboard" onClick={closeSidebarOnMobile} className="flex items-center gap-2 text-green-700 hover:opacity-80 transition-opacity">
              <School className="w-8 h-8" /> 
              <span className="text-xl font-bold">মাদ্রাসা প্যানেল</span>
            </Link>
@@ -148,7 +161,7 @@ export default function Sidebar() {
            </button>
          </div>
 
-         <nav className="p-4 space-y-6">
+         <nav className="p-4 space-y-6" onClick={handleNavClick}>
            
            {/* ১. ড্যাশবোর্ড */}
            <div>

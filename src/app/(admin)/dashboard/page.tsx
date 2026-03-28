@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, GraduationCap, FileText, Wallet, ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
+import { Users, GraduationCap, FileText, Wallet, Loader2 } from "lucide-react";
 import { getDashboardStats } from "./actions";
 import Link from "next/link";
 
@@ -67,55 +67,55 @@ export default function DashboardPage() {
   ];
 
   if (loading) {
-    return <div className="flex justify-center items-center h-[50vh]"><Loader2 className="w-10 h-10 animate-spin text-green-600" /></div>;
+    return <div className="flex justify-center items-center h-[40vh]"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>;
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6">
       
       {/* হেডার */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-800">ড্যাশবোর্ড ওভারভিউ</h1>
-        <p className="text-sm text-gray-500">স্বাগতম, অ্যাডমিন প্যানেলে ফিরে আসার জন্য ধন্যবাদ।</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">ড্যাশবোর্ড ওভারভিউ</h1>
+        <p className="text-xs sm:text-sm text-gray-500">স্বাগতম, অ্যাডমিন প্যানেলে ফিরে আসার জন্য ধন্যবাদ।</p>
       </div>
 
       {/* স্ট্যাটাস কার্ড গ্রিড */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
         {stats.map((stat, index) => (
-          <div key={index} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-4">
-              <div className={`${stat.bg} p-3 rounded-lg`}>
+          <div key={index} className="bg-white p-3 sm:p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-2 sm:mb-4">
+              <div className={`${stat.bg} p-2 sm:p-3 rounded-lg`}>
                 {stat.icon}
               </div>
               {/* Trend removed for simplicity or keep as static */}
             </div>
-            <h3 className="text-gray-500 text-sm font-medium">{stat.title}</h3>
-            <p className="text-2xl font-bold text-gray-800 mt-1">{stat.value}</p>
+            <h3 className="text-gray-500 text-[11px] sm:text-sm font-medium leading-tight">{stat.title}</h3>
+            <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">{stat.value}</p>
           </div>
         ))}
       </div>
 
       {/* রিসেন্ট অ্যাক্টিভিটি এবং কুইক অ্যাকশন (নিচের অংশ) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         
         {/* রিসেন্ট নোটিশ */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <div className="bg-white p-3 sm:p-6 rounded-xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-center mb-4">
-             <h2 className="text-lg font-bold text-gray-800">সাম্প্রতিক নোটিশ</h2>
+             <h2 className="text-base sm:text-lg font-bold text-gray-800">সাম্প্রতিক নোটিশ</h2>
              <Link href="/dashboard/notices" className="text-xs text-green-600 hover:underline">সব দেখুন</Link>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-2 sm:space-y-3">
             {data.notices.length === 0 ? (
                 <p className="text-gray-400 text-sm text-center py-4">কোনো নোটিশ নেই</p>
             ) : (
                 data.notices.map((item) => (
-                  <div key={item.id} className="flex items-start gap-4 p-3 hover:bg-gray-50 rounded-lg transition-colors border-b border-gray-50 last:border-0">
-                    <div className="bg-green-50 text-green-700 text-xs font-bold px-2 py-1 rounded min-w-[80px] text-center">
+                  <div key={item.id} className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 hover:bg-gray-50 rounded-lg transition-colors border-b border-gray-50 last:border-0">
+                    <div className="bg-green-50 text-green-700 text-[10px] sm:text-xs font-bold px-2 py-1 rounded min-w-20 text-center">
                       {new Date(item.created_at).toLocaleDateString('bn-BD')}
                     </div>
                     <div>
-                      <h4 className="text-sm font-medium text-gray-800">{item.title}</h4>
+                      <h4 className="text-xs sm:text-sm font-medium text-gray-800 leading-tight">{item.title}</h4>
                       {/* <p className="text-xs text-gray-500 mt-1">বিস্তারিত দেখতে ক্লিক করুন...</p> */}
                     </div>
                   </div>
@@ -125,24 +125,24 @@ export default function DashboardPage() {
         </div>
 
         {/* কুইক অ্যাকশন বা শর্টকাট */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">দ্রুত এক্সেস</h2>
-          <div className="grid grid-cols-2 gap-4">
-             <Link href="/dashboard/students/add" className="p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-2">
-                <Users className="h-6 w-6" />
-                <span className="text-sm font-medium">নতুন ভর্তি</span>
+      <div className="bg-white p-3 sm:p-6 rounded-xl shadow-sm border border-gray-100">
+       <h2 className="text-base sm:text-lg font-bold text-gray-800 mb-3 sm:mb-4">দ্রুত এক্সেস</h2>
+       <div className="grid grid-cols-2 gap-2 sm:gap-4">
+         <Link href="/dashboard/students/add" className="p-2.5 sm:p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-1.5 sm:gap-2">
+           <Users className="h-5 w-5 sm:h-6 sm:w-6" />
+           <span className="text-[11px] sm:text-sm font-medium text-center">নতুন ভর্তি</span>
              </Link>
-             <Link href="/dashboard/notices" className="p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-2">
-                <FileText className="h-6 w-6" />
-                <span className="text-sm font-medium">নোটিশ আপলোড</span>
+         <Link href="/dashboard/notices" className="p-2.5 sm:p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-1.5 sm:gap-2">
+           <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
+           <span className="text-[11px] sm:text-sm font-medium text-center">নোটিশ আপলোড</span>
              </Link>
-             <Link href="/dashboard/accounts" className="p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-2">
-                <Wallet className="h-6 w-6" />
-                <span className="text-sm font-medium">বেতন গ্রহণ</span>
+         <Link href="/dashboard/accounts" className="p-2.5 sm:p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-1.5 sm:gap-2">
+           <Wallet className="h-5 w-5 sm:h-6 sm:w-6" />
+           <span className="text-[11px] sm:text-sm font-medium text-center">বেতন গ্রহণ</span>
              </Link>
-             <Link href="/dashboard/results" className="p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-2">
-                <GraduationCap className="h-6 w-6" />
-                <span className="text-sm font-medium">রেজাল্ট এন্ট্রি</span>
+         <Link href="/dashboard/results" className="p-2.5 sm:p-4 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-500 hover:text-green-600 hover:bg-green-50 transition-all flex flex-col items-center gap-1.5 sm:gap-2">
+           <GraduationCap className="h-5 w-5 sm:h-6 sm:w-6" />
+           <span className="text-[11px] sm:text-sm font-medium text-center">রেজাল্ট এন্ট্রি</span>
              </Link>
           </div>
         </div>

@@ -9,12 +9,13 @@ import {
 import { 
   Loader2, Save, School, UploadCloud, User, FileText, 
   RefreshCw, AlertTriangle, CheckCircle, Printer, Download, X, 
-  MapPin, CheckCircle2, ChevronRight, GraduationCap, Users, Shield, Crop, ZoomIn, ZoomOut
+  MapPin, CheckCircle2, ChevronRight, GraduationCap, Users, Shield, Crop, ZoomIn, ZoomOut, ArrowLeft
 } from "lucide-react";
 import { divisions, districts, upazilas } from "@/data/bangladesh-data";
 import { differenceInYears, differenceInMonths, differenceInDays } from "date-fns";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // --- কনফিগারেশন ---
 const CLOUD_NAME = "dfo1slmdy"; 
@@ -139,6 +140,7 @@ const compressImage = (file: File, quality = 0.7, width = 800, height?: number):
 };
 
 export default function AdminStudentAdd() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [sameAddress, setSameAddress] = useState(false);
@@ -158,6 +160,14 @@ export default function AdminStudentAdd() {
   const [dbClasses, setDbClasses] = useState<any[]>([]);
   const [rollStats, setRollStats] = useState({ count: 0, maxRoll: 0 });
   const [rollStatsLoading, setRollStatsLoading] = useState(false);
+
+  const handleDynamicBack = () => {
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/dashboard/students");
+  };
 
   useEffect(() => {
     const fetchAcademicData = async () => {
@@ -534,6 +544,14 @@ export default function AdminStudentAdd() {
       {/* Header Card */}
       <div className="bg-gradient-to-r from-green-50 to-white p-6 rounded-2xl shadow-sm border border-green-100 flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleDynamicBack}
+            className="mb-3 h-8 px-3 text-xs sm:text-sm"
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" /> ফিরে যান
+          </Button>
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
             <div className="p-2 bg-green-600 rounded-lg text-white"><School className="w-6 h-6" /></div>
             নতুন শিক্ষার্থী ভর্তি

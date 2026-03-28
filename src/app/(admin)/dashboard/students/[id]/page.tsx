@@ -446,7 +446,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
            <div className="px-8 pb-8 flex flex-col md:flex-row gap-6 items-end -mt-12">
               <div className="p-1 bg-white rounded-2xl shadow-md">
                   {student.photo_url ? (
-                      <Image src={student.photo_url} alt="Student" width={140} height={140} className="w-36 h-36 rounded-xl object-cover bg-gray-100" />
+                      <Image src={student.photo_url} alt="Student" width={140} height={140} loading="eager" className="w-36 h-36 rounded-xl object-cover bg-gray-100" />
                   ) : (
                       <div className="w-36 h-36 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 font-bold text-4xl">{student.name_bn?.[0]}</div>
                   )}
@@ -759,5 +759,5 @@ const DocPreview = ({ url, label }: any) => {
     if(!url) return <span className="text-xs text-gray-400 italic">নেই</span>;
     return url.endsWith('.pdf') 
       ? <a href={url} target="_blank" className="flex items-center gap-1 text-red-500 text-xs font-bold bg-red-50 p-2 rounded w-fit"><FileText className="w-4 h-4"/> PDF ফাইল</a>
-      : <div className="w-20 h-20 relative border rounded overflow-hidden cursor-pointer hover:opacity-80"><Image src={url} alt={label} fill className="object-cover" /></div>
+  : <div className="w-20 h-20 border rounded overflow-hidden cursor-pointer hover:opacity-80"><Image src={url} alt={label} width={80} height={80} className="w-full h-full object-cover" /></div>
 };
