@@ -25,7 +25,7 @@ const defaultSettings: FooterSettings = {
   branch1_name: "শাখা ১",
   branch1_address: "হলিধানী বাজার, ঝিনাইদহ সদর",
   branch2_name: "শাখা ২",
-  branch2_address: "চাঁন্দুয়ালী বাজার, ঝিনাইদহ সদর",
+  branch2_address: "চাঁন্দুয়ালী বাজার, ঝিনাইদহ সদর",
   phone: "+৮৮০ ১৭XX-XXXXXX",
   email: "info@rahimajannat.com",
   facebook_url: "#",

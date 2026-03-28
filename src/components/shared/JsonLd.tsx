@@ -16,7 +16,7 @@ export default function JsonLd() {
         },
         "image": "https://rjmm.edu.bd/og-image.png",
         "description":
-          "ঝিনাইদহ জেলার হলিধানী ও চাঁন্দুয়ালীতে অবস্থিত একটি আদর্শ দ্বীনি শিক্ষা প্রতিষ্ঠান। নূরানী, হিফজুল কুরআন ও কিতাব বিভাগে ভর্তি চলছে।",
+          "ঝিনাইদহ জেলার হলিধানী ও চাঁন্দুয়ালীতে অবস্থিত একটি আদর্শ দ্বীনি শিক্ষা প্রতিষ্ঠান। নূরানী, হিফজুল কুরআন ও কিতাব বিভাগে ভর্তি চলছে।",
         "telephone": "+8801988214554",
         "address": [
           {
@@ -28,7 +28,7 @@ export default function JsonLd() {
           },
           {
             "@type": "PostalAddress",
-            "streetAddress": "চাঁন্দুয়ালী",
+            "streetAddress": "চাঁন্দুয়ালী",
             "addressLocality": "ঝিনাইদহ",
             "addressRegion": "ঝিনাইদহ",
             "addressCountry": "BD",
@@ -60,7 +60,7 @@ export default function JsonLd() {
         "url": "https://rjmm.edu.bd",
         "name": "রহিমা জান্নাত মহিলা মাদ্রাসা",
         "description":
-          "ঝিনাইদহ জেলার আদর্শ দ্বীনি শিক্ষা প্রতিষ্ঠান — হলিধানী ও চাঁন্দুয়ালী শাখা",
+          "ঝিনাইদহ জেলার আদর্শ দ্বীনি শিক্ষা প্রতিষ্ঠান — হলিধানী ও চাঁন্দুয়ালী শাখা",
         "publisher": { "@id": "https://rjmm.edu.bd/#organization" },
         "inLanguage": "bn",
       },

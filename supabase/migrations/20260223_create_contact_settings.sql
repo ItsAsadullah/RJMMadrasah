@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS contact_settings (
   branch1_address text NOT NULL DEFAULT 'হলিধানী আলিম মাদ্রাসার সামনে, হলিধানী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ - ৭৩০০',
   branch1_map_url text NOT NULL DEFAULT 'https://maps.google.com/maps?q=Holidhani%20Bazar%2C%20Jhenaidah&t=&z=15&ie=UTF8&iwloc=&output=embed',
   -- শাখা ২
-  branch2_name text NOT NULL DEFAULT 'শাখা ২: চাঁন্দুয়ালী বাজার',
-  branch2_address text NOT NULL DEFAULT 'চাঁন্দুয়ালী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ - ৭৩০০',
+  branch2_name text NOT NULL DEFAULT 'শাখা ২: চাঁন্দুয়ালী বাজার',
+  branch2_address text NOT NULL DEFAULT 'চাঁন্দুয়ালী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ - ৭৩০০',
   branch2_map_url text NOT NULL DEFAULT 'https://maps.google.com/maps?q=Chanduali%20Bazar%2C%20Jhenaidah&t=&z=15&ie=UTF8&iwloc=&output=embed',
   -- যোগাযোগ তথ্য
   phone1 text NOT NULL DEFAULT '+৮৮০ ১৭১২-৩৪৫৬৭৮',
@@ -47,8 +47,8 @@ INSERT INTO contact_settings (
   'শাখা ১: হলিধানী বাজার',
   'হলিধানী আলিম মাদ্রাসার সামনে, হলিধানী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ - ৭৩০০',
   'https://maps.google.com/maps?q=Holidhani%20Bazar%2C%20Jhenaidah&t=&z=15&ie=UTF8&iwloc=&output=embed',
-  'শাখা ২: চাঁন্দুয়ালী বাজার',
-  'চাঁন্দুয়ালী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ - ৭৩০০',
+  'শাখা ২: চাঁন্দুয়ালী বাজার',
+  'চাঁন্দুয়ালী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ - ৭৩০০',
   'https://maps.google.com/maps?q=Chanduali%20Bazar%2C%20Jhenaidah&t=&z=15&ie=UTF8&iwloc=&output=embed',
   '+৮৮০ ১৭১২-৩৪৫৬৭৮',
   '+৮৮০ ১৮৯০-১২৩৪৫৬',

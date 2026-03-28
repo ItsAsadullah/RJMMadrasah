@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS footer_settings (
   branch1_name text NOT NULL DEFAULT 'শাখা ১',
   branch1_address text NOT NULL DEFAULT 'হলিধানী বাজার, ঝিনাইদহ সদর',
   branch2_name text NOT NULL DEFAULT 'শাখা ২',
-  branch2_address text NOT NULL DEFAULT 'চাঁন্দুয়ালী বাজার, ঝিনাইদহ সদর',
+  branch2_address text NOT NULL DEFAULT 'চাঁন্দুয়ালী বাজার, ঝিনাইদহ সদর',
   phone text NOT NULL DEFAULT '+৮৮০ ১৭XX-XXXXXX',
   email text NOT NULL DEFAULT 'info@rahimajannat.com',
   facebook_url text NOT NULL DEFAULT '#',
@@ -33,7 +33,7 @@ INSERT INTO footer_settings (
 ) VALUES (
   'রহিমা জান্নাত',
   'শাখা ১', 'হলিধানী বাজার, ঝিনাইদহ সদর',
-  'শাখা ২', 'চাঁন্দুয়ালী বাজার, ঝিনাইদহ সদর',
+  'শাখা ২', 'চাঁন্দুয়ালী বাজার, ঝিনাইদহ সদর',
   '+৮৮০ ১৭XX-XXXXXX',
   'info@rahimajannat.com',
   '#',

@@ -4,13 +4,13 @@ import ContactClient from "@/components/pages/ContactClient";
 export const metadata: Metadata = {
   title: "যোগাযোগ করুন",
   description:
-    "রহিমা জান্নাত মহিলা মাদ্রাসার সাথে যোগাযোগ করুন। হলিধানী বাজার ও চাঁন্দুয়ালী শাখার ঠিকানা, ফোন নম্বর এবং ইমেইল পাবেন এখানে।",
+    "রহিমা জান্নাত মহিলা মাদ্রাসার সাথে যোগাযোগ করুন। হলিধানী বাজার ও চাঁন্দুয়ালী শাখার ঠিকানা, ফোন নম্বর এবং ইমেইল পাবেন এখানে।",
   alternates: { canonical: "https://rjmm.edu.bd/contact" },
   openGraph: {
     type: "website",
     title: "যোগাযোগ — রহিমা জান্নাত মহিলা মাদ্রাসা",
     description:
-      "হলিধানী বাজার ও চাঁন্দুয়ালী শাখার ঠিকানা, ফোন নম্বর এবং ইমেইল।",
+      "হলিধানী বাজার ও চাঁন্দুয়ালী শাখার ঠিকানা, ফোন নম্বর এবং ইমেইল।",
     url: "https://rjmm.edu.bd/contact",
     images: [{ url: "https://rjmm.edu.bd/og-image.png", width: 1200, height: 630, alt: "রহিমা জান্নাত মহিলা মাদ্রাসা" }],
   },

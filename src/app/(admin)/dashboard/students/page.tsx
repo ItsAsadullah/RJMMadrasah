@@ -83,9 +83,23 @@ export default function StudentManagement() {
     const activeStudents = filteredStudents.filter(s => s.status === 'active');
     const pendingStudents = filteredStudents.filter(s => s.status === 'pending');
 
-    const getActiveBranchStudentCount = (keyword: string) => {
+    const normalizeBangla = (value: string) =>
+      String(value || "")
+        .normalize("NFKC")
+        .replace(/[য়য়]/g, "য়")
+        .replace(/[ুউ]/g, "ু")
+        .replace(/[োৌ]/g, "ো")
+        .replace(/\s+/g, "")
+        .toLowerCase();
+
+    const getActiveBranchStudentCount = (keywords: string[]) => {
+      const normalizedKeywords = keywords.map(normalizeBangla);
+
       const matchedBranchIds = branches
-        .filter((branch) => String(branch.name || "").includes(keyword))
+        .filter((branch) => {
+          const normalizedName = normalizeBangla(String(branch.name || ""));
+          return normalizedKeywords.some((keyword) => normalizedName.includes(keyword));
+        })
         .map((branch) => String(branch.id));
 
       if (matchedBranchIds.length === 0) return 0;
@@ -97,8 +111,8 @@ export default function StudentManagement() {
       ).length;
     };
 
-    const holidhaniStudentCount = getActiveBranchStudentCount("হলিধানী");
-    const chanduyaliStudentCount = getActiveBranchStudentCount("চান্দুয়ালী");
+    const holidhaniStudentCount = getActiveBranchStudentCount(["হলিধান", "হলিধানি", "হলিধানী"]);
+    const chanduyaliStudentCount = getActiveBranchStudentCount(["চান্দু", "চাঁন্দু", "চান্দ", "চাঁদু", "চাঁন্দুয়ালী"]);
 
     // --- Handlers ---
     const handleEdit = (student: any) => {
@@ -167,7 +181,7 @@ export default function StudentManagement() {
                     <p className="text-sm md:text-base font-semibold text-gray-800">{holidhaniStudentCount} জন</p>
                   </div>
                   <div className="rounded-md bg-gray-50 px-1 py-1.5">
-                    <p className="text-[10px] md:text-xs text-gray-500 leading-tight">চান্দুয়ালী শাখা</p>
+                    <p className="text-[10px] md:text-xs text-gray-500 leading-tight">চাঁন্দুয়ালী শাখা</p>
                     <p className="text-sm md:text-base font-semibold text-gray-800">{chanduyaliStudentCount} জন</p>
                   </div>
               </div>

@@ -497,7 +497,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
               
 
               <InfoCard title="একাডেমিক তথ্য" icon={GraduationCap}>
-                  <InfoRow label="শাখা" value={student.branch_id === 1 || student.branch_id === '1' ? 'হলিধানী বাজার' : 'চাঁন্দুয়ালী বাজার'} />
+                  <InfoRow label="শাখা" value={student.branch_id === 1 || student.branch_id === '1' ? 'হলিধানী বাজার' : 'চাঁন্দুয়ালী বাজার'} />
                   <InfoRow label="বিভাগ" value={student.department} />
                   <InfoRow label="শ্রেণি" value={student.class_name} />
                   <InfoRow label="শিক্ষাবর্ষ" value={student.academic_year} />
@@ -560,7 +560,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                             <option value="">সিলেক্ট করুন</option>
                             {dbBranches.length > 0
                               ? dbBranches.map(b => <option key={b.id} value={String(b.id)}>{b.name}</option>)
-                              : <><option value="1">হলিধানী বাজার</option><option value="2">চাঁন্দুয়ালী বাজার</option></>}
+                              : <><option value="1">হলিধানী বাজার</option><option value="2">চাঁন্দুয়ালী বাজার</option></>}
                           </select>
                         </div>
                         <div className="space-y-1.5">

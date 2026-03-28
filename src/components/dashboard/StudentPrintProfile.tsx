@@ -114,7 +114,7 @@ export default function StudentPrintProfile({ student }: { student: any }) {
                                 </div>
                                 <div>
                                     <p className="text-[9px] font-bold text-green-800 uppercase tracking-wide leading-none mb-0.5">শাখা</p>
-                                    <p className="text-[12px] font-semibold text-gray-800 leading-none">{student.branch_id === 1 || student.branch_id === '1' ? 'হলিধানী' : 'চাঁন্দুয়ালী'}</p>
+                                    <p className="text-[12px] font-semibold text-gray-800 leading-none">{student.branch_id === 1 || student.branch_id === '1' ? 'হলিধানী' : 'চাঁন্দুয়ালী'}</p>
                                 </div>
                                 <div>
                                     <p className="text-[9px] font-bold text-green-800 uppercase tracking-wide leading-none mb-0.5">আবাসন</p>
