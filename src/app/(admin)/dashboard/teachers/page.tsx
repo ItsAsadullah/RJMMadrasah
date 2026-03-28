@@ -229,15 +229,15 @@ export default function TeacherManagement() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-xl border shadow-sm gap-4">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-3 sm:p-4 rounded-xl border shadow-sm gap-3">
         <div>
-            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                <User className="w-6 h-6 text-blue-600"/> শিক্ষক তালিকা
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <User className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600"/> শিক্ষক তালিকা
             </h1>
-            <p className="text-sm text-gray-500">মাদ্রাসার সকল শিক্ষকদের তালিকা ও তথ্য</p>
+            <p className="text-xs sm:text-sm text-gray-500">মাদ্রাসার সকল শিক্ষক/স্টাফদের তালিকা ও তথ্য</p>
         </div>
-        <Button onClick={openAdd} className="bg-blue-600 hover:bg-blue-700">
+        <Button onClick={openAdd} className="bg-blue-600 hover:bg-blue-700 h-9 text-sm w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2"/> নতুন শিক্ষক
         </Button>
       </div>
@@ -245,12 +245,12 @@ export default function TeacherManagement() {
       {/* Branch Tabs */}
       <div className="w-full">
         <Tabs defaultValue="all" value={selectedBranch} onValueChange={setSelectedBranch} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-6 h-auto p-1 bg-gray-100 rounded-lg gap-1">
-            <TabsTrigger value="all" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsList className="flex w-full overflow-x-auto h-auto p-1 bg-gray-100 rounded-lg gap-1 scrollbar-thin">
+            <TabsTrigger value="all" className="shrink-0 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm">
               সকল শাখা
             </TabsTrigger>
             {branches.map((branch) => (
-              <TabsTrigger key={branch.id} value={String(branch.id)} className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+              <TabsTrigger key={branch.id} value={String(branch.id)} className="shrink-0 text-xs sm:text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm">
                 {branch.name}
               </TabsTrigger>
             ))}
@@ -258,7 +258,7 @@ export default function TeacherManagement() {
         </Tabs>
       </div>
 
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <div className="hidden md:block bg-white rounded-xl border shadow-sm overflow-hidden">
         <Table>
             <TableHeader className="bg-gray-50">
                 <TableRow>
@@ -302,8 +302,44 @@ export default function TeacherManagement() {
         </Table>
       </div>
 
+      <div className="md:hidden space-y-2">
+        {loading ? (
+          <div className="bg-white rounded-xl border shadow-sm p-6 text-center">
+            <Loader2 className="animate-spin mx-auto text-blue-600"/>
+          </div>
+        ) : teachers.length === 0 ? (
+          <div className="bg-white rounded-xl border shadow-sm p-6 text-center text-gray-400 text-sm">কোনো তথ্য নেই</div>
+        ) : (
+          teachers.map((t) => (
+            <div key={t.id} className="bg-white rounded-xl border shadow-sm p-3 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-gray-800 text-sm truncate">{t.name || "-"}</h3>
+                  <p className="text-xs text-gray-500">{t.designation || "পদবী নেই"}</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(t)}><Edit className="w-3.5 h-3.5 text-gray-500"/></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(t.id)}><Trash2 className="w-3.5 h-3.5 text-red-400"/></Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-gray-600">
+                <p className="col-span-2 flex items-center gap-1">
+                  <School className="w-3 h-3 text-gray-400" />
+                  {t.branches?.name || "নির্ধারিত নেই"}
+                </p>
+                <p className="col-span-2 font-mono">{t.phone || "-"}</p>
+                <p className="col-span-2">
+                  <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[10px]">{t.subject_specialty || "দক্ষতা নেই"}</span>
+                </p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{isEdit ? "শিক্ষক তথ্য সংশোধন" : "নতুন শিক্ষক যোগ করুন"}</DialogTitle></DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4 py-4">
                   <div className="space-y-1">
@@ -359,8 +395,8 @@ export default function TeacherManagement() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                    <div className="col-span-2 text-xs font-bold text-gray-500 uppercase">লগইন তথ্য</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <div className="sm:col-span-2 text-xs font-bold text-gray-500 uppercase">লগইন তথ্য</div>
                     <div className="space-y-1">
                         <label className="text-sm font-bold text-gray-600">ইউজার আইডি</label>
                         <Input value={formData.user_id} onChange={e => setFormData({...formData, user_id: e.target.value})} placeholder="teacher123" />
