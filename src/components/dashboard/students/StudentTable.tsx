@@ -149,7 +149,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
     setSelectedRows(newSelected);
   };
 
-  const printTable = (documentTitle = "Students Print") => {
+  const printTableWithTitle = (documentTitle = "Students Print") => {
     const escapeHtml = (value: string) =>
       value
         .replace(/&/g, "&amp;")
@@ -285,7 +285,11 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
   };
 
   const exportPDF = () => {
-    printTable("students_list");
+    printTableWithTitle("students_list");
+  };
+
+  const printTable = () => {
+    printTableWithTitle("Students Print");
   };
 
   const handleBulkDelete = () => {
