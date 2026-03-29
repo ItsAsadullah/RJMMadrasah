@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, Plus, Trash2, Calendar, FileText } from "lucide-react";
+import { Loader2, Plus, Trash2, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function ExpenseManagement() {
@@ -30,9 +30,9 @@ export default function ExpenseManagement() {
       setLoading(true);
       // Fetch Categories
       const { data: catData } = await supabase
-          .from("expense_categories")
-          .select("*")
-          .eq("is_active", true);
+          .from("categories")
+          .select("id, name")
+          .eq("type", "expense");
       
       if (catData) setCategories(catData);
 

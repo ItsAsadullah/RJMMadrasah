@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase/client";
+import { getSafeSupabaseSession, supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 export default function Navbar() {
@@ -50,7 +50,7 @@ export default function Navbar() {
 
     const checkUser = async () => {
       if (supabase && supabase.auth) {
-        const { data: { session }, error } = await supabase.auth.getSession(); if (error) { await supabase.auth.signOut(); window.location.href = '/login'; }
+        const { session } = await getSafeSupabaseSession();
         setUser(session?.user ?? null);
       }
     };

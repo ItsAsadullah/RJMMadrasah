@@ -10,8 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Search, Printer, DollarSign, Eye, Download, FileSpreadsheet, History } from "lucide-react";
-import Image from "next/image";
+import { Loader2, Search, Printer, DollarSign, Eye, Download, FileSpreadsheet, History, Filter, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -119,6 +118,7 @@ export default function FeeCollection() {
     }, [search, filterBranch, filterClass, filterStatus]);
 
     const [activeTab, setActiveTab] = useState("dues");
+    const [showMobileFilterContent, setShowMobileFilterContent] = useState(false);
 
     const handleSelectStudent = async (student: any, tab = "dues") => {
       setSelectedStudent(student);
@@ -279,27 +279,37 @@ export default function FeeCollection() {
         <div className="space-y-6">
             {/* Stats Summary */}
             {!selectedStudent && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="bg-white border-l-4 border-l-red-500 shadow-sm">
-                        <CardContent className="p-4">
-                            <p className="text-xs font-bold text-gray-500 uppercase">সর্বমোট বকেয়া</p>
-                            <h3 className="text-2xl font-bold text-red-600">৳ {toBengaliNumber(totalDue)}</h3>
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                    <Card className="border-l-[3px] sm:border-l-4 border-l-red-500 py-0 gap-0 rounded-2xl shadow-sm">
+                        <CardContent className="p-2.5 sm:p-3 flex items-start justify-between gap-2">
+                            <div className="min-w-0 space-y-0.5">
+                                <p className="text-[9px] sm:text-[11px] leading-tight font-bold text-gray-500">সর্বমোট বকেয়া</p>
+                                <h3 className="text-sm sm:text-2xl leading-none font-bold text-red-600">৳ {toBengaliNumber(totalDue)}</h3>
+                            </div>
+                            <div className="shrink-0 rounded-full bg-red-50 p-1 sm:p-1.5 text-red-600">
+                                <DollarSign className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                            </div>
                         </CardContent>
                     </Card>
-                    <Card className="bg-white border-l-4 border-l-blue-500 shadow-sm">
-                        <CardContent className="p-4">
-                            <p className="text-xs font-bold text-gray-500 uppercase">মোট শিক্ষার্থী (বকেয়া সহ)</p>
-                            <h3 className="text-2xl font-bold text-blue-600">{toBengaliNumber(students.filter(s=>s.totalDue>0).length)} জন</h3>
+                    <Card className="border-l-[3px] sm:border-l-4 border-l-blue-500 py-0 gap-0 rounded-2xl shadow-sm">
+                        <CardContent className="p-2.5 sm:p-3 flex items-start justify-between gap-2">
+                            <div className="min-w-0 space-y-0.5">
+                                <p className="text-[9px] sm:text-[11px] leading-tight font-bold text-gray-500">মোট শিক্ষার্থী (বকেয়া সহ)</p>
+                                <h3 className="text-sm sm:text-2xl leading-none font-bold text-blue-600">{toBengaliNumber(students.filter(s=>s.totalDue>0).length)} জন</h3>
+                            </div>
+                            <div className="shrink-0 rounded-full bg-blue-50 p-1 sm:p-1.5 text-blue-600">
+                                <Users className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
             )}
             <Card>
                 <CardHeader className="pb-4">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                         <CardTitle>ফি সংগ্রহ ও বকেয়া তালিকা</CardTitle>
                         {!selectedStudent && (
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
                                 <Button variant="outline" size="sm" onClick={exportPDF} title="PDF Download"><Download className="w-4 h-4 mr-1"/> PDF</Button>
                                 <Button variant="outline" size="sm" onClick={exportExcel} title="Excel Export"><FileSpreadsheet className="w-4 h-4 mr-1"/> Excel</Button>
                             </div>
@@ -309,6 +319,18 @@ export default function FeeCollection() {
                 <CardContent>
                     {!selectedStudent ? (
                         <>
+                          <div className="mb-4 md:hidden">
+                              <Button
+                                  variant="outline"
+                                  className="w-full justify-between"
+                                  onClick={() => setShowMobileFilterContent((prev) => !prev)}
+                              >
+                                  <span className="flex items-center gap-2"><Filter className="w-4 h-4" /> ফিল্টার: ফি সংগ্রহ ও বকেয়া তালিকা</span>
+                                  {showMobileFilterContent ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </Button>
+                          </div>
+
+                          <div className={`${showMobileFilterContent ? "block" : "hidden"} md:block`}>
                           <div className="flex flex-col md:flex-row gap-4 mb-6 bg-gray-50 p-4 rounded-lg border">
                               <div className="w-full md:w-1/4">
                                   <label className="text-xs font-bold text-gray-500 mb-1 block">শাখা</label>
@@ -349,12 +371,88 @@ export default function FeeCollection() {
                                   </div>
                               </div>
                           </div>
+                          </div>
 
-                          <div className="border rounded-lg overflow-hidden">
+                          <div className="md:hidden space-y-3">
+                              {loading ? (
+                                  <div className="text-center py-10"><Loader2 className="animate-spin mx-auto text-green-600" /></div>
+                              ) : students.length === 0 ? (
+                                  <div className="text-center py-10 text-gray-400 border rounded-lg">কোনো তথ্য পাওয়া যায়নি</div>
+                              ) : (
+                                  students.map((s, idx) => (
+                                      <Card key={s.id} className="cursor-pointer" onClick={() => handleSelectStudent(s)}>
+                                              <CardContent className="p-2 space-y-2">
+                                                  <div className="flex items-center justify-between gap-2">
+                                                  <div className="flex items-center gap-3 min-w-0">
+                                                      {s.photo_url ? (
+                                                          <img
+                                                              src={s.photo_url}
+                                                              alt={s.name_bn || "Student"}
+                                                              className="h-8 w-8 rounded-full object-cover border border-gray-200 bg-white"
+                                                              loading="lazy"
+                                                          />
+                                                      ) : (
+                                                          <div className="h-8 w-8 rounded-full bg-white border border-gray-200 flex items-center justify-center font-bold text-sm text-green-700">
+                                                              {s.name_bn?.[0] || "?"}
+                                                          </div>
+                                                      )}
+                                                      <div className="min-w-0">
+                                                          <div className="text-sm font-semibold text-gray-800 truncate">{toBengaliNumber(idx + 1)}. {s.name_bn}</div>
+                                                          <div className="text-[11px] text-gray-500 font-mono truncate">ID: {s.student_id}</div>
+                                                      </div>
+                                                  </div>
+                                                  <div className="flex items-center gap-1 shrink-0">
+                                                      <Button
+                                                          size="sm"
+                                                          variant="ghost"
+                                                          className="h-8 w-8 p-0"
+                                                          onClick={(e) => { e.stopPropagation(); handleSelectStudent(s, 'dues'); }}
+                                                          title="View Dues"
+                                                      >
+                                                          <Eye className="w-4 h-4 text-green-600"/>
+                                                      </Button>
+                                                      <Button
+                                                          size="sm"
+                                                          variant="ghost"
+                                                          className="h-8 w-8 p-0"
+                                                          onClick={(e) => { e.stopPropagation(); handleSelectStudent(s, 'history'); }}
+                                                          title="Payment History"
+                                                      >
+                                                          <History className="w-4 h-4 text-blue-600"/>
+                                                      </Button>
+                                                  </div>
+                                              </div>
+
+                                              <div className="grid grid-cols-2 gap-2 text-[12px]">
+                                                  <div className="bg-gray-50 rounded-md p-1">
+                                                      <p className="text-gray-500 text-[11px]">শ্রেণি / রোল</p>
+                                                      <p className="font-medium text-sm text-gray-800">{s.class_name} / {s.roll_no || '-'}</p>
+                                                  </div>
+                                                  <div className="bg-gray-50 rounded-md p-1">
+                                                      <p className="text-gray-500 text-[11px]">শাখা</p>
+                                                      <p className="font-medium text-sm text-gray-800 truncate">{branches.find(b => b.id === s.branch_id)?.name || 'N/A'}</p>
+                                                  </div>
+                                              </div>
+
+                                              <div className="flex justify-between items-center">
+                                                  <span className="text-[12px] text-gray-500">মোট বকেয়া</span>
+                                                  {s.totalDue > 0 ? (
+                                                      <Badge className="bg-red-100 text-red-700 hover:bg-red-200 border-red-200 font-bold">৳ {toBengaliNumber(s.totalDue)}</Badge>
+                                                  ) : (
+                                                      <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-green-200 text-sm">পরিশোধিত</Badge>
+                                                  )}
+                                              </div>
+                                          </CardContent>
+                                      </Card>
+                                  ))
+                              )}
+                          </div>
+
+                          <div className="hidden md:block border rounded-lg overflow-hidden">
                               <Table>
                                   <TableHeader className="bg-gray-100">
                                       <TableRow>
-                                          <TableHead className="w-[50px]">#</TableHead>
+                                          <TableHead className="w-12.5">#</TableHead>
                                           <TableHead>শিক্ষার্থী</TableHead>
                                           <TableHead>শ্রেণি ও রোল</TableHead>
                                           <TableHead>শাখা</TableHead>
@@ -421,21 +519,21 @@ export default function FeeCollection() {
                     ) : (
                         // Selected Student View (Payment Collection)
                         (<div className="animate-in fade-in slide-in-from-right-4">
-                            <div className="bg-green-50 p-4 rounded-lg flex justify-between items-center mb-6 border border-green-100 shadow-sm">
-                                <div className="flex items-center gap-4">
+                            <div className="bg-green-50 p-4 rounded-lg flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6 border border-green-100 shadow-sm">
+                                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                                     <div className="h-12 w-12 bg-white rounded-full flex items-center justify-center font-bold text-xl text-green-700 border-2 border-green-200">
                                         {selectedStudent.name_bn?.[0]}
                                     </div>
-                                    <div>
+                                    <div className="min-w-0">
                                         <h3 className="font-bold text-lg text-gray-800">{selectedStudent.name_bn}</h3>
-                                        <p className="text-sm text-gray-600 font-mono">ID: {selectedStudent.student_id} | Class: {selectedStudent.class_name} | Roll: {selectedStudent.roll_no}</p>
+                                        <p className="text-xs sm:text-sm text-gray-600 font-mono wrap-break-word">ID: {selectedStudent.student_id} | Class: {selectedStudent.class_name} | Roll: {selectedStudent.roll_no}</p>
                                     </div>
                                 </div>
                                 <Button variant="outline" onClick={() => { setSelectedStudent(null); setDues([]); }}>তালিকায় ফিরে যান</Button>
                             </div>
                             {loading ? <div className="py-20 text-center"><Loader2 className="animate-spin mx-auto"/></div> : (
                                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                                    <TabsList className="grid w-full grid-cols-2 mb-6">
+                                    <TabsList className="grid w-full grid-cols-2 mb-6 h-auto">
                                         <TabsTrigger value="dues">বকেয়া সমূহ ({dues.length})</TabsTrigger>
                                         <TabsTrigger value="history">পেমেন্ট হিস্টোরি ({paidHistory.length})</TabsTrigger>
                                     </TabsList>
@@ -444,11 +542,11 @@ export default function FeeCollection() {
                                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                     <div className="lg:col-span-2 space-y-4">
                                         <h4 className="font-bold text-gray-700 flex items-center gap-2"><DollarSign className="w-4 h-4"/> বকেয়া ফিস সমূহ</h4>
-                                        <div className="border rounded-lg overflow-hidden">
+                                        <div className="hidden md:block border rounded-lg overflow-hidden">
                                             <Table>
                                                 <TableHeader className="bg-gray-50">
                                                     <TableRow>
-                                                        <TableHead className="w-[50px]"><Checkbox checked={selectedDues.length===dues.length && dues.length>0} onCheckedChange={(c) => setSelectedDues(c ? dues.map(d=>d.id) : [])} /></TableHead>
+                                                        <TableHead className="w-12.5"><Checkbox checked={selectedDues.length===dues.length && dues.length>0} onCheckedChange={(c) => setSelectedDues(c ? dues.map(d=>d.id) : [])} /></TableHead>
                                                         <TableHead>বিবরণ</TableHead>
                                                         <TableHead>মাসের নাম</TableHead>
                                                         <TableHead className="text-right">পরিমাণ</TableHead>
@@ -469,6 +567,28 @@ export default function FeeCollection() {
                                                     ))}
                                                 </TableBody>
                                             </Table>
+                                        </div>
+
+                                        <div className="md:hidden space-y-3">
+                                            {dues.length === 0 ? (
+                                                <div className="text-center py-8 text-green-600 border rounded-lg">কোনো বকেয়া নেই! সব পরিশোধিত।</div>
+                                            ) : dues.map(d => (
+                                                <Card key={d.id} className={selectedDues.includes(d.id) ? "border-green-300 bg-green-50" : ""}>
+                                                    <CardContent className="p-4 space-y-3">
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div className="min-w-0">
+                                                                <p className="font-medium text-gray-800">{d.title}</p>
+                                                                <p className="text-[10px] text-gray-500">{d.fee_structures?.department || 'General'}</p>
+                                                            </div>
+                                                            <Checkbox checked={selectedDues.includes(d.id)} onCheckedChange={() => setSelectedDues(p => p.includes(d.id) ? p.filter(x=>x!==d.id) : [...p, d.id])} />
+                                                        </div>
+                                                        <div className="flex items-center justify-between text-xs">
+                                                            <span className="text-gray-500">{format(new Date(d.created_at), 'MMMM yyyy')}</span>
+                                                            <span className="font-bold">৳ {toBengaliNumber(d.amount)}</span>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
                                         </div>
                                     </div>
 
@@ -494,7 +614,7 @@ export default function FeeCollection() {
                                     </TabsContent>
 
                                     <TabsContent value="history">
-                                        <div className="border rounded-lg overflow-hidden">
+                                        <div className="hidden md:block border rounded-lg overflow-hidden">
                                             <Table>
                                                 <TableHeader className="bg-gray-50">
                                                     <TableRow>
@@ -521,6 +641,26 @@ export default function FeeCollection() {
                                                     ))}
                                                 </TableBody>
                                             </Table>
+                                        </div>
+
+                                        <div className="md:hidden space-y-3">
+                                            {paidHistory.length === 0 ? (
+                                                <div className="text-center py-8 text-gray-400 border rounded-lg">কোনো পেমেন্ট হিস্টোরি নেই</div>
+                                            ) : paidHistory.map(h => (
+                                                <Card key={h.id}>
+                                                    <CardContent className="p-4 space-y-2">
+                                                        <p className="text-xs text-gray-500">{format(new Date(h.updated_at || h.created_at), 'dd MMM yyyy')}</p>
+                                                        <div>
+                                                            <p className="font-medium text-gray-800">{h.title}</p>
+                                                            <p className="text-[10px] text-gray-500">{h.fee_structures?.department || 'General'}</p>
+                                                        </div>
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="font-bold text-green-600">৳ {toBengaliNumber(h.paid_amount || h.amount)}</span>
+                                                            <Button size="sm" variant="outline" onClick={() => handleHistoryReceipt(h)}><Download className="w-4 h-4 mr-1"/> রশিদ</Button>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
                                         </div>
                                     </TabsContent>
                                 </Tabs>

@@ -35,10 +35,14 @@ export default function AccountsPage() {
     }, []);
 
     return (
-      <div className="space-y-6 p-4 md:p-8 bg-gray-50 min-h-screen font-[Kalpurush]">
+      <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-8 bg-gray-50 min-h-screen font-[Kalpurush]">
+                <div className="print:hidden">
+                    <h1 className="text-lg sm:text-2xl font-bold text-gray-900">বেতন ও ফিস</h1>
+                    <p className="text-xs sm:text-sm text-gray-500">ফি আদায়, দান, ব্যয় ও রিপোর্ট এক জায়গায় দেখুন</p>
+                </div>
         
         {/* Top Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 print:hidden">
             <StatCard title="মোট আয়" amount={reportSummary.income} icon={ArrowDownCircle} color="green" />
             <StatCard title="মোট ব্যয়" amount={reportSummary.expense} icon={ArrowUpCircle} color="red" />
             <StatCard title="বর্তমান স্থিতি" amount={reportSummary.balance} icon={DollarSign} color="blue" />
@@ -46,13 +50,15 @@ export default function AccountsPage() {
         </div>
 
         <Tabs defaultValue="collection" className="w-full print:hidden">
-          <TabsList className="grid w-full grid-cols-5 bg-white border h-14 mb-6 p-1 rounded-lg">
-              <TabsTrigger value="collection" className="font-bold">ফি আদায়</TabsTrigger>
-              <TabsTrigger value="donation" className="font-bold">দান গ্রহণ</TabsTrigger>
-              <TabsTrigger value="setup" className="font-bold">ফি নির্ধারণ</TabsTrigger>
-              <TabsTrigger value="expense" className="font-bold">ব্যয়</TabsTrigger>
-              <TabsTrigger value="reports" className="font-bold">রিপোর্ট</TabsTrigger>
-          </TabsList>
+                    <div className="overflow-x-auto">
+                        <TabsList className="flex w-max min-w-full bg-white border h-auto mb-4 sm:mb-6 p-0.5 sm:p-1 rounded-lg">
+                                <TabsTrigger value="collection" className="font-bold whitespace-nowrap text-[11px] sm:text-sm px-2.5 sm:px-4 py-1.5 sm:py-2">ফি আদায়</TabsTrigger>
+                                <TabsTrigger value="donation" className="font-bold whitespace-nowrap text-[11px] sm:text-sm px-2.5 sm:px-4 py-1.5 sm:py-2">দান গ্রহণ</TabsTrigger>
+                                <TabsTrigger value="setup" className="font-bold whitespace-nowrap text-[11px] sm:text-sm px-2.5 sm:px-4 py-1.5 sm:py-2">ফি নির্ধারণ</TabsTrigger>
+                                <TabsTrigger value="expense" className="font-bold whitespace-nowrap text-[11px] sm:text-sm px-2.5 sm:px-4 py-1.5 sm:py-2">ব্যয়</TabsTrigger>
+                                <TabsTrigger value="reports" className="font-bold whitespace-nowrap text-[11px] sm:text-sm px-2.5 sm:px-4 py-1.5 sm:py-2">রিপোর্ট</TabsTrigger>
+                        </TabsList>
+                    </div>
 
           <TabsContent value="collection">
               <FeeCollection />
@@ -88,10 +94,13 @@ const StatCard = ({ title, amount, icon: Icon, color }: any) => {
     };
     const [border, text, bg, iconColor] = (colorMap[color] || colorMap.blue).split(" ");
     return (
-        <Card className={`border-l-4 ${border}`}>
-            <CardContent className="p-4 flex justify-between items-center">
-                <div><p className="text-xs font-bold text-gray-500 uppercase">{title}</p><h3 className={`text-2xl font-bold ${text}`}>৳ {toBengaliNumber(amount)}</h3></div>
-                <div className={`p-2 rounded-full ${bg} ${iconColor}`}><Icon className="w-6 h-6"/></div>
+        <Card className={`border-l-[3px] sm:border-l-4 ${border} py-0 gap-0 rounded-2xl shadow-sm`}>
+            <CardContent className="p-2.5 sm:p-3 flex items-start justify-between gap-2">
+                <div className="min-w-0 space-y-0.5">
+                    <p className="text-[9px] sm:text-[11px] leading-tight font-bold text-gray-500">{title}</p>
+                    <h3 className={`text-sm sm:text-2xl leading-none font-bold ${text}`}>৳ {toBengaliNumber(amount)}</h3>
+                </div>
+                <div className={`shrink-0 p-1 sm:p-1.5 rounded-full ${bg} ${iconColor}`}><Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5"/></div>
             </CardContent>
         </Card>
     );

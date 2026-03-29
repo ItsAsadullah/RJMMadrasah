@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
+import { clearStoredSupabaseSession, supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { School, Lock, User, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -26,6 +26,9 @@ export default function UniversalLoginPage() {
     try {
         if (userType === 'admin') {
             // --- ADMIN LOGIN LOGIC ---
+            clearStoredSupabaseSession();
+            await supabase.auth.signOut({ scope: "local" });
+
             const { error } = await supabase.auth.signInWithPassword({
                 email: identifier,
                 password: password,

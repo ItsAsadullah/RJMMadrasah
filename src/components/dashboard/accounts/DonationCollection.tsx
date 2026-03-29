@@ -11,10 +11,86 @@ import { Loader2, Heart, Printer } from "lucide-react";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 
+const DONATION_PREFIX = "Donation |";
+
+const buildDonationDescription = (formData: {
+  donor_name: string;
+  donor_address: string;
+  donor_mobile: string;
+  purpose: string;
+  payment_method: string;
+}) => {
+  const parts = [
+    `${DONATION_PREFIX} donor=${formData.donor_name.trim()}`,
+    `purpose=${formData.purpose}`,
+    `method=${formData.payment_method}`,
+  ];
+
+  if (formData.donor_mobile.trim()) {
+    parts.push(`mobile=${formData.donor_mobile.trim()}`);
+  }
+
+  if (formData.donor_address.trim()) {
+    parts.push(`address=${formData.donor_address.trim()}`);
+  }
+
+  return parts.join(" | ");
+};
+
+const parseDonationTransaction = (transaction: any) => {
+  const description = String(transaction.description || "");
+  const fallbackPurpose = transaction.fund_type === "lillah" ? "lillah" : "general";
+  const parsed = {
+    id: transaction.id,
+    amount: transaction.amount,
+    created_at: transaction.created_at || transaction.transaction_date,
+    transaction_date: transaction.transaction_date || transaction.created_at,
+    donor_name: "অজানা দাতা",
+    donor_address: "",
+    donor_mobile: "",
+    purpose: fallbackPurpose,
+    payment_method: "cash",
+  };
+
+  if (description.startsWith(DONATION_PREFIX)) {
+    const fields = description.split(" | ").slice(1).reduce((acc: Record<string, string>, item) => {
+      const [key, ...rest] = item.split("=");
+      if (key && rest.length > 0) {
+        acc[key.trim()] = rest.join("=").trim();
+      }
+      return acc;
+    }, {});
+
+    return {
+      ...parsed,
+      donor_name: fields.donor || parsed.donor_name,
+      donor_address: fields.address || "",
+      donor_mobile: fields.mobile || "",
+      purpose: fields.purpose || parsed.purpose,
+      payment_method: fields.method || parsed.payment_method,
+    };
+  }
+
+  const legacyMatch = description.match(/^Donation from\s+(.+?)\s+\((.+?)\)$/i);
+  if (legacyMatch) {
+    return {
+      ...parsed,
+      donor_name: legacyMatch[1],
+      purpose: legacyMatch[2],
+    };
+  }
+
+  return {
+    ...parsed,
+    donor_name: description || parsed.donor_name,
+  };
+};
+
 export default function DonationCollection() {
     const [donations, setDonations] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [receiptData, setReceiptData] = useState<any>(null);
+    const [donationCategoryId, setDonationCategoryId] = useState<number | null>(null);
 
     const [formData, setFormData] = useState({
       donor_name: "",
@@ -26,12 +102,32 @@ export default function DonationCollection() {
     });
 
     async function fetchDonations() {
-      const { data } = await supabase.from("donations").select("*").order("created_at", { ascending: false }).limit(20);
-      if(data) setDonations(data);
+      const { data } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("type", "income")
+        .ilike("description", "Donation%")
+        .order("transaction_date", { ascending: false })
+        .limit(20);
+
+      if(data) setDonations(data.map(parseDonationTransaction));
+    }
+
+    async function fetchDonationCategory() {
+      const { data } = await supabase
+        .from("categories")
+        .select("id, name")
+        .eq("type", "income");
+
+      if (data) {
+        const matchedCategory = data.find((category: any) => /donation|দান/i.test(category.name || ""));
+        setDonationCategoryId(matchedCategory?.id ?? null);
+      }
     }
 
     useEffect(() => {
       fetchDonations();
+      fetchDonationCategory();
     }, []);
 
     const handleSubmit = async () => {
@@ -40,29 +136,30 @@ export default function DonationCollection() {
 
       const { data: { user } } = await supabase.auth.getUser();
 
-      // 1. Insert into donations table
-      const { data: donation, error } = await supabase.from("donations").insert({
-          ...formData,
+      const payload: Record<string, any> = {
           amount: parseFloat(formData.amount),
-          created_by: user?.id
-      }).select().single();
+          description: buildDonationDescription(formData),
+          type: "income",
+          fund_type: formData.purpose === "lillah" ? "lillah" : "general",
+          created_by: user?.id,
+          transaction_date: new Date().toISOString().split("T")[0],
+      };
+
+      if (donationCategoryId) {
+          payload.category_id = donationCategoryId;
+      }
+
+      const { data: donation, error } = await supabase
+        .from("transactions")
+        .insert(payload)
+        .select()
+        .single();
 
       if(error) {
           alert("এরর: " + error.message);
       } else {
-          // 2. Insert into transactions table for unified reporting
-          await supabase.from("transactions").insert({
-              amount: parseFloat(formData.amount),
-              description: `Donation from ${formData.donor_name} (${formData.purpose})`,
-              type: 'income',
-              fund_type: formData.purpose === 'lillah' ? 'lillah' : 'general',
-              created_by: user?.id,
-              donation_id: donation.id,
-              category_id: 2 // Assuming ID 2 is for Donations, or fetch dynamically
-          });
-
           alert("দান গ্রহণ সফল হয়েছে!");
-          setReceiptData(donation);
+          setReceiptData(parseDonationTransaction(donation));
           setFormData({ donor_name: "", donor_address: "", donor_mobile: "", amount: "", purpose: "general", payment_method: "cash" });
           fetchDonations();
       }
@@ -134,9 +231,13 @@ export default function DonationCollection() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {donations.map(d => (
+                        {donations.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={6} className="text-center py-8 text-gray-400">সাম্প্রতিক কোনো দান পাওয়া যায়নি</TableCell>
+                            </TableRow>
+                        ) : donations.map(d => (
                             <TableRow key={d.id}>
-                                <TableCell>{format(new Date(d.created_at), 'dd MMM yyyy')}</TableCell>
+                                <TableCell>{format(new Date(d.transaction_date || d.created_at), 'dd MMM yyyy')}</TableCell>
                                 <TableCell>
                                     <div className="font-bold">{d.donor_name}</div>
                                     <div className="text-xs text-gray-500">{d.donor_address}</div>
@@ -167,7 +268,7 @@ export default function DonationCollection() {
                         <div className="space-y-4 text-sm">
                             <div className="flex justify-between border-b pb-2">
                                 <span>রসিদ নং: <span className="font-mono">{receiptData.id.slice(0,8)}</span></span>
-                                <span>তারিখ: {format(new Date(receiptData.created_at), 'dd/MM/yyyy')}</span>
+                                <span>তারিখ: {format(new Date(receiptData.transaction_date || receiptData.created_at), 'dd/MM/yyyy')}</span>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>

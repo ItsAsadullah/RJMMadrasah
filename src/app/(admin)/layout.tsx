@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
+import { getSafeSupabaseSession, supabase } from "@/lib/supabase/client";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Preloader from "@/components/ui/Preloader";
 
@@ -20,12 +20,11 @@ export default function AdminLayout({
     const checkUser = async () => {
       try {
         if (!supabase || !supabase.auth) {
-          console.error("Supabase client is not initialized correctly.");
           router.replace("/login");
           return;
         }
 
-        const { data: { session }, error } = await supabase.auth.getSession(); if (error) { await supabase.auth.signOut(); window.location.href = '/login'; }
+        const { session, error } = await getSafeSupabaseSession();
         
         if (error || !session) {
           router.replace("/login");
@@ -35,7 +34,6 @@ export default function AdminLayout({
           setLoading(false);
         }
       } catch (err) {
-        console.error("Auth check failed:", err);
         router.replace("/login");
         setLoading(false);
       }
