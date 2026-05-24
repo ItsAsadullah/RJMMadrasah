@@ -397,10 +397,10 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
 
     // --- Render Transcript Component ---
     const TranscriptTemplate = ({ student }: { student: any }) => (
-        <div className="transcript-page relative border-4 border-double border-green-900 box-border bg-white" style={{ fontFamily: "'Kalpurush', 'Siyam Rupali', sans-serif" }}>
+        <div className="transcript-page relative border-[8px] border-double border-emerald-700 box-border bg-white" style={{ fontFamily: "'Kalpurush', 'Siyam Rupali', sans-serif" }}>
             {/* Watermark (Logo) */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-                <div className="relative w-96 h-96">
+            <div className="absolute inset-0 flex items-center justify-center opacity-[0.04] pointer-events-none">
+                <div className="relative w-[30rem] h-[30rem]">
                   <Image src="/images/logo.png" alt="Watermark" fill className="object-contain grayscale" priority />
                 </div>
             </div>
@@ -415,52 +415,62 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                         <div className="w-full flex justify-center relative h-16 mb-2">
                             <Image src="/images/long_logo.svg" alt="Madrasa Logo" fill className="object-contain" priority />
                         </div>
-                        <p className="text-lg font-bold text-gray-700">হলিধানী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ</p>
-                        <div className="border-b-2 border-green-800 w-full my-2"></div>
-                        <h1 className="text-3xl font-extrabold text-black uppercase tracking-wider mb-1">একাডেমিক ট্রান্সক্রিপ্ট</h1>
-                        <h2 className="text-xl font-bold text-green-800">{exam?.title} - {toBengaliNumber(exam?.academic_year || "")}</h2>
+                        <p className="text-base font-semibold text-slate-600 mb-3">হলিধানী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ</p>
+                        
+                        <div className="inline-block bg-emerald-700 text-white px-8 py-1.5 rounded-full text-xl font-bold uppercase tracking-widest shadow-sm print:bg-emerald-700 print-color-exact mb-3">
+                            একাডেমিক ট্রান্সক্রিপ্ট
+                        </div>
+                        
+                        <div className="flex items-center justify-center gap-2">
+                            <h2 className="text-lg font-bold text-emerald-800">{exam?.title}</h2>
+                            <span className="text-emerald-300 font-bold">|</span>
+                            <span className="text-md font-semibold text-emerald-700">শিক্ষাবর্ষ: {toBengaliNumber(exam?.academic_year || "")}</span>
+                        </div>
                     </div>
 
                     {/* Student Info Box */}
-                    <div className="relative z-10 mb-6 border border-green-800 rounded-lg p-4 grid grid-cols-2 gap-4 text-sm font-semibold bg-green-50 print:bg-green-50 print-color-exact">
-                        <div>
-                            <p className="mb-2">শিক্ষার্থীর নাম: <span className="font-bold text-base ml-2">{student.name_bn}</span></p>
-                            <p className="mb-2">আইডি নম্বর: <span className="font-mono ml-2">{toBengaliNumber(student.student_id)}</span></p>
-                            <p>পিতার নাম: <span className="ml-2">{student.father_name_bn}</span></p>
-                        </div>
-                        <div className="text-right">
-                            <p className="mb-2">শ্রেণি: <span className="ml-2">{classes.find(c => c.id === selectedClass)?.name}</span></p>
-                            <p className="mb-2">রোল নম্বর: <span className="font-mono font-bold text-base ml-2">{toBengaliNumber(student.roll_no)}</span></p>
-                            <p>মাতার নাম: <span className="ml-2">{student.mother_name_bn}</span></p>
+                    <div className="relative z-10 mb-6 bg-slate-50 border border-slate-200 rounded-xl p-5 text-sm print:bg-slate-50 print-color-exact shadow-sm">
+                        <div className="grid grid-cols-3 gap-y-4 gap-x-4">
+                            {/* Row 1 */}
+                            <div className="flex items-center"><span className="text-slate-500 w-24 shrink-0">শিক্ষার্থীর নাম:</span> <span className="font-bold text-base text-slate-800">{student.name_bn}</span></div>
+                            <div className="flex items-center"><span className="text-slate-500 w-20 shrink-0">পিতার নাম:</span> <span className="font-semibold text-slate-700">{student.father_name_bn}</span></div>
+                            <div className="flex items-center"><span className="text-slate-500 w-16 shrink-0">শ্রেণি:</span> <span className="font-bold text-emerald-800 bg-emerald-100/80 px-3 py-0.5 rounded-full border border-emerald-200 print:bg-emerald-100">{classes.find(c => c.id === selectedClass)?.name}</span></div>
+                            
+                            {/* Row 2 */}
+                            <div className="flex items-center"><span className="text-slate-500 w-24 shrink-0">আইডি নম্বর:</span> <span className="font-mono font-semibold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">{toBengaliNumber(student.student_id)}</span></div>
+                            <div className="flex items-center"><span className="text-slate-500 w-20 shrink-0">মাতার নাম:</span> <span className="font-semibold text-slate-700">{student.mother_name_bn}</span></div>
+                            <div className="flex items-center"><span className="text-slate-500 w-16 shrink-0">রোল নম্বর:</span> <span className="font-mono font-bold text-base text-slate-800">{toBengaliNumber(student.roll_no)}</span></div>
                         </div>
                     </div>
 
                     {/* Result Table */}
-                    <div className="relative z-10 mb-6">
-                        <table className="w-full border-collapse border border-green-900 text-center text-sm">
-                            <thead className="bg-green-800 text-white print:bg-green-800 print:text-white print-color-exact">
+                    <div className="relative z-10 mb-6 rounded-xl overflow-hidden border border-emerald-200 print:border-emerald-300">
+                        <table className="w-full text-center text-sm border-collapse">
+                            <thead className="bg-emerald-600 text-white print:bg-emerald-600 print:text-white print-color-exact font-semibold tracking-wide">
                                 <tr>
-                                    <th className="border border-green-900 p-2 w-12">নং</th>
-                                    <th className="border border-green-900 p-2 text-left">বিষয়ের নাম</th>
-                                    <th className="border border-green-900 p-2 w-24">পূর্ণমান</th>
-                                    <th className="border border-green-900 p-2 w-24">প্রাপ্ত নম্বর</th>
-                                    <th className="border border-green-900 p-2 w-20">লেটার গ্রেড</th>
-                                    <th className="border border-green-900 p-2 w-20">গ্রেড পয়েন্ট</th>
+                                    <th className="p-3 w-12 border-r border-emerald-500/50">নং</th>
+                                    <th className="p-3 text-left border-r border-emerald-500/50">বিষয়ের নাম</th>
+                                    <th className="p-3 w-24 border-r border-emerald-500/50">পূর্ণমান</th>
+                                    <th className="p-3 w-24 border-r border-emerald-500/50">প্রাপ্ত নম্বর</th>
+                                    <th className="p-3 w-24 border-r border-emerald-500/50">লেটার গ্রেড</th>
+                                    <th className="p-3 w-24">গ্রেড পয়েন্ট</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-emerald-100 bg-white">
                                 {subjects.map((sub, idx) => {
                                     const markStr = tabulationData[student.student_id]?.[sub.id];
                                     const mark = markStr ? parseInt(markStr) : 0;
                                     const result = markStr ? getGradePoint(mark) : { gp: 0, grade: 'AB' };
                                     return (
-                                        <tr key={sub.id}>
-                                            <td className="border border-green-900 p-2">{toBengaliNumber(idx + 1)}</td>
-                                            <td className="border border-green-900 p-2 text-left font-semibold">{sub.name}</td>
-                                            <td className="border border-green-900 p-2">{toBengaliNumber(sub.full_marks || 100)}</td>
-                                            <td className="border border-green-900 p-2 font-bold">{markStr ? toBengaliNumber(mark) : '-'}</td>
-                                            <td className="border border-green-900 p-2">{result.grade}</td>
-                                            <td className="border border-green-900 p-2">{toBengaliNumber(result.gp.toFixed(2))}</td>
+                                        <tr key={sub.id} className="hover:bg-slate-50 transition-colors">
+                                            <td className="p-2.5 border-r border-emerald-100 text-slate-500">{toBengaliNumber(idx + 1)}</td>
+                                            <td className="p-2.5 text-left font-semibold text-slate-800 border-r border-emerald-100">{sub.name}</td>
+                                            <td className="p-2.5 border-r border-emerald-100 text-slate-600">{toBengaliNumber(sub.full_marks || 100)}</td>
+                                            <td className="p-2.5 font-bold text-emerald-700 border-r border-emerald-100 text-base">{markStr ? toBengaliNumber(mark) : '-'}</td>
+                                            <td className="p-2.5 border-r border-emerald-100">
+                                                <span className={`font-bold ${result.grade === 'F' ? 'text-red-600' : 'text-slate-700'}`}>{result.grade}</span>
+                                            </td>
+                                            <td className="p-2.5 font-semibold text-slate-700">{toBengaliNumber(result.gp.toFixed(2))}</td>
                                         </tr>
                                     );
                                 })}
@@ -468,12 +478,12 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                 {(() => {
                                     const summary = calculateResultSummary(student.student_id, subjects, tabulationData);
                                     return (
-                                        <tr className="font-bold bg-gray-100 print:bg-gray-100 print-color-exact">
-                                            <td colSpan={2} className="border border-green-900 p-2 text-right pr-4">সর্বমোট:</td>
-                                            <td className="border border-green-900 p-2 text-center">{toBengaliNumber(summary.totalFull)}</td>
-                                            <td className="border border-green-900 p-2 text-center">{toBengaliNumber(summary.total)}</td>
-                                            <td className="border border-green-900 p-2 text-center">{summary.grade}</td>
-                                            <td className="border border-green-900 p-2 text-center">{toBengaliNumber(summary.gpa.toFixed(2))}</td>
+                                        <tr className="font-bold bg-emerald-50 print:bg-emerald-50 print-color-exact border-t-2 border-emerald-200">
+                                            <td colSpan={2} className="p-3 text-right pr-4 text-emerald-900 uppercase tracking-wider border-r border-emerald-200">সর্বমোট</td>
+                                            <td className="p-3 text-center text-emerald-800 border-r border-emerald-200">{toBengaliNumber(summary.totalFull)}</td>
+                                            <td className="p-3 text-center text-emerald-800 text-lg border-r border-emerald-200">{toBengaliNumber(summary.total)}</td>
+                                            <td className="p-3 text-center text-emerald-800 text-lg border-r border-emerald-200">{summary.grade}</td>
+                                            <td className="p-3 text-center text-emerald-800 text-lg">{toBengaliNumber(summary.gpa.toFixed(2))}</td>
                                         </tr>
                                     );
                                 })()}
@@ -482,34 +492,36 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                     </div>
 
                     {/* Grading Scale */}
-                    <div className="relative z-10 mb-4 flex justify-end">
-                        <div className="w-1/3 border border-green-900 text-[10px]">
-                            <div className="bg-green-100 p-1 text-center font-bold border-b border-green-900">গ্রেডিং সিস্টেম</div>
-                            <div className="grid grid-cols-3 gap-0 text-center">
-                                <div className="border-r border-b border-green-900 p-1">৮০-১০০</div><div className="border-r border-b border-green-900 p-1">A+</div><div className="border-b border-green-900 p-1">5.00</div>
-                                <div className="border-r border-b border-green-900 p-1">৭০-৭৯</div><div className="border-r border-b border-green-900 p-1">A</div><div className="border-b border-green-900 p-1">4.00</div>
-                                <div className="border-r border-b border-green-900 p-1">৬০-৬৯</div><div className="border-r border-b border-green-900 p-1">A-</div><div className="border-b border-green-900 p-1">3.50</div>
-                                <div className="border-r border-b border-green-900 p-1">৫০-৫৯</div><div className="border-r border-b border-green-900 p-1">B</div><div className="border-b border-green-900 p-1">3.00</div>
-                                <div className="border-r border-b border-green-900 p-1">৪০-৪৯</div><div className="border-r border-b border-green-900 p-1">C</div><div className="border-b border-green-900 p-1">2.00</div>
-                                <div className="border-r border-green-900 p-1">৩৩-৩৯</div><div className="border-r border-green-900 p-1">D</div><div className="p-1">1.00</div>
+                    <div className="relative z-10 mb-6 flex justify-center">
+                        <div className="w-full max-w-2xl border border-slate-200 rounded-lg overflow-hidden flex bg-white text-[10px]">
+                            <div className="bg-slate-100 p-2 flex items-center justify-center font-bold text-slate-700 border-r border-slate-200 whitespace-nowrap print:bg-slate-100 print-color-exact">
+                                গ্রেডিং সিস্টেম
+                            </div>
+                            <div className="flex-1 grid grid-cols-6 divide-x divide-slate-200 text-center">
+                                <div className="p-1.5"><div className="font-bold text-slate-800">৮০-১০০</div><div className="text-emerald-600 font-bold">A+ (5.00)</div></div>
+                                <div className="p-1.5"><div className="font-bold text-slate-800">৭০-৭৯</div><div className="text-emerald-600 font-bold">A (4.00)</div></div>
+                                <div className="p-1.5"><div className="font-bold text-slate-800">৬০-৬৯</div><div className="text-emerald-600 font-bold">A- (3.50)</div></div>
+                                <div className="p-1.5"><div className="font-bold text-slate-800">৫০-৫৯</div><div className="text-blue-600 font-bold">B (3.00)</div></div>
+                                <div className="p-1.5"><div className="font-bold text-slate-800">৪০-৪৯</div><div className="text-amber-600 font-bold">C (2.00)</div></div>
+                                <div className="p-1.5"><div className="font-bold text-slate-800">৩৩-৩৯</div><div className="text-orange-600 font-bold">D (1.00)</div></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Footer Signatures */}
-                <div className="relative z-10 flex justify-between items-end pb-2">
+                <div className="relative z-10 flex justify-between items-end pb-4 pt-8">
                     <div className="text-center">
-                        <div className="w-32 border-t border-black border-dashed mb-2"></div>
-                        <p className="font-bold text-xs">শ্রেণি শিক্ষকের স্বাক্ষর</p>
+                        <div className="w-40 border-t border-slate-400 mb-2"></div>
+                        <p className="font-semibold text-sm text-slate-700">শ্রেণি শিক্ষকের স্বাক্ষর</p>
                     </div>
                     <div className="text-center">
-                        <div className="w-32 border-t border-black border-dashed mb-2"></div>
-                        <p className="font-bold text-xs">অধ্যক্ষের স্বাক্ষর</p>
+                        <div className="w-40 border-t border-slate-400 mb-2"></div>
+                        <p className="font-semibold text-sm text-slate-700">অধ্যক্ষের স্বাক্ষর</p>
                     </div>
                     <div className="text-center">
-                        <div className="w-32 border-t border-black border-dashed mb-2"></div>
-                        <p className="font-bold text-xs">অভিভাবকের স্বাক্ষর</p>
+                        <div className="w-40 border-t border-slate-400 mb-2"></div>
+                        <p className="font-semibold text-sm text-slate-700">অভিভাবকের স্বাক্ষর</p>
                     </div>
                 </div>
             </div>
@@ -521,14 +533,15 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
     return (
       <div className="space-y-6">
         {/* Header */}
-        <div className="bg-white p-6 rounded-xl border shadow-sm flex justify-between items-center print:hidden">
+        <div className="bg-white p-4 md:p-6 rounded-xl border shadow-sm print:hidden">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
            <div>
-               <h1 className="text-2xl font-bold text-gray-800">{exam?.title}</h1>
-               <p className="text-gray-500">{exam?.branches?.name} | শিক্ষাবর্ষ: {toBengaliNumber(exam?.academic_year || "")}</p>
+               <h1 className="text-xl md:text-2xl font-bold text-gray-800">{exam?.title}</h1>
+               <p className="text-sm text-gray-500">{exam?.branches?.name} | শিক্ষাবর্ষ: {toBengaliNumber(exam?.academic_year || "")}</p>
            </div>
-           <div className="flex gap-3">
+           <div className="flex gap-3 w-full sm:w-auto">
                <select 
-                  className="border p-2 rounded-lg bg-gray-50 focus:bg-white min-w-[200px]" 
+                  className="border p-2 rounded-lg bg-gray-50 focus:bg-white w-full sm:min-w-[200px]" 
                   value={selectedClass} 
                   onChange={(e) => setSelectedClass(e.target.value)}
                >
@@ -536,6 +549,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                </select>
            </div>
+          </div>
         </div>
 
         {!selectedClass ? (
@@ -544,24 +558,24 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
             </div>
         ) : (
           <Tabs defaultValue="routine_admit" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 print:hidden bg-white border p-1 h-12 rounded-xl mb-4">
-                  <TabsTrigger value="routine_admit" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700 font-bold">রুটিন ও প্রবেশপত্র</TabsTrigger>
-                  <TabsTrigger value="results" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700 font-bold">ফলাফল ও মার্কশিট</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 print:hidden bg-white border p-1 h-auto rounded-xl mb-4">
+                  <TabsTrigger value="routine_admit" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700 font-bold text-xs sm:text-sm py-2">রুটিন ও প্রবেশপত্র</TabsTrigger>
+                  <TabsTrigger value="results" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700 font-bold text-xs sm:text-sm py-2">ফলাফল ও মার্কশিট</TabsTrigger>
               </TabsList>
 
               {/* ====== TAB 1: ROUTINE & ADMIT ====== */}
               <TabsContent value="routine_admit" className="print:hidden">
                   <Tabs defaultValue="routine_setup" className="w-full">
-                      <TabsList className="w-full justify-start border-b bg-transparent h-12 rounded-none p-0 mb-4 space-x-6">
-                          <TabsTrigger value="routine_setup" className="rounded-none border-b-2 border-transparent data-[state=active]:border-purple-600 data-[state=active]:bg-transparent data-[state=active]:text-purple-800 px-4 py-2">রুটিন সেটআপ</TabsTrigger>
-                          <TabsTrigger value="admit_card" className="rounded-none border-b-2 border-transparent data-[state=active]:border-purple-600 data-[state=active]:bg-transparent data-[state=active]:text-purple-800 px-4 py-2">প্রবেশপত্র</TabsTrigger>
+                      <TabsList className="w-full overflow-x-auto justify-start border-b bg-transparent h-auto rounded-none p-0 mb-4 flex gap-1 sm:gap-4">
+                          <TabsTrigger value="routine_setup" className="rounded-none border-b-2 border-transparent data-[state=active]:border-purple-600 data-[state=active]:bg-transparent data-[state=active]:text-purple-800 px-2 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">রুটিন সেটআপ</TabsTrigger>
+                          <TabsTrigger value="admit_card" className="rounded-none border-b-2 border-transparent data-[state=active]:border-purple-600 data-[state=active]:bg-transparent data-[state=active]:text-purple-800 px-2 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">প্রবেশপত্র</TabsTrigger>
                       </TabsList>
 
                       <TabsContent value="routine_setup">
-                          <div className="bg-white p-6 rounded-xl border shadow-sm">
-                              <div className="flex justify-between items-center mb-6">
+                          <div className="bg-white p-3 sm:p-4 md:p-6 rounded-xl border shadow-sm">
+                              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4 md:mb-6">
                                   <h3 className="font-bold flex items-center gap-2 text-gray-700"><Calendar className="w-5 h-5 text-purple-600"/> পরীক্ষার রুটিন</h3>
-                                  <Button onClick={openRoutineModal} className="bg-purple-600 hover:bg-purple-700 shadow-md">
+                                  <Button onClick={openRoutineModal} className="bg-purple-600 hover:bg-purple-700 shadow-md w-full sm:w-auto">
                                       <Edit className="w-4 h-4 mr-2"/> রুটিন সেটআপ
                                   </Button>
                               </div>
@@ -599,16 +613,18 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                       </TabsContent>
 
                       <TabsContent value="admit_card">
-                          <div className="bg-white p-6 rounded-xl border shadow-sm flex items-center justify-between">
+                          <div className="bg-white p-3 sm:p-4 md:p-6 rounded-xl border shadow-sm">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                               <div>
                                   <h3 className="font-bold flex items-center gap-2 text-gray-800 mb-1"><FileText className="w-5 h-5 text-green-600"/> প্রবেশপত্র প্রিন্ট</h3>
                                   <p className="text-sm text-gray-500">
                                        মোট শিক্ষার্থী: {toBengaliNumber(students.length)} জন | রুটিন সেট করা হয়েছে: {routines.length > 0 ? 'হ্যাঁ' : 'না'}
                                   </p>
                               </div>
-                              <Button onClick={handlePrintAdmitCards} disabled={students.length === 0 || routines.length === 0} className="bg-green-600 hover:bg-green-700 shadow-md">
+                              <Button onClick={handlePrintAdmitCards} disabled={students.length === 0 || routines.length === 0} className="bg-green-600 hover:bg-green-700 shadow-md w-full sm:w-auto">
                                   <Printer className="w-4 h-4 mr-2"/> সব প্রবেশপত্র প্রিন্ট করুন
                               </Button>
+                              </div>
                           </div>
                           <div className="mt-4 p-10 text-center text-gray-400 border-2 border-dashed rounded-xl bg-gray-50">
                               <School className="w-12 h-12 mx-auto mb-2 opacity-20"/>
@@ -621,22 +637,22 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
               {/* ====== TAB 2: RESULTS ====== */}
               <TabsContent value="results" className="print:hidden">
                   <Tabs defaultValue="entry" className="w-full">
-                      <TabsList className="w-full justify-start border-b bg-transparent h-12 rounded-none p-0 mb-4 space-x-6">
-                          <TabsTrigger value="entry" className="rounded-none border-b-2 border-transparent data-[state=active]:border-purple-600 data-[state=active]:bg-transparent data-[state=active]:text-purple-800 px-4 py-2">নম্বর এন্ট্রি (টেবুলেশন)</TabsTrigger>
-                          <TabsTrigger value="view" className="rounded-none border-b-2 border-transparent data-[state=active]:border-purple-600 data-[state=active]:bg-transparent data-[state=active]:text-purple-800 px-4 py-2">ফলাফল ও মার্কশিট</TabsTrigger>
+                      <TabsList className="w-full overflow-x-auto justify-start border-b bg-transparent h-auto rounded-none p-0 mb-4 flex gap-1 sm:gap-4">
+                          <TabsTrigger value="entry" className="rounded-none border-b-2 border-transparent data-[state=active]:border-purple-600 data-[state=active]:bg-transparent data-[state=active]:text-purple-800 px-2 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">নম্বর এন্ট্রি (টেবুলেশন)</TabsTrigger>
+                          <TabsTrigger value="view" className="rounded-none border-b-2 border-transparent data-[state=active]:border-purple-600 data-[state=active]:bg-transparent data-[state=active]:text-purple-800 px-2 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">ফলাফল ও মার্কশিট</TabsTrigger>
                       </TabsList>
 
                       {/* Sub Tab: Entry */}
                       <TabsContent value="entry">
-                          <div className="bg-white p-4 rounded-xl border shadow-sm">
-                              <div className="flex justify-between items-center mb-4">
+                          <div className="bg-white p-3 sm:p-4 rounded-xl border shadow-sm">
+                              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
                                   <div className="flex items-center gap-2">
-                                      <h2 className="text-lg font-bold text-gray-800">নম্বর এন্ট্রি শিট</h2>
+                                      <h2 className="text-base sm:text-lg font-bold text-gray-800">নম্বর এন্ট্রি শিট</h2>
                                       <Button size="sm" variant="ghost" onClick={fetchTabulationData} title="রিফ্রেশ">
                                           <RefreshCcw className="w-4 h-4 text-gray-500"/>
                                       </Button>
                                   </div>
-                                  <Button onClick={saveTabulationSheet} disabled={isSavingTabulation} className="bg-green-600 hover:bg-green-700 shadow-md">
+                                  <Button onClick={saveTabulationSheet} disabled={isSavingTabulation} className="bg-green-600 hover:bg-green-700 shadow-md w-full sm:w-auto">
                                       {isSavingTabulation ? <Loader2 className="animate-spin mr-2"/> : <Save className="mr-2 w-4 h-4"/>} ফলাফল সেভ করুন
                                   </Button>
                               </div>
@@ -645,9 +661,9 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                   <table className="w-full text-sm text-left border-collapse">
                                       <thead className="bg-gray-100 text-gray-700 font-bold border-b sticky top-0 z-20 shadow-sm">
                                           <tr>
-                                              <th className="p-2 border border-gray-300 w-16 text-center bg-gray-100 sticky left-0 z-30">রোল</th>
-                                              <th className="p-2 border border-gray-300 w-24 text-center bg-gray-100 sticky left-16 z-30">আইডি</th>
-                                              <th className="p-2 border border-gray-300 w-48 bg-gray-100 sticky left-40 z-30 shadow-r">নাম</th>
+                                              <th className="p-2 border border-gray-300 w-16 text-center bg-gray-100 md:sticky md:left-0 z-30">রোল</th>
+                                              <th className="p-2 border border-gray-300 w-24 text-center bg-gray-100 md:sticky md:left-16 z-30">আইডি</th>
+                                              <th className="p-2 border border-gray-300 w-48 bg-gray-100 md:sticky md:left-40 z-30 shadow-r">নাম</th>
                                               {subjects.map(sub => (
                                                   <th key={sub.id} className="p-2 border border-gray-300 min-w-[80px] text-center whitespace-nowrap" title={sub.name}>
                                                       <div className="text-xs">{sub.name}</div>
@@ -662,9 +678,9 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                           ) : (
                                               students.map((student) => (
                                                   <tr key={student.id} className="hover:bg-gray-50 group">
-                                                      <td className="p-2 border border-gray-300 text-center font-bold bg-white group-hover:bg-gray-50 sticky left-0 z-10">{toBengaliNumber(student.roll_no || '-')}</td>
-                                                      <td className="p-2 border border-gray-300 text-center font-mono text-xs bg-white group-hover:bg-gray-50 sticky left-16 z-10">{student.student_id}</td>
-                                                      <td className="p-2 border border-gray-300 font-medium truncate bg-white group-hover:bg-gray-50 sticky left-40 z-10 shadow-r" title={student.name_bn}>{student.name_bn}</td>
+                                                      <td className="p-2 border border-gray-300 text-center font-bold bg-white group-hover:bg-gray-50 md:sticky md:left-0 z-10">{toBengaliNumber(student.roll_no)}</td>
+                                                      <td className="p-2 border border-gray-300 text-center font-mono text-gray-600 bg-white group-hover:bg-gray-50 md:sticky md:left-16 z-10">{toBengaliNumber(student.student_id)}</td>
+                                                      <td className="p-2 border border-gray-300 font-medium truncate bg-white group-hover:bg-gray-50 md:sticky md:left-40 z-10 shadow-r" title={student.name_bn}>{student.name_bn}</td>
                                                       {subjects.map(sub => {
                                                           const currentMark = tabulationData[student.student_id]?.[sub.id] || "";
                                                           return (
@@ -690,18 +706,18 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
 
                       {/* Sub Tab: View & Print */}
                       <TabsContent value="view">
-                          <div className="bg-white p-6 rounded-xl border shadow-sm w-full overflow-x-auto">
-                              <div className="flex justify-between items-center mb-4">
+                          <div className="bg-white p-3 sm:p-4 md:p-6 rounded-xl border shadow-sm w-full overflow-x-auto">
+                              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
                                    <div className="flex items-center gap-2">
-                                       <h2 className="text-lg font-bold text-gray-800">সম্পূর্ণ ফলাফল তালিকা (মেধাক্রম অনুযায়ী)</h2>
+                                       <h2 className="text-base sm:text-lg font-bold text-gray-800">সম্পূর্ণ ফলাফল তালিকা (মেধাক্রম অনুযায়ী)</h2>
                                        <Button size="sm" variant="ghost" onClick={fetchTabulationData} title="রিফ্রেশ"><RefreshCcw className="w-4 h-4 text-gray-500"/></Button>
                                    </div>
-                                   <div className="flex gap-2">
-                                       <Button onClick={handlePrintTabulation} className="bg-blue-600 hover:bg-blue-700 text-white shadow-md">
-                                           <FileSpreadsheet className="w-4 h-4 mr-2"/> ফলাফল শিট প্রিন্ট
+                                   <div className="flex flex-wrap gap-2">
+                                       <Button onClick={handlePrintTabulation} className="bg-blue-600 hover:bg-blue-700 text-white shadow-md text-xs sm:text-sm">
+                                           <FileSpreadsheet className="w-4 h-4 mr-1 sm:mr-2"/> <span className="hidden sm:inline">ফলাফল শিট</span> প্রিন্ট
                                        </Button>
-                                       <Button onClick={handlePrintTranscriptAll} className="bg-purple-600 hover:bg-purple-700 text-white shadow-md">
-                                           <Users className="w-4 h-4 mr-2"/> সকল মার্কশিট প্রিন্ট
+                                       <Button onClick={handlePrintTranscriptAll} className="bg-purple-600 hover:bg-purple-700 text-white shadow-md text-xs sm:text-sm">
+                                           <Users className="w-4 h-4 mr-1 sm:mr-2"/> <span className="hidden sm:inline">সকল</span> মার্কশিট
                                        </Button>
                                    </div>
                               </div>
@@ -770,9 +786,10 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
 
         {/* Routine Setup Modal */}
         <Dialog open={isRoutineModalOpen} onOpenChange={setIsRoutineModalOpen}>
-          <DialogContent className="sm:max-w-[900px] max-h-[85vh] overflow-y-auto">
+          <DialogContent className="w-[98vw] max-w-[900px] max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>পরীক্ষার রুটিন সেটআপ</DialogTitle><DialogDescription>সব বিষয়ের তারিখ ও সময় একসাথে সেট করুন</DialogDescription></DialogHeader>
-              <div className="overflow-x-auto border rounded-lg mt-4">
+              {/* Desktop: table layout */}
+              <div className="hidden sm:block overflow-x-auto border rounded-lg mt-4">
                   <table className="w-full text-sm text-left">
                       <thead className="bg-gray-50 text-gray-600 font-medium border-b sticky top-0">
                           <tr>
@@ -796,14 +813,41 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                       </tbody>
                   </table>
               </div>
-              <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsRoutineModalOpen(false)}>বাতিল</Button>
-                  <Button onClick={saveAllRoutines} disabled={isSavingRoutine} className="bg-green-600 hover:bg-green-700">
+              {/* Mobile: card layout */}
+              <div className="sm:hidden space-y-3 mt-4">
+                  {subjects.map(sub => (
+                      <div key={sub.id} className="border rounded-lg p-3 space-y-2 bg-gray-50">
+                          <p className="font-bold text-gray-800 text-sm">{sub.name}</p>
+                          <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                  <label className="text-[10px] text-gray-500 font-semibold block mb-1">তারিখ</label>
+                                  <Input type="date" value={routineData[sub.id]?.date || ""} onChange={(e) => handleRoutineChange(sub.id, 'date', e.target.value)} className="h-9 text-xs" />
+                              </div>
+                              <div>
+                                  <label className="text-[10px] text-gray-500 font-semibold block mb-1">পূর্ণমান</label>
+                                  <Input type="number" value={routineData[sub.id]?.full_marks || sub.full_marks || 100} onChange={(e) => handleRoutineChange(sub.id, 'full_marks', e.target.value)} className="h-9 text-center text-xs" />
+                              </div>
+                              <div>
+                                  <label className="text-[10px] text-gray-500 font-semibold block mb-1">শুরু</label>
+                                  <Input type="time" value={routineData[sub.id]?.start || "10:00"} onChange={(e) => handleRoutineChange(sub.id, 'start', e.target.value)} className="h-9 text-xs" />
+                              </div>
+                              <div>
+                                  <label className="text-[10px] text-gray-500 font-semibold block mb-1">শেষ</label>
+                                  <Input type="time" value={routineData[sub.id]?.end || "13:00"} onChange={(e) => handleRoutineChange(sub.id, 'end', e.target.value)} className="h-9 text-xs" />
+                              </div>
+                          </div>
+                      </div>
+                  ))}
+              </div>
+              <DialogFooter className="flex-col-reverse sm:flex-row gap-2 mt-4">
+                  <Button variant="outline" onClick={() => setIsRoutineModalOpen(false)} className="w-full sm:w-auto">বাতিল</Button>
+                  <Button onClick={saveAllRoutines} disabled={isSavingRoutine} className="bg-green-600 hover:bg-green-700 w-full sm:w-auto">
                       {isSavingRoutine ? <Loader2 className="animate-spin mr-2"/> : <Save className="mr-2 w-4 h-4"/>} সব সেভ করুন
                   </Button>
               </DialogFooter>
           </DialogContent>
         </Dialog>
+
         
         {/* ---------------- PRINT AREAS ---------------- */}
         

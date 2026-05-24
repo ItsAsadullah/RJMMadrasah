@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/lib/supabase/client";
 import { Loader2, Save } from "lucide-react";
-import { departments, classesByDept } from "@/data/bangladesh-data";
 
 type StudentFormProps = {
   open: boolean;
@@ -28,6 +27,8 @@ type StudentFormProps = {
   student?: any;
   onSuccess: () => void;
   branches?: any[];
+  dbDepartments?: any[];
+  dbClasses?: any[];
 };
 
 export default function StudentForm({
@@ -35,7 +36,9 @@ export default function StudentForm({
   onOpenChange,
   student,
   onSuccess,
-  branches = [] // Default to empty array just in case
+  branches = [],
+  dbDepartments = [],
+  dbClasses = []
 }: StudentFormProps) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -151,10 +154,12 @@ export default function StudentForm({
                   <SelectValue placeholder="বিভাগ নির্বাচন" />
                 </SelectTrigger>
                 <SelectContent>
-                  {departments.map((dept: string) => (
-                    <SelectItem key={dept} value={dept}>
-                      {dept}
-                    </SelectItem>
+                  {dbDepartments
+                    .filter((d: any) => !formData.branch_id || String(d.branch_id) === String(formData.branch_id))
+                    .map((dept: any) => (
+                      <SelectItem key={dept.id} value={dept.name}>
+                        {dept.name}
+                      </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -169,13 +174,17 @@ export default function StudentForm({
                   <SelectValue placeholder="শ্রেণি নির্বাচন" />
                 </SelectTrigger>
                 <SelectContent>
-                  {formData.department &&
-                  classesByDept[formData.department] ? (
-                    classesByDept[formData.department].map((cls: string) => (
-                      <SelectItem key={cls} value={cls}>
-                        {cls}
-                      </SelectItem>
-                    ))
+                  {formData.department ? (
+                    dbClasses
+                      .filter((c: any) => {
+                        const d = dbDepartments.find((dept: any) => dept.name === formData.department && (!formData.branch_id || String(dept.branch_id) === String(formData.branch_id)));
+                        return c.department_id === d?.id && (!formData.branch_id || String(c.branch_id) === String(formData.branch_id));
+                      })
+                      .map((cls: any) => (
+                        <SelectItem key={cls.id} value={cls.name}>
+                          {cls.name}
+                        </SelectItem>
+                      ))
                   ) : (
                     <SelectItem value="none" disabled>
                       আগে বিভাগ নির্বাচন করুন
