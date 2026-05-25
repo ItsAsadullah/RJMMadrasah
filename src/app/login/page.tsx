@@ -71,17 +71,21 @@ export default function UniversalLoginPage() {
             // 1. Verify Student ID
             const { data, error } = await supabase
                 .from("students")
-                .select("id, student_id, name_bn, father_mobile, status")
-                .eq("student_id", identifier)
+                .select("id, student_id, name_bn, guardian_mobile, status")
+                .eq("student_id", identifier.trim())
                 .single();
 
             if (error || !data) {
                 throw new Error("শিক্ষার্থী আইডি সঠিক নয়।");
             }
 
-            // 2. Verify Mobile Number (Last 11 digits check)
-            if (!data.father_mobile || (data.father_mobile !== password && data.father_mobile.slice(-11) !== password.slice(-11))) {
-                throw new Error("মোবাইল নম্বর সঠিক নয়।");
+            // 2. Verify Mobile Number (Password)
+            const normalize = (num: string | null) => (num || "").replace(/\D/g, "").slice(-11);
+            const targetInput = normalize(password.trim());
+            const isMatch = (data.guardian_mobile && normalize(data.guardian_mobile) === targetInput);
+
+            if (!isMatch) {
+                throw new Error("জরুরী যোগাযোগের মোবাইল নম্বরটি সঠিক নয়।");
             }
 
             if (data.status !== "active") {
@@ -161,7 +165,7 @@ export default function UniversalLoginPage() {
 
           <div className="space-y-2">
             <label className="text-sm font-bold text-gray-700">
-                {userType === 'student' ? "মোবাইল নম্বর" : "পাসওয়ার্ড"}
+                {userType === 'student' ? "জরুরী যোগাযোগের নম্বর (পাসওয়ার্ড)" : "পাসওয়ার্ড"}
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
@@ -171,11 +175,11 @@ export default function UniversalLoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 transition-all bg-gray-50 focus:bg-white"
-                placeholder={userType === 'student' ? "অভিভাবকের মোবাইল নম্বর" : "••••••••"}
+                placeholder={userType === 'student' ? "জরুরী যোগাযোগের নম্বরটি দিন" : "••••••••"}
               />
             </div>
             {userType === 'student' && (
-                <p className="text-xs text-gray-500 text-right">ভর্তির সময় ব্যবহৃত মোবাইল নম্বরটি দিন</p>
+                <p className="text-xs text-gray-500 text-right">ভর্তির ফর্মে দেয়া জরুরী যোগাযোগের নম্বরটি দিন</p>
             )}
           </div>
 

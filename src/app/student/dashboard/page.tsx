@@ -172,7 +172,7 @@ export default function StudentDashboard() {
 
         if (!studentIdToFetch) {
             // If no session found, redirect to login
-            router.push("/student/login");
+            router.push("/login");
             return;
         }
 
@@ -187,7 +187,7 @@ export default function StudentDashboard() {
             console.error("Student not found", error);
             // If ID is invalid (maybe deleted), clear session
             localStorage.removeItem("student_portal_session");
-            router.push("/student/login");
+            router.push("/login");
             return;
         }
 
@@ -390,7 +390,7 @@ export default function StudentDashboard() {
 
   const handleLogout = () => {
       localStorage.removeItem("student_portal_session");
-      router.push("/student/login");
+      router.push("/login");
   };
 
   const handleLeaveSubmit = async () => {
