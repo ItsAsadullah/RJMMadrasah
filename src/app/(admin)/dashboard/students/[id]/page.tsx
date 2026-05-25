@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Loader2, ArrowLeft, CheckCircle, XCircle, Phone, MapPin, 
   User, FileText, Printer, Trash2, Edit, Save, BookOpen, Wallet, 
-  School, UploadCloud, AlertTriangle, CheckCircle2, ChevronRight, GraduationCap, Users, Shield, AlertCircle
+  School, UploadCloud, AlertTriangle, CheckCircle2, ChevronRight, GraduationCap, Users, Shield, AlertCircle, Eye, CreditCard
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -528,23 +528,64 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
         </div>
 
         {/* ৩. ট্যাব সেকশন */}
-        <Tabs defaultValue="details" className="w-full print:hidden">
-          <TabsList className="grid w-full grid-cols-3 max-w-[500px] mb-6">
-              <TabsTrigger value="details">বিবরণ</TabsTrigger>
-              <TabsTrigger value="results">ফলাফল ({results.length})</TabsTrigger>
-              <TabsTrigger value="payments">বেতন ও ফি ({payments.length})</TabsTrigger>
-          </TabsList>
+        <Tabs defaultValue="overview" className="w-full print:hidden">
+          <div className="overflow-x-auto pb-2 mb-4 scrollbar-hide">
+            <TabsList className="flex w-max min-w-full space-x-2 bg-gray-50/50 p-1 border border-gray-100 rounded-xl">
+                <TabsTrigger value="overview" className="flex-1 gap-2 data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-sm rounded-lg px-4 py-2.5 transition-all"><Eye className="w-4 h-4"/> ওভারভিউ</TabsTrigger>
+                <TabsTrigger value="personal" className="flex-1 gap-2 data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-sm rounded-lg px-4 py-2.5 transition-all"><User className="w-4 h-4"/> ব্যক্তিগত তথ্য</TabsTrigger>
+                <TabsTrigger value="academic" className="flex-1 gap-2 data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-sm rounded-lg px-4 py-2.5 transition-all"><GraduationCap className="w-4 h-4"/> একাডেমিক</TabsTrigger>
+                <TabsTrigger value="guardians" className="flex-1 gap-2 data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-sm rounded-lg px-4 py-2.5 transition-all"><Users className="w-4 h-4"/> অভিভাবক</TabsTrigger>
+                <TabsTrigger value="results" className="flex-1 gap-2 data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-sm rounded-lg px-4 py-2.5 transition-all"><FileText className="w-4 h-4"/> ফলাফল ({results.length})</TabsTrigger>
+                <TabsTrigger value="payments" className="flex-1 gap-2 data-[state=active]:bg-white data-[state=active]:text-green-700 data-[state=active]:shadow-sm rounded-lg px-4 py-2.5 transition-all"><CreditCard className="w-4 h-4"/> বেতন ({payments.length})</TabsTrigger>
+            </TabsList>
+          </div>
 
-          <TabsContent value="details" className="space-y-6">
+          <TabsContent value="overview" className="space-y-6">
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
+                      <div className="bg-blue-50 p-3 rounded-lg text-blue-600"><GraduationCap className="w-6 h-6"/></div>
+                      <div><p className="text-sm text-gray-500 font-medium">শাখা ও শ্রেণি</p><p className="font-bold text-gray-800 text-sm">{student.branch_id === 1 || student.branch_id === '1' ? 'হলিধানী' : 'চাঁন্দুয়ালী'}, {student.class_name}</p></div>
+                  </div>
+                  <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
+                      <div className="bg-green-50 p-3 rounded-lg text-green-600"><FileText className="w-6 h-6"/></div>
+                      <div><p className="text-sm text-gray-500 font-medium">মোট পরীক্ষা</p><p className="font-bold text-gray-800 text-xl">{toBengaliNumber(results.length)}</p></div>
+                  </div>
+                  <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
+                      <div className="bg-orange-50 p-3 rounded-lg text-orange-600"><CreditCard className="w-6 h-6"/></div>
+                      <div><p className="text-sm text-gray-500 font-medium">পেমেন্ট রেকর্ড</p><p className="font-bold text-gray-800 text-xl">{toBengaliNumber(payments.length)}</p></div>
+                  </div>
+                  <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
+                      <div className="bg-purple-50 p-3 rounded-lg text-purple-600"><Phone className="w-6 h-6"/></div>
+                      <div><p className="text-sm text-gray-500 font-medium">যোগাযোগ</p><p className="font-bold text-gray-800 text-sm">{student.father_mobile || student.guardian_mobile || '-'}</p></div>
+                  </div>
+               </div>
+               
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                   <InfoCard title="সর্বশেষ ফলাফল" icon={FileText}>
+                       {results.length > 0 ? (
+                           <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
+                               <div><p className="font-bold text-gray-800">{results[0].exam_name}</p><p className="text-xs text-gray-500">প্রাপ্ত নম্বর: {toBengaliNumber(results[0].total_marks_obtained)} / {toBengaliNumber(results[0].total_full_marks)}</p></div>
+                               <Badge label={results[0].grade} color={results[0].grade === 'F' ? 'red' : 'green'} />
+                           </div>
+                       ) : <p className="text-gray-400 text-sm">কোনো ফলাফল নেই</p>}
+                   </InfoCard>
+                   <InfoCard title="সর্বশেষ পেমেন্ট" icon={CreditCard}>
+                       {payments.length > 0 ? (
+                           <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
+                               <div><p className="font-bold text-gray-800">রসিদ: {payments[0].receipt_no || '-'}</p><p className="text-xs text-gray-500">তারিখ: {new Date(payments[0].payment_date).toLocaleDateString('bn-BD')}</p></div>
+                               <p className="font-bold text-green-700">৳ {toBengaliNumber(payments[0].amount)}</p>
+                           </div>
+                       ) : <p className="text-gray-400 text-sm">কোনো পেমেন্ট নেই</p>}
+                   </InfoCard>
+               </div>
+          </TabsContent>
+
+          <TabsContent value="personal" className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <InfoCard title="ব্যক্তিগত তথ্য" icon={User}>
                       <InfoRow label="জন্ম তারিখ" value={student.dob ? new Date(student.dob).toLocaleDateString('bn-BD') : '-'} />
                       <InfoRow label="রক্তের গ্রুপ" value={student.blood_group} />
                       <InfoRow label="জন্ম নিবন্ধন" value={student.birth_reg_no} />
-                      <div className="pt-2">
-                          <p className="text-xs font-bold text-gray-500 mb-1">জন্ম সনদের কপি:</p>
-                          <DocPreview url={student.birth_cert_url} label="Certificate" />
-                      </div>
                   </InfoCard>
                   <InfoCard title="ঠিকানা" icon={MapPin}>
                       <div className="space-y-4">
@@ -553,17 +594,29 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                       </div>
                   </InfoCard>
               </div>
-              
+          </TabsContent>
 
-              <InfoCard title="একাডেমিক তথ্য" icon={GraduationCap}>
-                  <InfoRow label="শাখা" value={student.branch_id === 1 || student.branch_id === '1' ? 'হলিধানী বাজার' : 'চাঁন্দুয়ালী বাজার'} />
-                  <InfoRow label="বিভাগ" value={student.department} />
-                  <InfoRow label="শ্রেণি" value={student.class_name} />
-                  <InfoRow label="শিক্ষাবর্ষ" value={student.academic_year} />
-                  <InfoRow label="রোল নম্বর" value={student.roll_number || '-'} />
-                  <InfoRow label="আবাসিক" value={student.is_residential ? 'হ্যাঁ' : 'না'} />
-              </InfoCard>
-              <InfoCard title="অভিভাবকের তথ্য" icon={User} className="w-full">
+          <TabsContent value="academic" className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <InfoCard title="একাডেমিক তথ্য" icon={GraduationCap}>
+                      <InfoRow label="শাখা" value={student.branch_id === 1 || student.branch_id === '1' ? 'হলিধানী বাজার' : 'চাঁন্দুয়ালী বাজার'} />
+                      <InfoRow label="বিভাগ" value={student.department} />
+                      <InfoRow label="শ্রেণি" value={student.class_name} />
+                      <InfoRow label="শিক্ষাবর্ষ" value={student.academic_year} />
+                      <InfoRow label="রোল নম্বর" value={student.roll_number || '-'} />
+                      <InfoRow label="আবাসিক" value={student.is_residential ? 'হ্যাঁ' : 'না'} />
+                  </InfoCard>
+                  <InfoCard title="ডকুমেন্ট ও ফাইল" icon={FileText}>
+                      <div className="pt-2">
+                          <p className="text-xs font-bold text-gray-500 mb-1">জন্ম সনদের কপি:</p>
+                          <DocPreview url={student.birth_cert_url} label="Certificate" />
+                      </div>
+                  </InfoCard>
+              </div>
+          </TabsContent>
+
+          <TabsContent value="guardians" className="space-y-6">
+              <InfoCard title="অভিভাবকের তথ্য" icon={Users} className="w-full">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 flex gap-4">
                           <div className="w-20 h-20 rounded-lg bg-white p-1 border border-blue-200 flex-shrink-0">{student.father_photo_url ? <img src={student.father_photo_url} className="w-full h-full object-cover rounded" alt="Father" /> : <User className="w-full h-full text-blue-200" />}</div>
