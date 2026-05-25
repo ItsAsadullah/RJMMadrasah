@@ -286,11 +286,11 @@ export default function StudentDashboard() {
         const { data: marksData } = await supabase
             .from("exam_marks")
             .select(`
-                id, obtained_marks, exam_id,
-                exams (id, exam_name, academic_year),
-                academic_subjects (full_marks)
+                exam_id, marks_obtained, 
+                exams(id, title, academic_year, created_at),
+                academic_subjects(full_marks)
             `)
-            .eq("student_id", studentData.id);
+            .eq("student_id", studentData.student_id);
 
         if (marksData && marksData.length > 0) {
             const resultsByExam: Record<string, any> = {};
@@ -302,15 +302,18 @@ export default function StudentDashboard() {
                 if (!resultsByExam[eId]) {
                     resultsByExam[eId] = {
                         exam_id: eId,
-                        exam_name: mark.exams?.exam_name || "অজানা পরীক্ষা",
+                        exam_name: mark.exams?.title || "অজানা পরীক্ষা",
                         academic_year: mark.exams?.academic_year || "",
+                        created_at: mark.exams?.created_at,
                         total_obtained: 0,
                         total_full: 0,
+                        marks_array: []
                     };
                 }
 
-                resultsByExam[eId].total_obtained += (mark.obtained_marks || 0);
-                resultsByExam[eId].total_full += (mark.academic_subjects?.full_marks || 0);
+                resultsByExam[eId].total_obtained += (mark.marks_obtained || 0);
+                resultsByExam[eId].total_full += (mark.academic_subjects?.full_marks || 100);
+                resultsByExam[eId].marks_array.push({ obtained: mark.marks_obtained });
             });
 
             const aggregatedResults = Object.values(resultsByExam).map((res: any) => {
@@ -322,19 +325,21 @@ export default function StudentDashboard() {
                 else if (percentage >= 50) grade = 'B';
                 else if (percentage >= 40) grade = 'C';
                 else if (percentage >= 33) grade = 'D';
+                if (res.marks_array.some((m: any) => m.obtained < 33)) grade = 'F';
 
                 return {
                     exam_id: res.exam_id,
                     exam_name: res.exam_name,
                     academic_year: res.academic_year,
+                    created_at: res.created_at,
                     total_marks_obtained: res.total_obtained,
                     total_full_marks: res.total_full,
                     grade: grade
                 };
             });
             
-            // Sort by recent year, then roughly by id
-            aggregatedResults.sort((a, b) => b.academic_year - a.academic_year);
+            // Sort by recent created_at
+            aggregatedResults.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
             setHistoricalResults(aggregatedResults);
         }
