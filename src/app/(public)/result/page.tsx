@@ -235,7 +235,16 @@ export default function ResultPage() {
   };
 
   const handlePrint = () => {
-    window.print();
+    if (result) {
+      const originalTitle = document.title;
+      document.title = `${result.exam.title} - ${result.student.student_id} - ${result.student.name_bn}`;
+      setTimeout(() => {
+          window.print();
+          setTimeout(() => { document.title = originalTitle; }, 1000);
+      }, 100);
+    } else {
+      window.print();
+    }
   };
 
   return (

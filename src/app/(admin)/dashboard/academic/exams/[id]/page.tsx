@@ -480,26 +480,46 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
     const handlePrintAdmitCards = () => {
       if (students.length === 0) return alert("প্রিন্ট করার মতো কোনো শিক্ষার্থী নেই!");
       setPrintMode('admit');
-      setTimeout(() => window.print(), 200);
+      const originalTitle = document.title;
+      document.title = `${exam?.title || 'Admit Cards'} - ${classes.find(c => c.id === selectedClass)?.name || ''}`;
+      setTimeout(() => {
+          window.print();
+          setTimeout(() => { document.title = originalTitle; }, 1000);
+      }, 200);
     };
 
     const handlePrintTranscriptSingle = (student: any) => {
       setStudentForTranscript(student);
       setPrintMode('transcript-single');
-      setTimeout(() => window.print(), 200);
+      const originalTitle = document.title;
+      document.title = `${exam?.title || 'Result'} - ${student.student_id} - ${student.name_bn}`;
+      setTimeout(() => {
+          window.print();
+          setTimeout(() => { document.title = originalTitle; }, 1000);
+      }, 200);
     };
 
     const handlePrintTranscriptAll = () => {
         if (students.length === 0) return alert("প্রিন্ট করার মতো কোনো শিক্ষার্থী নেই!");
         setPrintMode('transcript-all');
-        setTimeout(() => window.print(), 200);
+        const originalTitle = document.title;
+        document.title = `${exam?.title || 'Result'} - All Transcripts - ${classes.find(c => c.id === selectedClass)?.name || ''}`;
+        setTimeout(() => {
+            window.print();
+            setTimeout(() => { document.title = originalTitle; }, 1000);
+        }, 200);
     };
 
     const handlePrintTabulation = (mode: 'roll' | 'merit') => {
         if (students.length === 0) return alert("প্রিন্ট করার মতো কোনো শিক্ষার্থী নেই!");
         setTabulationPrintSort(mode);
         setPrintMode('tabulation');
-        setTimeout(() => window.print(), 200);
+        const originalTitle = document.title;
+        document.title = `${exam?.title || 'Tabulation Sheet'} - ${classes.find(c => c.id === selectedClass)?.name || ''}`;
+        setTimeout(() => {
+            window.print();
+            setTimeout(() => { document.title = originalTitle; }, 1000);
+        }, 200);
     };
 
     // --- Render Transcript Component ---
