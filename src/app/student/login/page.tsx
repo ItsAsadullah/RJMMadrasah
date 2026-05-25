@@ -46,13 +46,10 @@ export default function StudentLoginPage() {
       const normalize = (num: string | null) => (num || "").replace(/\D/g, "").slice(-11);
       const targetInput = normalize(inputMobile);
       
-      const isMatch = 
-        (data.father_mobile && normalize(data.father_mobile) === targetInput) ||
-        (data.mother_mobile && normalize(data.mother_mobile) === targetInput) ||
-        (data.guardian_mobile && normalize(data.guardian_mobile) === targetInput);
+      const isMatch = (data.guardian_mobile && normalize(data.guardian_mobile) === targetInput);
 
       if (!isMatch) {
-        throw new Error("মোবাইল নম্বর সঠিক নয়।");
+        throw new Error("জরুরী যোগাযোগের মোবাইল নম্বরটি সঠিক নয়।");
       }
 
       if (data.status !== "active") {
@@ -113,19 +110,19 @@ export default function StudentLoginPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-bold text-gray-700 ml-1">মোবাইল নম্বর (পাসওয়ার্ড)</label>
+              <label className="text-sm font-bold text-gray-700 ml-1">জরুরী যোগাযোগের মোবাইল নম্বর (পাসওয়ার্ড)</label>
               <div className="relative">
                 <Phone className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                 <Input
                   type="text"
                   required
-                  placeholder="অভিভাবকের মোবাইল নম্বর"
+                  placeholder="জরুরী যোগাযোগের নম্বরটি দিন"
                   className="pl-10 h-11 bg-gray-50 focus:bg-white transition-colors"
                   value={mobileNo}
                   onChange={(e) => setMobileNo(e.target.value)}
                 />
               </div>
-              <p className="text-xs text-gray-500 text-right pr-1 pt-1">ভর্তির সময় ব্যবহৃত নম্বরটি দিন</p>
+              <p className="text-xs text-gray-500 text-right pr-1 pt-1">ভর্তির ফর্মে দেয়া জরুরী যোগাযোগের নম্বরটি দিন</p>
             </div>
 
             <Button 
