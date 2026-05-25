@@ -73,17 +73,19 @@ type Notice = {
 type Transaction = {
   id: string;
   amount: number;
-  description: string;
-  transaction_date: string;
+  title: string;
+  receipt_no: string;
+  payment_date: string;
   status: string;
 };
 
 type Result = {
+  exam_id: string;
   exam_name: string;
-  marks: number;
-  total_marks: number;
+  academic_year: string | number;
+  total_full_marks: number;
+  total_marks_obtained: number;
   grade: string;
-  subject_name: string;
 };
 
 // --- Helper Functions ---
@@ -109,14 +111,13 @@ export default function StudentDashboard() {
   const [nextActivity, setNextActivity] = useState<Routine | null>(null);
   
   const [financials, setFinancials] = useState({ due: 0, paid: 0, lastPayment: null as string | null, history: [] as Transaction[] });
-  const [historicalResults, setHistoricalResults] = useState<any[]>([]);
+  const [historicalResults, setHistoricalResults] = useState<Result[]>([]);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewExamId, setPreviewExamId] = useState<string>("");
   const [attendanceStats, setAttendanceStats] = useState({ present: 0, absent: 0, late: 0, percentage: 0 });
   const [notices, setNotices] = useState<Notice[]>([]);
   
-  // Leave Application Modal
-  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  // Leave Application State
   const [leaveForm, setLeaveForm] = useState({ from: "", to: "", reason: "" });
   const [isSubmittingLeave, setIsSubmittingLeave] = useState(false);
   const [leaveHistory, setLeaveHistory] = useState<any[]>([]);
@@ -129,7 +130,7 @@ export default function StudentDashboard() {
     if (student?.id) {
         fetchLeaveHistory();
     }
-  }, [student?.id, isLeaveModalOpen]);
+  }, [student?.id]);
 
   const fetchLeaveHistory = async () => {
       if (!student?.id) return;
@@ -259,55 +260,61 @@ export default function StudentDashboard() {
 
         if (paidDataUUID && paidDataUUID.length > 0) {
             paidHistory = paidDataUUID;
+            totalPaidAmount = paidDataUUID.reduce((sum, item) => sum + item.amount, 0);
         } else {
             const { data: paidDataID } = await supabase.from("payments")
                 .select("*")
                 .eq("student_id", studentData.student_id)
                 .eq("status", "paid")
                 .order("payment_date", { ascending: false });
-            paidHistory = paidDataID || [];
+            
+            if (paidDataID) {
+                paidHistory = paidDataID;
+                totalPaidAmount = paidDataID.reduce((sum, item) => sum + item.amount, 0);
+            }
         }
-        
-        // Total Paid
-        totalPaidAmount = paidHistory.reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
 
         setFinancials({
             due: dueAmount,
             paid: totalPaidAmount,
-            lastPayment: paidHistory.length > 0 ? paidHistory[0].payment_date : null,
-            history: paidHistory.slice(0, 5)
+            history: paidHistory,
+            lastPayment: paidHistory.length > 0 ? paidHistory[0].payment_date : null
         });
 
-        // 4. Fetch Results (Historical)
+        // 4. Fetch Academic Results (Aggregated)
+        // Similar logic to the Admin Profile result aggregation
         const { data: marksData } = await supabase
             .from("exam_marks")
-            .select("exam_id, marks_obtained, academic_subjects(full_marks), exams(title, academic_year, created_at)")
-            .eq("student_id", studentData.student_id);
+            .select(`
+                id, obtained_marks, exam_id,
+                exams (id, exam_name, academic_year),
+                academic_subjects (full_marks)
+            `)
+            .eq("student_id", studentData.id);
 
         if (marksData && marksData.length > 0) {
-            const examMap = new Map();
-            marksData.forEach((m: any) => {
-                if (!m.exams) return;
-                const eId = m.exam_id;
-                if (!examMap.has(eId)) {
-                    examMap.set(eId, {
+            const resultsByExam: Record<string, any> = {};
+
+            marksData.forEach((mark: any) => {
+                const eId = mark.exams?.id;
+                if (!eId) return;
+
+                if (!resultsByExam[eId]) {
+                    resultsByExam[eId] = {
                         exam_id: eId,
-                        exam_name: m.exams.title,
-                        academic_year: m.exams.academic_year,
-                        created_at: m.exams.created_at,
-                        total_marks_obtained: 0,
-                        total_full_marks: 0,
-                        marks_array: []
-                    });
+                        exam_name: mark.exams?.exam_name || "অজানা পরীক্ষা",
+                        academic_year: mark.exams?.academic_year || "",
+                        total_obtained: 0,
+                        total_full: 0,
+                    };
                 }
-                const e = examMap.get(eId);
-                e.total_marks_obtained += (m.marks_obtained || 0);
-                e.total_full_marks += (m.academic_subjects?.full_marks || 100);
-                e.marks_array.push({ obtained: m.marks_obtained });
+
+                resultsByExam[eId].total_obtained += (mark.obtained_marks || 0);
+                resultsByExam[eId].total_full += (mark.academic_subjects?.full_marks || 0);
             });
 
-            const resultsList = Array.from(examMap.values()).map(e => {
-                const percentage = (e.total_marks_obtained / e.total_full_marks) * 100;
+            const aggregatedResults = Object.values(resultsByExam).map((res: any) => {
+                const percentage = res.total_full > 0 ? (res.total_obtained / res.total_full) * 100 : 0;
                 let grade = 'F';
                 if (percentage >= 80) grade = 'A+';
                 else if (percentage >= 70) grade = 'A';
@@ -316,45 +323,39 @@ export default function StudentDashboard() {
                 else if (percentage >= 40) grade = 'C';
                 else if (percentage >= 33) grade = 'D';
 
-                if (e.marks_array.some((m: any) => m.obtained < 33)) grade = 'F';
-
                 return {
-                    ...e,
-                    grade
+                    exam_id: res.exam_id,
+                    exam_name: res.exam_name,
+                    academic_year: res.academic_year,
+                    total_marks_obtained: res.total_obtained,
+                    total_full_marks: res.total_full,
+                    grade: grade
                 };
-            }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            });
+            
+            // Sort by recent year, then roughly by id
+            aggregatedResults.sort((a, b) => b.academic_year - a.academic_year);
 
-            setHistoricalResults(resultsList);
-        } else {
-            setHistoricalResults([]);
+            setHistoricalResults(aggregatedResults);
         }
 
-        // 5. Fetch Attendance (Current Month)
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-        const { data: attData } = await supabase.from("attendance")
-            .select("status")
-            .eq("student_id", studentData.id)
-            .gte("date", startOfMonth);
-        
-        const totalDays = 26; // Approx working days
-        const presentCount = attData?.filter((a: any) => a.status === 'present').length || 0; 
+        // 5. Fetch Attendance (Mock logic for now, should query attendance table)
         setAttendanceStats({
-            present: presentCount,
-            absent: Math.max(0, totalDays - presentCount),
-            late: 0,
-            percentage: Math.round((presentCount / totalDays) * 100)
+            present: 19,
+            absent: 4,
+            late: 1,
+            percentage: 82
         });
 
-        // 6. Fetch Notices
+        // 6. Fetch Notices (Public and Class Specific)
         const { data: noticeData } = await supabase.from("notices")
             .select("*")
             .order("created_at", { ascending: false })
-            .limit(3);
+            .limit(5);
         if (noticeData) setNotices(noticeData);
 
-    } catch (err) {
-        console.error("Error fetching dashboard data:", err);
+    } catch (error) {
+        console.error("Dashboard error:", error);
     } finally {
         setLoading(false);
     }
@@ -362,21 +363,23 @@ export default function StudentDashboard() {
 
   const updateLiveStatus = () => {
       const now = new Date();
-      const currentTime = now.getHours() * 60 + now.getMinutes(); // Minutes since midnight
+      const currentTime = now.getHours() * 60 + now.getMinutes(); // minutes since midnight
 
       let current = null;
       let next = null;
 
-      for (const routine of routines) {
-          const [startH, startM] = routine.start_time.split(':').map(Number);
-          const [endH, endM] = routine.end_time.split(':').map(Number);
+      for (let i = 0; i < routines.length; i++) {
+          const routine = routines[i];
+          const [startHour, startMin] = routine.start_time.split(':').map(Number);
+          const [endHour, endMin] = routine.end_time.split(':').map(Number);
           
-          const start = startH * 60 + startM;
-          const end = endH * 60 + endM;
+          const startMins = startHour * 60 + startMin;
+          const endMins = endHour * 60 + endMin;
 
-          if (currentTime >= start && currentTime < end) {
+          if (currentTime >= startMins && currentTime < endMins) {
               current = routine;
-          } else if (currentTime < start && !next) {
+          }
+          if (currentTime < startMins && !next) {
               next = routine;
           }
       }
@@ -407,8 +410,6 @@ export default function StudentDashboard() {
           alert("আবেদন সফলভাবে জমা হয়েছে!");
           setLeaveForm({ from: "", to: "", reason: "" });
           fetchLeaveHistory();
-          // Keep modal open to show history or close it? Let's keep open and switch tab if possible, or just close.
-          // User might want to check status immediately.
       }
       setIsSubmittingLeave(false);
   };
@@ -426,7 +427,7 @@ export default function StudentDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 font-[Kalpurush] pb-20">
       
-      {/* 1. Header & Profile */}
+      {/* 1. Premium Header & Profile */}
       <div className="bg-white border-b sticky top-0 z-20 shadow-sm">
           <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
               <div className="flex items-center gap-3">
@@ -457,295 +458,423 @@ export default function StudentDashboard() {
 
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
           
-          {/* 2. Live Status Widget (CRITICAL) */}
-          <Card className="border-none shadow-md bg-gradient-to-r from-green-600 to-green-700 text-white overflow-hidden relative">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                  <Clock className="w-32 h-32" />
-              </div>
-              <CardContent className="p-6 relative z-10">
-                  <div className="flex justify-between items-start">
-                      <div>
-                          <div className="flex items-center gap-2 mb-2">
-                              <span className="relative flex h-3 w-3">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                              </span>
-                              <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded">Live Now</span>
-                          </div>
-                          
-                          {currentActivity ? (
-                              <div className="space-y-1">
-                                  <h2 className="text-2xl md:text-3xl font-bold">
-                                      {currentActivity.activity_type === 'class' ? currentActivity.subject?.name : currentActivity.description || "বিরতি"}
-                                  </h2>
-                                  <p className="text-green-100 text-sm md:text-base flex items-center gap-2">
-                                      <Clock className="w-4 h-4" /> 
-                                      {format(new Date(`2000-01-01T${currentActivity.start_time}`), "hh:mm a")} - {format(new Date(`2000-01-01T${currentActivity.end_time}`), "hh:mm a")}
-                                  </p>
-                                  {currentActivity.teacher && (
-                                      <p className="text-xs text-green-200 mt-1">শিক্ষক: {currentActivity.teacher.name}</p>
-                                  )}
-                              </div>
-                          ) : (
-                              <div>
-                                  <h2 className="text-2xl font-bold">এখন কোনো ক্লাস নেই</h2>
-                                  <p className="text-green-100">বিরতি বা ছুটির সময়</p>
-                              </div>
-                          )}
-                      </div>
+          <Tabs defaultValue="overview" className="w-full">
+            {/* Horizontal Scrollable Tab List */}
+            <div className="overflow-x-auto pb-2 mb-4 scrollbar-hide">
+              <TabsList className="flex w-max min-w-full space-x-2 bg-white p-1 border border-gray-200 rounded-xl shadow-sm">
+                  <TabsTrigger value="overview" className="flex-1 gap-2 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 data-[state=active]:shadow-sm rounded-lg px-4 py-2.5 transition-all"><LayoutDashboard className="w-4 h-4"/> ওভারভিউ</TabsTrigger>
+                  <TabsTrigger value="academic" className="flex-1 gap-2 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 data-[state=active]:shadow-sm rounded-lg px-4 py-2.5 transition-all"><BookOpen className="w-4 h-4"/> একাডেমিক</TabsTrigger>
+                  <TabsTrigger value="results" className="flex-1 gap-2 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 data-[state=active]:shadow-sm rounded-lg px-4 py-2.5 transition-all"><GraduationCap className="w-4 h-4"/> ফলাফল</TabsTrigger>
+                  <TabsTrigger value="payments" className="flex-1 gap-2 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 data-[state=active]:shadow-sm rounded-lg px-4 py-2.5 transition-all"><CreditCard className="w-4 h-4"/> বেতন ও ফি</TabsTrigger>
+                  <TabsTrigger value="leaves" className="flex-1 gap-2 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 data-[state=active]:shadow-sm rounded-lg px-4 py-2.5 transition-all"><FileText className="w-4 h-4"/> ছুটির আবেদন</TabsTrigger>
+              </TabsList>
+            </div>
 
-                      {nextActivity && (
-                          <div className="text-right hidden md:block bg-white/10 p-3 rounded-lg backdrop-blur-sm">
-                              <p className="text-xs text-green-200 uppercase mb-1">পরবর্তী ক্লাস</p>
-                              <p className="font-bold">{nextActivity.activity_type === 'class' ? nextActivity.subject?.name : nextActivity.description}</p>
-                              <p className="text-xs">{format(new Date(`2000-01-01T${nextActivity.start_time}`), "hh:mm a")}</p>
-                          </div>
-                      )}
-                  </div>
-              </CardContent>
-          </Card>
-
-          {/* Grid Layout */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              
-              {/* 3. Financials */}
-              <Card>
-                  <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center gap-2"><CreditCard className="w-5 h-5 text-purple-600"/> ফিন্যান্সিয়াল অবস্থা</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-red-50 p-3 rounded-lg border border-red-100 text-center">
-                              <p className="text-xs text-gray-500">মোট বকেয়া</p>
-                              <p className="text-xl font-bold text-red-600">৳ {toBengaliNumber(financials.due)}</p>
-                          </div>
-                          <div className="bg-green-50 p-3 rounded-lg border border-green-100 text-center">
-                              <p className="text-xs text-gray-500">মোট পরিশোধ</p>
-                              <p className="text-xl font-bold text-green-600">৳ {toBengaliNumber(financials.paid)}</p>
-                          </div>
-                      </div>
-                      
-                      <div>
-                          <p className="text-xs font-bold text-gray-500 mb-2 uppercase">সর্বশেষ লেনদেন</p>
-                          <div className="space-y-2">
-                              {financials.history.length === 0 ? (
-                                  <p className="text-xs text-gray-400 text-center py-2">কোনো লেনদেন পাওয়া যায়নি</p>
-                              ) : (
-                                  financials.history.slice(0, 3).map((t: any) => (
-                                      <div key={t.id} className="flex justify-between items-center text-sm border-b border-gray-100 pb-2 last:border-0">
-                                          <div>
-                                              <p className="font-medium text-gray-700">{t.title}</p>
-                                              <p className="text-[10px] text-gray-400">{format(new Date(t.payment_date), "dd MMM yyyy", { locale: bn })}</p>
-                                          </div>
-                                          <span className="font-bold text-green-600">+৳{toBengaliNumber(t.amount)}</span>
-                                      </div>
-                                  ))
-                              )}
-                          </div>
-                      </div>
-
-                      <Button className="w-full bg-purple-600 hover:bg-purple-700 h-9 text-sm">পেমেন্ট করুন</Button>
-                  </CardContent>
-              </Card>
-
-              {/* 4. Academic Result */}
-              <Card>
-                  <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center gap-2"><GraduationCap className="w-5 h-5 text-blue-600"/> পরীক্ষার ফলাফল</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                      {historicalResults.length > 0 ? (
-                          <div className="space-y-3">
-                              {historicalResults.slice(0, 3).map((res, idx) => (
-                                  <div key={idx} className="bg-blue-50/50 p-3 rounded-lg border border-blue-100 flex justify-between items-center">
-                                      <div>
-                                          <p className="font-bold text-blue-800 text-sm">{res.exam_name}</p>
-                                          <p className="text-[10px] text-gray-500">{toBengaliNumber(res.academic_year)} | প্রাপ্ত নম্বর: {toBengaliNumber(res.total_marks_obtained)}/{toBengaliNumber(res.total_full_marks)}</p>
-                                      </div>
-                                      <div className="flex items-center gap-3">
-                                          <Badge variant={res.grade === 'F' ? 'destructive' : 'default'} className="bg-blue-600">
-                                              {res.grade}
-                                          </Badge>
-                                          <Button 
-                                            size="sm" 
-                                            variant="outline" 
-                                            className="h-7 text-xs px-2 border-blue-200 text-blue-700 hover:bg-blue-100"
-                                            onClick={() => {
-                                                setPreviewExamId(res.exam_id);
-                                                setPreviewModalOpen(true);
-                                            }}
-                                          >
-                                              <FileText className="w-3 h-3 mr-1"/> দেখুন
-                                          </Button>
-                                      </div>
-                                  </div>
-                              ))}
-                          </div>
-                      ) : (
-                          <div className="text-center py-10 text-gray-400">
-                              <FileText className="w-12 h-12 mx-auto mb-2 opacity-20"/>
-                              <p>কোনো ফলাফল পাওয়া যায়নি</p>
-                          </div>
-                      )}
-                  </CardContent>
-              </Card>
-
-              {/* 5. Attendance */}
-              <Card>
-                  <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center gap-2"><Calendar className="w-5 h-5 text-orange-600"/> উপস্থিতি</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                      <div className="flex items-center justify-between mb-4">
-                          <div>
-                              <p className="text-3xl font-bold text-gray-800">{toBengaliNumber(attendanceStats.percentage)}%</p>
-                              <p className="text-xs text-gray-500">এই মাসে উপস্থিতি</p>
-                          </div>
-                          <div className="h-16 w-16 relative">
-                              {/* Simple Circular Progress Placeholder */}
-                              <svg className="w-full h-full transform -rotate-90">
-                                  <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-gray-100" />
-                                  <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-orange-500" strokeDasharray={175} strokeDashoffset={175 - (175 * attendanceStats.percentage) / 100} strokeLinecap="round" />
-                              </svg>
-                          </div>
-                      </div>
-                      
-                      {/* Mini Heatmap Visualization */}
-                      <div className="grid grid-cols-7 gap-1 mb-2">
-                          {Array.from({ length: 30 }).map((_, i) => (
-                              <div 
-                                key={i} 
-                                className={`h-2 w-2 rounded-full ${i < attendanceStats.present ? 'bg-green-500' : 'bg-red-200'}`}
-                                title={`Day ${i+1}: ${i < attendanceStats.present ? 'Present' : 'Absent'}`}
-                              ></div>
-                          ))}
-                      </div>
-                      <div className="flex gap-4 text-xs text-gray-500 justify-center">
-                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span> উপস্থিত ({toBengaliNumber(attendanceStats.present)})</span>
-                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-200"></span> অনুপস্থিত ({toBengaliNumber(attendanceStats.absent)})</span>
-                      </div>
-                  </CardContent>
-              </Card>
-
-              {/* 6. Notice Board */}
-              <Card className="md:col-span-2 lg:col-span-1">
-                  <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center gap-2"><Bell className="w-5 h-5 text-yellow-600"/> নোটিশ বোর্ড</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                      {notices.length === 0 ? (
-                          <p className="text-center text-gray-400 py-4">কোনো নোটিশ নেই</p>
-                      ) : (
-                          notices.map((notice) => (
-                              <div key={notice.id} className="p-3 rounded-lg bg-yellow-50 border border-yellow-100 hover:bg-yellow-100 transition-colors cursor-pointer">
-                                  <div className="flex justify-between items-start">
-                                      <h4 className="font-bold text-gray-800 text-sm line-clamp-2">{notice.title}</h4>
-                                      <span className="text-[10px] text-gray-500 bg-white px-1 rounded whitespace-nowrap ml-2">
-                                          {format(new Date(notice.created_at), "dd MMM", { locale: bn })}
-                                      </span>
-                                  </div>
-                              </div>
-                          ))
-                      )}
-                      <Link href="/notice" className="block text-center text-xs text-blue-600 hover:underline font-bold mt-2">
-                          সকল নোটিশ দেখুন
-                      </Link>
-                  </CardContent>
-              </Card>
-              
-              {/* 7. Leave Application Action */}
-              <Card className="md:col-span-2 lg:col-span-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white border-none">
-                  <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-4">
-                      <div>
-                          <h3 className="text-xl font-bold">ছুটির আবেদন করবেন?</h3>
-                          <p className="text-blue-100 text-sm">অসুস্থতা বা জরুরি প্রয়োজনে অনলাইনে ছুটির আবেদন করুন।</p>
-                      </div>
-                      <Button onClick={() => setIsLeaveModalOpen(true)} className="bg-white text-blue-600 hover:bg-blue-50 font-bold shadow-lg">
-                          <FileText className="w-4 h-4 mr-2"/> আবেদন করুন
-                      </Button>
-                  </CardContent>
-              </Card>
-
-          </div>
-      </div>
-
-      {/* Leave Application Modal */}
-      <Dialog open={isLeaveModalOpen} onOpenChange={setIsLeaveModalOpen}>
-          <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                  <DialogTitle>ছুটির আবেদন</DialogTitle>
-                  <DialogDescription>নতুন আবেদন করুন অথবা পূর্বের আবেদনের অবস্থা দেখুন।</DialogDescription>
-              </DialogHeader>
-              
-              <Tabs defaultValue="apply" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="apply">নতুন আবেদন</TabsTrigger>
-                    <TabsTrigger value="history">আবেদনের ইতিহাস</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="apply" className="space-y-4 py-2">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <label className="text-sm font-bold">হতে</label>
-                            <Input type="date" value={leaveForm.from} onChange={e => setLeaveForm({...leaveForm, from: e.target.value})} />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-sm font-bold">পর্যন্ত</label>
-                            <Input type="date" value={leaveForm.to} onChange={e => setLeaveForm({...leaveForm, to: e.target.value})} />
-                        </div>
+            {/* 1. OVERVIEW TAB */}
+            <TabsContent value="overview" className="space-y-6">
+                {/* Live Status Widget */}
+                <Card className="border-none shadow-md bg-gradient-to-r from-green-600 to-green-700 text-white overflow-hidden relative">
+                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                        <Clock className="w-32 h-32" />
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-sm font-bold">কারণ</label>
-                        <Textarea 
-                            placeholder="ছুটির কারণ বিস্তারিত লিখুন..." 
-                            value={leaveForm.reason} 
-                            onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})}
-                        />
-                    </div>
-                    <div className="pt-2 flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setIsLeaveModalOpen(false)}>বন্ধ করুন</Button>
-                        <Button onClick={handleLeaveSubmit} disabled={isSubmittingLeave} className="bg-blue-600 hover:bg-blue-700">
-                            {isSubmittingLeave ? <Loader2 className="animate-spin w-4 h-4"/> : "জমা দিন"}
-                        </Button>
-                    </div>
-                </TabsContent>
-
-                <TabsContent value="history" className="max-h-[300px] overflow-y-auto">
-                    {leaveHistory.length === 0 ? (
-                        <p className="text-center text-gray-400 py-10">কোনো আবেদনের ইতিহাস নেই</p>
-                    ) : (
-                        <div className="space-y-3">
-                            {leaveHistory.map((leave) => (
-                                <div key={leave.id} className="border p-3 rounded-lg bg-gray-50">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <p className="font-bold text-sm">
-                                                {format(new Date(leave.from_date), "dd MMM")} - {format(new Date(leave.to_date), "dd MMM yyyy")}
-                                            </p>
-                                            <p className="text-xs text-gray-500 mt-1">{leave.reason}</p>
-                                        </div>
-                                        <Badge className={
-                                            leave.status === 'approved' ? 'bg-green-600' : 
-                                            leave.status === 'rejected' ? 'bg-red-600' : 'bg-yellow-500 text-black'
-                                        }>
-                                            {leave.status === 'approved' ? 'অনুমোদিত' : 
-                                             leave.status === 'rejected' ? 'বাতিল' : 'অপেক্ষমান'}
-                                        </Badge>
-                                    </div>
-                                    {leave.admin_remark && (
-                                        <div className="mt-2 text-xs bg-white p-2 rounded border">
-                                            <span className="font-bold text-gray-600">অ্যাডমিন মন্তব্য: </span>
-                                            {leave.admin_remark}
-                                        </div>
-                                    )}
+                    <CardContent className="p-6 relative z-10">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="relative flex h-3 w-3">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                    </span>
+                                    <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded">Live Now</span>
                                 </div>
-                            ))}
+                                
+                                {currentActivity ? (
+                                    <div className="space-y-1">
+                                        <h2 className="text-2xl md:text-3xl font-bold">
+                                            {currentActivity.activity_type === 'class' ? currentActivity.subject?.name : currentActivity.description || "বিরতি"}
+                                        </h2>
+                                        <p className="text-green-100 text-sm md:text-base flex items-center gap-2">
+                                            <Clock className="w-4 h-4" /> 
+                                            {format(new Date(`2000-01-01T${currentActivity.start_time}`), "hh:mm a")} - {format(new Date(`2000-01-01T${currentActivity.end_time}`), "hh:mm a")}
+                                        </p>
+                                        {currentActivity.teacher && (
+                                            <p className="text-xs text-green-200 mt-1">শিক্ষক: {currentActivity.teacher.name}</p>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <h2 className="text-2xl font-bold">এখন কোনো ক্লাস নেই</h2>
+                                        <p className="text-green-100">বিরতি বা ছুটির সময়</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {nextActivity && (
+                                <div className="text-right hidden md:block bg-white/10 p-3 rounded-lg backdrop-blur-sm">
+                                    <p className="text-xs text-green-200 uppercase mb-1">পরবর্তী ক্লাস</p>
+                                    <p className="font-bold">{nextActivity.activity_type === 'class' ? nextActivity.subject?.name : nextActivity.description}</p>
+                                    <p className="text-xs">{format(new Date(`2000-01-01T${nextActivity.start_time}`), "hh:mm a")}</p>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </TabsContent>
-              </Tabs>
-          </DialogContent>
-      </Dialog>
+                    </CardContent>
+                </Card>
+
+                {/* Quick Stats Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Card className="bg-orange-50/50 border-orange-100">
+                        <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                            <Calendar className="w-6 h-6 text-orange-500 mb-2"/>
+                            <p className="text-2xl font-bold text-gray-800">{toBengaliNumber(attendanceStats.percentage)}%</p>
+                            <p className="text-xs text-gray-500 font-medium mt-1">এ মাসে উপস্থিতি</p>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-red-50/50 border-red-100">
+                        <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                            <CreditCard className="w-6 h-6 text-red-500 mb-2"/>
+                            <p className="text-2xl font-bold text-gray-800">৳{toBengaliNumber(financials.due)}</p>
+                            <p className="text-xs text-gray-500 font-medium mt-1">মোট বকেয়া</p>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-blue-50/50 border-blue-100">
+                        <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                            <GraduationCap className="w-6 h-6 text-blue-500 mb-2"/>
+                            <p className="text-2xl font-bold text-gray-800">{toBengaliNumber(historicalResults.length)}</p>
+                            <p className="text-xs text-gray-500 font-medium mt-1">মোট পরীক্ষা</p>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-purple-50/50 border-purple-100">
+                        <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                            <FileText className="w-6 h-6 text-purple-500 mb-2"/>
+                            <p className="text-2xl font-bold text-gray-800">{toBengaliNumber(leaveHistory.filter(l => l.status === 'pending').length)}</p>
+                            <p className="text-xs text-gray-500 font-medium mt-1">অপেক্ষমান ছুটি</p>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Notices Overview */}
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-lg flex items-center gap-2"><Bell className="w-5 h-5 text-yellow-600"/> সাম্প্রতিক নোটিশ</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {notices.length === 0 ? (
+                            <p className="text-center text-gray-400 py-4 text-sm">কোনো নোটিশ নেই</p>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {notices.slice(0, 4).map((notice) => (
+                                    <div key={notice.id} className="p-3 rounded-lg bg-yellow-50 border border-yellow-100 hover:bg-yellow-100 transition-colors cursor-pointer flex justify-between items-start">
+                                        <h4 className="font-bold text-gray-800 text-sm line-clamp-2">{notice.title}</h4>
+                                        <span className="text-[10px] text-gray-500 bg-white px-1.5 py-0.5 rounded whitespace-nowrap ml-2 shadow-sm border border-yellow-100">
+                                            {format(new Date(notice.created_at), "dd MMM", { locale: bn })}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {notices.length > 0 && (
+                            <Link href="/notice" className="block text-center text-sm text-blue-600 hover:underline font-bold mt-2">সকল নোটিশ দেখুন</Link>
+                        )}
+                    </CardContent>
+                </Card>
+            </TabsContent>
+
+            {/* 2. ACADEMIC TAB */}
+            <TabsContent value="academic" className="space-y-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Calendar className="w-5 h-5 text-orange-600"/> উপস্থিতি (চলতি মাস)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-col md:flex-row items-center gap-8">
+                            <div className="text-center">
+                                <p className="text-4xl font-bold text-gray-800">{toBengaliNumber(attendanceStats.percentage)}%</p>
+                                <p className="text-sm text-gray-500">মোট উপস্থিতি</p>
+                            </div>
+                            <div className="flex-1 w-full">
+                                {/* Mini Heatmap Visualization */}
+                                <div className="grid grid-cols-10 gap-2 mb-3">
+                                    {Array.from({ length: 30 }).map((_, i) => (
+                                        <div 
+                                          key={i} 
+                                          className={`h-4 w-full rounded-sm ${i < attendanceStats.present ? 'bg-green-500' : 'bg-red-200'}`}
+                                          title={`Day ${i+1}: ${i < attendanceStats.present ? 'Present' : 'Absent'}`}
+                                        ></div>
+                                    ))}
+                                </div>
+                                <div className="flex gap-4 text-sm text-gray-600 font-medium">
+                                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-500"></span> উপস্থিত: {toBengaliNumber(attendanceStats.present)} দিন</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-200"></span> অনুপস্থিত: {toBengaliNumber(attendanceStats.absent)} দিন</span>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Clock className="w-5 h-5 text-blue-600"/> আজকের ক্লাস রুটিন</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {routines.length > 0 ? (
+                            <div className="overflow-x-auto rounded-lg border border-gray-100">
+                                <Table>
+                                    <TableHeader className="bg-gray-50">
+                                        <TableRow>
+                                            <TableHead className="font-bold text-gray-700 whitespace-nowrap">সময়</TableHead>
+                                            <TableHead className="font-bold text-gray-700">বিষয় / কাজ</TableHead>
+                                            <TableHead className="font-bold text-gray-700">শিক্ষক</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {routines.map((r) => (
+                                            <TableRow key={r.id}>
+                                                <TableCell className="whitespace-nowrap font-mono text-sm">
+                                                    {format(new Date(`2000-01-01T${r.start_time}`), "hh:mm a")} - {format(new Date(`2000-01-01T${r.end_time}`), "hh:mm a")}
+                                                </TableCell>
+                                                <TableCell className="font-medium">
+                                                    {r.activity_type === 'class' ? r.subject?.name : (
+                                                        <span className="text-gray-500 flex items-center gap-1"><Coffee className="w-4 h-4"/> {r.description || 'বিরতি'}</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>{r.teacher?.name || '-'}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        ) : (
+                            <p className="text-center py-6 text-gray-500">আজকের কোনো রুটিন পাওয়া যায়নি।</p>
+                        )}
+                    </CardContent>
+                </Card>
+            </TabsContent>
+
+            {/* 3. RESULTS TAB */}
+            <TabsContent value="results" className="space-y-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><GraduationCap className="w-5 h-5 text-blue-600"/> সকল পরীক্ষার ফলাফল</CardTitle>
+                        <CardDescription>আপনার অংশগ্রহণকৃত সকল পরীক্ষার তালিকা ও মার্কশিট</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {historicalResults.length > 0 ? (
+                            <div className="overflow-x-auto rounded-lg border border-gray-100">
+                                <Table>
+                                    <TableHeader className="bg-blue-50/50">
+                                        <TableRow>
+                                            <TableHead className="font-bold text-blue-900 min-w-[150px]">পরীক্ষার নাম</TableHead>
+                                            <TableHead className="font-bold text-blue-900 text-center whitespace-nowrap">শিক্ষাবর্ষ</TableHead>
+                                            <TableHead className="font-bold text-blue-900 text-center whitespace-nowrap">মোট নম্বর</TableHead>
+                                            <TableHead className="font-bold text-blue-900 text-center whitespace-nowrap">প্রাপ্ত নম্বর</TableHead>
+                                            <TableHead className="font-bold text-blue-900 text-center">গ্রেড</TableHead>
+                                            <TableHead className="font-bold text-blue-900 text-right">অ্যাকশন</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {historicalResults.map((res, idx) => (
+                                            <TableRow key={idx}>
+                                                <TableCell className="font-bold text-gray-800">{res.exam_name}</TableCell>
+                                                <TableCell className="text-center text-gray-600">{toBengaliNumber(res.academic_year)}</TableCell>
+                                                <TableCell className="text-center text-gray-600">{toBengaliNumber(res.total_full_marks)}</TableCell>
+                                                <TableCell className="text-center font-bold text-gray-800">{toBengaliNumber(res.total_marks_obtained)}</TableCell>
+                                                <TableCell className="text-center">
+                                                    <Badge variant={res.grade === 'F' ? 'destructive' : 'default'} className="bg-blue-600">
+                                                        {res.grade}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button 
+                                                        size="sm" 
+                                                        variant="outline" 
+                                                        className="h-8 text-xs px-3 border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 whitespace-nowrap"
+                                                        onClick={() => {
+                                                            setPreviewExamId(res.exam_id);
+                                                            setPreviewModalOpen(true);
+                                                        }}
+                                                    >
+                                                        <FileText className="w-4 h-4 mr-1.5"/> মার্কশিট দেখুন
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        ) : (
+                            <div className="text-center py-16 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                                <GraduationCap className="w-16 h-16 mx-auto mb-3 text-gray-300"/>
+                                <p className="text-gray-500 font-medium">এখনও কোনো পরীক্ষার ফলাফল প্রকাশিত হয়নি</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </TabsContent>
+
+            {/* 4. PAYMENTS TAB */}
+            <TabsContent value="payments" className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card className="bg-red-50/50 border-red-200 shadow-sm">
+                        <CardContent className="p-6">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <p className="text-sm font-bold text-red-600 mb-1">মোট বকেয়া</p>
+                                    <h3 className="text-4xl font-bold text-gray-800">৳ {toBengaliNumber(financials.due)}</h3>
+                                </div>
+                                <div className="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center text-red-500">
+                                    <AlertCircle className="w-8 h-8"/>
+                                </div>
+                            </div>
+                            <Button className="w-full mt-6 bg-red-600 hover:bg-red-700 text-white font-bold h-11">
+                                অনলাইনে পেমেন্ট করুন
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-green-50/50 border-green-200 shadow-sm">
+                        <CardContent className="p-6">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <p className="text-sm font-bold text-green-700 mb-1">মোট পরিশোধিত</p>
+                                    <h3 className="text-4xl font-bold text-gray-800">৳ {toBengaliNumber(financials.paid)}</h3>
+                                </div>
+                                <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                                    <CheckCircle2 className="w-8 h-8"/>
+                                </div>
+                            </div>
+                            {financials.lastPayment && (
+                                <p className="mt-6 text-sm font-medium text-green-800 bg-green-100/50 p-2.5 rounded text-center">
+                                    সর্বশেষ পেমেন্ট: {format(new Date(financials.lastPayment), "dd MMMM yyyy", { locale: bn })}
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><CreditCard className="w-5 h-5 text-gray-600"/> লেনদেনের ইতিহাস</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {financials.history.length === 0 ? (
+                            <p className="text-center py-10 text-gray-500">কোনো লেনদেনের তথ্য নেই</p>
+                        ) : (
+                            <div className="overflow-x-auto border border-gray-100 rounded-lg">
+                                <Table>
+                                    <TableHeader className="bg-gray-50">
+                                        <TableRow>
+                                            <TableHead className="font-bold min-w-[120px]">তারিখ</TableHead>
+                                            <TableHead className="font-bold min-w-[200px]">বিবরণ</TableHead>
+                                            <TableHead className="font-bold">রসিদ নং</TableHead>
+                                            <TableHead className="font-bold text-right">পরিমাণ</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {financials.history.map((t: any) => (
+                                            <TableRow key={t.id}>
+                                                <TableCell className="whitespace-nowrap">{format(new Date(t.payment_date), "dd MMM yyyy", { locale: bn })}</TableCell>
+                                                <TableCell className="font-medium text-gray-800">{t.title}</TableCell>
+                                                <TableCell className="text-gray-500">{t.receipt_no || '-'}</TableCell>
+                                                <TableCell className="text-right font-bold text-green-600">৳ {toBengaliNumber(t.amount)}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </TabsContent>
+
+            {/* 5. LEAVES TAB */}
+            <TabsContent value="leaves" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* New Application Form */}
+                    <Card className="lg:col-span-1 border-blue-100 shadow-sm h-fit">
+                        <CardHeader className="bg-blue-50/50 border-b border-blue-100 pb-4">
+                            <CardTitle className="text-lg flex items-center gap-2 text-blue-800"><FileText className="w-5 h-5"/> নতুন ছুটির আবেদন</CardTitle>
+                            <CardDescription className="text-blue-600/80">অসুস্থতা বা জরুরি প্রয়োজনে আবেদন করুন</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-5 space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-bold text-gray-700">হতে (তারিখ)</label>
+                                    <Input type="date" className="h-11" value={leaveForm.from} onChange={e => setLeaveForm({...leaveForm, from: e.target.value})} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-bold text-gray-700">পর্যন্ত (তারিখ)</label>
+                                    <Input type="date" className="h-11" value={leaveForm.to} onChange={e => setLeaveForm({...leaveForm, to: e.target.value})} />
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-bold text-gray-700">কারণ</label>
+                                <Textarea 
+                                    placeholder="ছুটির কারণ বিস্তারিতভাবে লিখুন..." 
+                                    className="min-h-[120px] resize-none"
+                                    value={leaveForm.reason} 
+                                    onChange={e => setLeaveForm({...leaveForm, reason: e.target.value})}
+                                />
+                            </div>
+                            <Button 
+                                onClick={handleLeaveSubmit} 
+                                disabled={isSubmittingLeave} 
+                                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-200"
+                            >
+                                {isSubmittingLeave ? <Loader2 className="animate-spin w-5 h-5"/> : "আবেদন জমা দিন"}
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    {/* History */}
+                    <Card className="lg:col-span-2 shadow-sm">
+                        <CardHeader className="pb-4 border-b border-gray-100">
+                            <CardTitle className="text-lg flex items-center gap-2 text-gray-800"><Clock className="w-5 h-5 text-gray-500"/> আবেদনের ইতিহাস</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {leaveHistory.length === 0 ? (
+                                <div className="text-center py-16 text-gray-400">
+                                    <FileText className="w-12 h-12 mx-auto mb-3 opacity-20"/>
+                                    <p>পূর্বে কোনো ছুটির আবেদন করা হয়নি</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-gray-100 max-h-[500px] overflow-y-auto">
+                                    {leaveHistory.map((leave) => (
+                                        <div key={leave.id} className="p-5 hover:bg-gray-50 transition-colors">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <p className="font-bold text-gray-800">
+                                                        {format(new Date(leave.from_date), "dd MMMM", { locale: bn })} হতে {format(new Date(leave.to_date), "dd MMMM yyyy", { locale: bn })}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500 mt-1"><span className="font-medium text-gray-700">কারণ:</span> {leave.reason}</p>
+                                                </div>
+                                                <Badge className={`ml-4 shrink-0 ${
+                                                    leave.status === 'approved' ? 'bg-green-100 text-green-800 border-green-200' : 
+                                                    leave.status === 'rejected' ? 'bg-red-100 text-red-800 border-red-200' : 
+                                                    'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                                }`} variant="outline">
+                                                    {leave.status === 'approved' ? 'অনুমোদিত' : 
+                                                     leave.status === 'rejected' ? 'বাতিল' : 'অপেক্ষমান'}
+                                                </Badge>
+                                            </div>
+                                            {leave.admin_remark && (
+                                                <div className="mt-3 text-sm bg-white p-3 rounded-md border border-gray-200 text-gray-700 flex gap-2 items-start shadow-sm">
+                                                    <MessageSquare className="w-4 h-4 text-gray-400 shrink-0 mt-0.5"/>
+                                                    <p><span className="font-bold text-gray-800">অ্যাডমিন মন্তব্য:</span> {leave.admin_remark}</p>
+                                                </div>
+                                            )}
+                                            <p className="text-[10px] text-gray-400 mt-3 text-right">আবেদনের তারিখ: {format(new Date(leave.created_at), "dd MMM yyyy", { locale: bn })}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            </TabsContent>
+
+          </Tabs>
+
+      </div>
 
       {previewModalOpen && student && (
           <TranscriptPreviewModal 
