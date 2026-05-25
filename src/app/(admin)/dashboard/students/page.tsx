@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import StudentTable from "@/components/dashboard/students/StudentTable";
 import StudentForm from "@/components/dashboard/students/StudentForm";
+import { getClassOrder } from "@/lib/classOrder";
 
 export default function StudentManagement() {
     const router = useRouter();
@@ -142,7 +143,8 @@ export default function StudentManagement() {
           options.push({ label, value });
         }
       });
-      return options;
+      // Sort alphabetically by label
+      return options.sort((a, b) => a.label.localeCompare(b.label, "bn"));
     };
     const deptOptions = getDeptOptions();
 
@@ -180,7 +182,14 @@ export default function StudentManagement() {
           options.push({ label, value });
         }
       });
-      return options;
+      // Sort by class order (ছোট → বড়), then by branch label
+      return options.sort((a, b) => {
+        const classNameA = a.label.split(" - ")[0].trim();
+        const classNameB = b.label.split(" - ")[0].trim();
+        const diff = getClassOrder(classNameA) - getClassOrder(classNameB);
+        if (diff !== 0) return diff;
+        return a.label.localeCompare(b.label, "bn");
+      });
     };
     const classOptions = getClassOptions();
 
@@ -221,15 +230,15 @@ export default function StudentManagement() {
     };
 
     return (
-      <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6 bg-gray-50/50 min-h-screen font-[Kalpurush]">
+      <div className="space-y-3 md:space-y-4 px-0 py-3 md:py-4 bg-gray-50/50 min-h-screen font-[Kalpurush]">
         
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 px-3 md:px-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
               <Users className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" /> শিক্ষার্থী ব্যবস্থাপনা
             </h1>
-            <p className="text-xs sm:text-sm text-gray-500">সকল শিক্ষার্থীর তথ্য, ভর্তি ও প্রোফাইল নিয়ন্ত্রণ করুন</p>
+            <p className="text-xs sm:text-sm text-gray-500">সকল শিক্ষার্থীর তথ্য, ভর্তি ও প্রোফাইল নিয়ন্ত্রণ করুন</p>
           </div>
           
           <Button onClick={handleAddNew} className="bg-green-600 hover:bg-green-700 shadow-md h-9 text-sm w-full sm:w-auto">
@@ -238,7 +247,7 @@ export default function StudentManagement() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 px-3 md:px-4">
           <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-2 sm:gap-3">
               <div className="bg-blue-50 p-2.5 md:p-3 rounded-full text-blue-600"><Users className="w-5 h-5 md:w-6 md:h-6" /></div>
               <div>
@@ -273,10 +282,9 @@ export default function StudentManagement() {
           </div>
         </div>
 
-        {/* Filters & Content */}
-        <div className="bg-white p-3 sm:p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 space-y-4 md:space-y-6">
-          
-          <div>
+        {/* ── Filter Card ── */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div className="p-3 sm:p-4 md:p-5">
             <Button
               type="button"
               variant="outline"
@@ -287,103 +295,109 @@ export default function StudentManagement() {
               ফিল্টার
               {showFilters ? <ChevronUp className="w-4 h-4 ml-2" /> : <ChevronDown className="w-4 h-4 ml-2" />}
             </Button>
-          </div>
 
-          {/* Filter Bar */}
-          {showFilters && (
-            <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-start md:items-center bg-gray-50 p-3 md:p-4 rounded-lg border">
-              <div className="flex items-center gap-2 text-gray-600 font-medium text-sm">
+            {showFilters && (
+              <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-start md:items-center bg-gray-50 p-3 md:p-4 rounded-lg border mt-3">
+                <div className="flex items-center gap-2 text-gray-600 font-medium text-sm">
                   <Filter className="w-4 h-4" /> ফিল্টার:
-              </div>
-              
-              <Select value={branchFilter} onValueChange={handleBranchChange}>
-                <SelectTrigger className="w-full md:w-45 bg-white h-9 text-sm">
-                      <SelectValue placeholder="শাখা নির্বাচন" />
+                </div>
+
+                <Select value={branchFilter} onValueChange={handleBranchChange}>
+                  <SelectTrigger className="w-full md:w-45 bg-white h-9 text-sm">
+                    <SelectValue placeholder="শাখা নির্বাচন" />
                   </SelectTrigger>
                   <SelectContent>
-                      <SelectItem value="all">সকল শাখা</SelectItem>
-                      {branches?.map(b => (
-                          <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-                      ))}
+                    <SelectItem value="all">সকল শাখা</SelectItem>
+                    {branches?.map(b => (
+                      <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                    ))}
                   </SelectContent>
-              </Select>
+                </Select>
 
-              <Select value={deptFilter} onValueChange={handleDeptChange}>
-                <SelectTrigger className="w-full md:w-45 bg-white h-9 text-sm">
-                      <SelectValue placeholder="বিভাগ নির্বাচন" />
+                <Select value={deptFilter} onValueChange={handleDeptChange}>
+                  <SelectTrigger className="w-full md:w-45 bg-white h-9 text-sm">
+                    <SelectValue placeholder="বিভাগ নির্বাচন" />
                   </SelectTrigger>
                   <SelectContent>
-                      <SelectItem value="all">সকল বিভাগ</SelectItem>
-                      {deptOptions.map(d => (
-                          <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-                      ))}
+                    <SelectItem value="all">সকল বিভাগ</SelectItem>
+                    {deptOptions.map(d => (
+                      <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                    ))}
                   </SelectContent>
-              </Select>
+                </Select>
 
-              <Select value={classFilter} onValueChange={setClassFilter}>
-                <SelectTrigger className="w-full md:w-45 bg-white h-9 text-sm">
-                      <SelectValue placeholder="শ্রেণি নির্বাচন" />
+                <Select value={classFilter} onValueChange={setClassFilter}>
+                  <SelectTrigger className="w-full md:w-45 bg-white h-9 text-sm">
+                    <SelectValue placeholder="শ্রেণি নির্বাচন" />
                   </SelectTrigger>
                   <SelectContent>
-                      <SelectItem value="all">সকল শ্রেণি</SelectItem>
-                      {classOptions.map(c => (
-                          <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                      ))}
+                    <SelectItem value="all">সকল শ্রেণি</SelectItem>
+                    {classOptions.map(c => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
                   </SelectContent>
-              </Select>
+                </Select>
 
-              <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   onClick={() => { setBranchFilter("all"); setDeptFilter("all"); setClassFilter("all"); }}
                   className="text-red-500 hover:text-red-700 hover:bg-red-50 h-9 px-3 text-sm w-full md:w-auto"
-              >
+                >
                   রিসেট
-              </Button>
+                </Button>
               </div>
-              )}
+            )}
+          </div>
+        </div>
 
-          {/* Tabs for Active/Pending */}
+        {/* ── Tabs + Table Card (full-width, minimal padding) ── */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <Tabs defaultValue="active" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-4 h-auto p-1">
+            <div className="px-3 sm:px-4 md:px-5 pt-3 sm:pt-4 border-b border-gray-100">
+              <TabsList className="grid w-full grid-cols-2 mb-0 h-auto p-1">
                 <TabsTrigger value="active" className="flex items-center gap-1.5 text-xs sm:text-sm px-2 py-2">
-                      <ListFilter className="w-4 h-4" /> শিক্ষার্থী তালিকা ({activeStudents.length})
-                  </TabsTrigger>
+                  <ListFilter className="w-4 h-4" /> শিক্ষার্থী তালিকা ({activeStudents.length})
+                </TabsTrigger>
                 <TabsTrigger value="pending" className="flex items-center gap-1.5 text-xs sm:text-sm px-2 py-2">
-                      <Clock className="w-4 h-4" /> অপেক্ষমাণ ({pendingStudents.length})
-                  </TabsTrigger>
+                  <Clock className="w-4 h-4" /> অপেক্ষমাণ ({pendingStudents.length})
+                </TabsTrigger>
               </TabsList>
+            </div>
 
-              <TabsContent value="active">
-                  {loading ? (
-                      <div className="flex justify-center py-20"><Loader2 className="animate-spin text-green-600 w-10 h-10" /></div>
-                  ) : (
-                      <StudentTable
-                          data={activeStudents.map(s => ({ ...s, branches: { name: branches.find(b => String(b.id) === String(s.branch_id))?.name || "-" } }))}
-                          onEdit={handleEdit}
-                          onDelete={handleDelete}
-                          onBulkDelete={handleBulkDelete}
-                      />
-                  )}
-              </TabsContent>
+            <TabsContent value="active" className="m-0">
+              <div className="p-3 sm:p-4 md:p-5">
+                {loading ? (
+                  <div className="flex justify-center py-20"><Loader2 className="animate-spin text-green-600 w-10 h-10" /></div>
+                ) : (
+                  <StudentTable
+                    data={activeStudents.map(s => ({ ...s, branches: { name: branches.find(b => String(b.id) === String(s.branch_id))?.name || "-" } }))}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onBulkDelete={handleBulkDelete}
+                  />
+                )}
+              </div>
+            </TabsContent>
 
-              <TabsContent value="pending">
-                  {loading ? (
-                      <div className="flex justify-center py-20"><Loader2 className="animate-spin text-green-600 w-10 h-10" /></div>
-                  ) : pendingStudents.length === 0 ? (
-                      <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-lg border border-dashed">
-                          কোনো অপেক্ষমাণ শিক্ষার্থী নেই
-                      </div>
-                  ) : (
-                      <StudentTable
-                          data={pendingStudents.map(s => ({ ...s, branches: { name: branches.find(b => String(b.id) === String(s.branch_id))?.name || "-" } }))}
-                          onEdit={handleEdit}
-                          onDelete={handleDelete}
-                          onBulkDelete={handleBulkDelete}
-                      />
-                  )}
-              </TabsContent>
+            <TabsContent value="pending" className="m-0">
+              <div className="p-3 sm:p-4 md:p-5">
+                {loading ? (
+                  <div className="flex justify-center py-20"><Loader2 className="animate-spin text-green-600 w-10 h-10" /></div>
+                ) : pendingStudents.length === 0 ? (
+                  <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-lg border border-dashed">
+                    কোনো অপেক্ষমাণ শিক্ষার্থী নেই
+                  </div>
+                ) : (
+                  <StudentTable
+                    data={pendingStudents.map(s => ({ ...s, branches: { name: branches.find(b => String(b.id) === String(s.branch_id))?.name || "-" } }))}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onBulkDelete={handleBulkDelete}
+                  />
+                )}
+              </div>
+            </TabsContent>
           </Tabs>
-
         </div>
 
         {/* Form Modal */}

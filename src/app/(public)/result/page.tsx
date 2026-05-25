@@ -5,8 +5,9 @@ import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Printer, Loader2, AlertCircle, ArrowLeft, Calendar, User, FileText, GraduationCap } from "lucide-react";
+import { Search, Printer, Loader2, AlertCircle, ArrowLeft, Calendar, User, FileText, GraduationCap, MapPin } from "lucide-react";
 import Image from "next/image";
+import TranscriptSheet from "@/components/academic/TranscriptSheet";
 
 // --- বাংলা কনভার্সন হেল্পার ---
 const toBengaliNumber = (num: string | number) => {
@@ -69,12 +70,14 @@ const calculateGPA = (marksList: any[]) => {
 };
 
 export default function ResultPage() {
+  const [branches, setBranches] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
   const [classList, setClassList] = useState<any[]>([]);
   
   // Search Inputs
+  const [selectedBranch, setSelectedBranch] = useState<string>("");
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const [selectedExam, setSelectedExam] = useState<string>("");
-  const [selectedYear, setSelectedYear] = useState<string>("2026");
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [studentId, setStudentId] = useState<string>("");
   
@@ -82,32 +85,54 @@ export default function ResultPage() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Initial Data Fetch
+  // 1. Fetch Branches Initially
   useEffect(() => {
-    async function fetchData() {
-      // Fetch Exams
+    async function fetchBranches() {
+      const { data } = await supabase.from("branches").select("id, name").order("name");
+      if (data) setBranches(data);
+    }
+    fetchBranches();
+  }, []);
+
+  // 2. Fetch Exams and Classes when Branch or Year changes
+  useEffect(() => {
+    async function fetchDependentData() {
+      if (!selectedBranch || !selectedYear) {
+          setExams([]);
+          setClassList([]);
+          return;
+      }
+
+      // Fetch Exams for branch and year
       const { data: exData } = await supabase
         .from("exams")
-        .select("id, title, academic_year")
+        .select("id, title")
         .eq("is_active", true)
+        .eq("branch_id", selectedBranch)
+        .eq("academic_year", parseInt(selectedYear))
         .order("created_at", { ascending: false });
+        
       if (exData) setExams(exData);
 
-      // Fetch Classes (Unique Names)
+      // Fetch Classes for branch and year
       const { data: clsData } = await supabase
         .from("academic_classes")
         .select("name")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("branch_id", selectedBranch)
+        .eq("academic_year", parseInt(selectedYear));
         
       if (clsData) {
-        // Remove duplicates if any
-        const uniqueClasses = Array.from(new Set(clsData.map(c => c.name)))
-          .map(name => ({ name }));
+        const uniqueClasses = Array.from(new Set(clsData.map(c => c.name))).map(name => ({ name }));
         setClassList(uniqueClasses);
       }
-    };
-    fetchData();
-  }, []);
+      
+      // Reset exam and class when changing branch/year
+      setSelectedExam("");
+      setSelectedClass("");
+    }
+    fetchDependentData();
+  }, [selectedBranch, selectedYear]);
 
   const handleSearch = async () => {
     if (!selectedExam || !selectedYear || !selectedClass || !studentId) {
@@ -234,20 +259,20 @@ export default function ResultPage() {
                 </div>
                 
                 <div className="p-8 space-y-6">
-                    {/* ১. পরীক্ষার নাম */}
+                    {/* ০. শাখা নির্বাচন */}
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                         <label className="md:col-span-4 text-sm font-semibold text-gray-700 flex items-center gap-2 md:justify-end">
-                            <FileText className="w-4 h-4 text-green-600" /> পরীক্ষার নাম :
+                            <MapPin className="w-4 h-4 text-green-600" /> শাখা :
                         </label>
                         <div className="md:col-span-8">
-                            <Select onValueChange={setSelectedExam} value={selectedExam}>
+                            <Select onValueChange={setSelectedBranch} value={selectedBranch}>
                                 <SelectTrigger className="h-12 border-gray-200 bg-white focus:ring-2 focus:ring-green-500 rounded-lg text-base w-full">
-                                    <SelectValue placeholder="-- পরীক্ষা নির্বাচন করুন --" />
+                                    <SelectValue placeholder="-- শাখা নির্বাচন করুন --" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {exams.map((ex) => (
-                                        <SelectItem key={ex.id} value={ex.id} className="cursor-pointer py-3">
-                                            {ex.title}
+                                    {branches.map((b) => (
+                                        <SelectItem key={b.id} value={b.id} className="cursor-pointer py-2">
+                                            {b.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -255,7 +280,7 @@ export default function ResultPage() {
                         </div>
                     </div>
 
-                    {/* ২. পরীক্ষার বছর */}
+                    {/* ১. পরীক্ষার বছর */}
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                         <label className="md:col-span-4 text-sm font-semibold text-gray-700 flex items-center gap-2 md:justify-end">
                             <Calendar className="w-4 h-4 text-green-600" /> পরীক্ষার বছর :
@@ -274,17 +299,44 @@ export default function ResultPage() {
                         </div>
                     </div>
 
+                    {/* ২. পরীক্ষার নাম */}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                        <label className="md:col-span-4 text-sm font-semibold text-gray-700 flex items-center gap-2 md:justify-end">
+                            <FileText className="w-4 h-4 text-green-600" /> পরীক্ষার নাম :
+                        </label>
+                        <div className="md:col-span-8">
+                            <Select onValueChange={setSelectedExam} value={selectedExam} disabled={!selectedBranch}>
+                                <SelectTrigger className="h-12 border-gray-200 bg-white focus:ring-2 focus:ring-green-500 rounded-lg text-base w-full disabled:opacity-50">
+                                    <SelectValue placeholder={selectedBranch ? "-- পরীক্ষা নির্বাচন করুন --" : "প্রথমে শাখা নির্বাচন করুন"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {exams.length === 0 && selectedBranch && (
+                                        <div className="p-2 text-sm text-gray-500 text-center">কোনো পরীক্ষা পাওয়া যায়নি</div>
+                                    )}
+                                    {exams.map((ex) => (
+                                        <SelectItem key={ex.id} value={ex.id} className="cursor-pointer py-3">
+                                            {ex.title}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
                     {/* ৩. শ্রেণি */}
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                         <label className="md:col-span-4 text-sm font-semibold text-gray-700 flex items-center gap-2 md:justify-end">
                             <GraduationCap className="w-4 h-4 text-green-600" /> শ্রেণি :
                         </label>
                         <div className="md:col-span-8">
-                            <Select onValueChange={setSelectedClass} value={selectedClass}>
-                                <SelectTrigger className="h-12 border-gray-200 bg-white focus:ring-2 focus:ring-green-500 rounded-lg text-base w-full">
-                                    <SelectValue placeholder="-- শ্রেণি --" />
+                            <Select onValueChange={setSelectedClass} value={selectedClass} disabled={!selectedBranch}>
+                                <SelectTrigger className="h-12 border-gray-200 bg-white focus:ring-2 focus:ring-green-500 rounded-lg text-base w-full disabled:opacity-50">
+                                    <SelectValue placeholder={selectedBranch ? "-- শ্রেণি নির্বাচন করুন --" : "প্রথমে শাখা নির্বাচন করুন"} />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    {classList.length === 0 && selectedBranch && (
+                                        <div className="p-2 text-sm text-gray-500 text-center">কোনো শ্রেণি পাওয়া যায়নি</div>
+                                    )}
                                     {classList.map((cls, idx) => (
                                         <SelectItem key={idx} value={cls.name} className="cursor-pointer py-2">
                                             {cls.name}
@@ -357,179 +409,41 @@ export default function ResultPage() {
             </div>
 
             {/* --- PRINTABLE CONTENT (A4 Size) --- */}
-            <div id="printable-content" className="bg-white mx-auto print:mx-0 relative shadow-2xl print:shadow-none w-full max-w-[210mm] print:max-w-none min-h-[297mm] print:min-h-0" style={{ fontFamily: "'Kalpurush', 'Siyam Rupali', sans-serif" }}>
-                
-                {/* Main Border Frame */}
-                <div className="w-full h-full p-4 sm:p-8 print:p-0 flex flex-col justify-between">
-                    
-                    {/* Decorative Outer Border */}
-                    <div className="absolute inset-0 border-[3px] border-double border-green-800 m-2 pointer-events-none hidden print:block z-50 rounded-sm print:m-[0.4in]"></div>
-                    <div className="absolute inset-0 border border-green-600 m-3 pointer-events-none hidden print:block z-50 rounded-sm print:m-[calc(0.4in+4px)]"></div>
-                    
-                    {/* Corner Decorations (Islamic Style) */}
-                    <div className="absolute top-3 left-3 w-8 h-8 border-t-2 border-l-2 border-green-700 hidden print:block z-50 print:top-[0.45in] print:left-[0.45in]"></div>
-                    <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-green-700 hidden print:block z-50 print:top-[0.45in] print:right-[0.45in]"></div>
-                    <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-green-700 hidden print:block z-50 print:bottom-[0.45in] print:left-[0.45in]"></div>
-                    <div className="absolute bottom-3 right-3 w-8 h-8 border-b-2 border-r-2 border-green-700 hidden print:block z-50 print:bottom-[0.45in] print:right-[0.45in]"></div>
-
-                    {/* Watermark */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-[0.05] pointer-events-none z-0">
-                        <div className="relative w-[500px] h-[500px]">
-                            <Image src="/images/logo.png" alt="Watermark" fill className="object-contain grayscale" />
-                        </div>
-                    </div>
-
-                    <div className="relative z-10 flex flex-col h-full justify-between print:p-[0.6in]">
-                        {/* Top Section */}
-                        <div>
-                             {/* Header */}
-                            <div className="text-center mb-6 pt-2 print:pt-0">
-                                <div className="flex justify-center mb-0 h-8 relative print:h-8 print:mb-0">
-                                    {/* Using standard img for reliable print rendering */}
-                                    <img src="/images/bismillah.svg" alt="Bismillah" className="h-full w-auto object-contain" />
-                                </div>
-                                {/* Full Logo Section */}
-                                <div className="w-full flex justify-center mb-0 mt-1 print:mt-0 print:mb-0">
-                                    {/* Using standard img to prevent breaking in print */}
-                                    <img 
-                                        src="/images/long_logo.svg" 
-                                        alt="Madrasa Logo" 
-                                        className="h-28 w-auto object-contain print:h-24 print:max-w-[90%]" 
-                                    />
-                                </div>
-                                <p className="text-sm font-medium text-gray-600 print:text-gray-800 -mt-2 print:-mt-2">
-                                  {result.branch?.address || "হলিধানী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ"}
-                                </p>
-                                
-                                <div className="w-full border-b-[3px] border-double border-green-800 my-2 print:border-green-900"></div>
-                                
-                                <div className="inline-block bg-green-800 px-8 py-1.5 rounded-full mt-2 mb-1 print-color-exact">
-                                    <h2 className="text-xl font-bold text-white uppercase tracking-widest leading-none font-[Kalpurush]">একাডেমিক ট্রান্সক্রিপ্ট</h2>
-                                </div>
-                                <h3 className="text-lg font-bold text-green-700 print:text-green-800 mt-2">
-                                    {result.exam.title} - {toBengaliNumber(selectedYear)}
-                                </h3>
-                            </div>
-
-                            {/* Student Info Grid */}
-                            <div className="mb-4 border border-green-800 rounded-none p-0 overflow-hidden bg-green-50/30 print:bg-transparent">
-                                <div className="grid grid-cols-2 text-sm">
-                                    <div className="p-2 border-b border-r border-green-800/30 flex gap-2">
-                                        <span className="font-semibold text-green-800 min-w-[80px]">আইডি নম্বর:</span>
-                                        <span className="font-bold text-black font-mono">{toBengaliNumber(result.student.student_id)}</span>
-                                    </div>
-                                    <div className="p-2 border-b border-green-800/30 flex gap-2">
-                                        <span className="font-semibold text-green-800 min-w-[80px]">শ্রেণি:</span>
-                                        <span className="font-bold text-black">{result.student.class_name}</span>
-                                    </div>
-                                    <div className="p-2 border-b border-r border-green-800/30 flex gap-2">
-                                        <span className="font-semibold text-green-800 min-w-[80px]">শিক্ষার্থীর নাম:</span>
-                                        <span className="font-bold text-black">{result.student.name_bn}</span>
-                                    </div>
-                                    <div className="p-2 border-b border-green-800/30 flex gap-2">
-                                        <span className="font-semibold text-green-800 min-w-[80px]">রোল নম্বর:</span>
-                                        <span className="font-bold text-black font-mono">{toBengaliNumber(result.student.roll_no || '-')}</span>
-                                    </div>
-                                    <div className="p-2 border-r border-green-800/30 flex gap-2">
-                                        <span className="font-semibold text-green-800 min-w-[80px]">পিতার নাম:</span>
-                                        <span className="font-bold text-black">{result.student.father_name_bn}</span>
-                                    </div>
-                                    <div className="p-2 flex gap-2">
-                                        <span className="font-semibold text-green-800 min-w-[80px]">মাতার নাম:</span>
-                                        <span className="font-bold text-black">{result.student.mother_name_bn}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Marks Table */}
-                            <div className="mb-2">
-                                <table className="w-full border-collapse border border-green-700 text-center text-sm print:text-xs">
-                                    <thead className="bg-green-700 text-white print:bg-green-700 print:text-white print-color-exact">
-                                        <tr className="font-bold text-sm">
-                                            <th className="border border-green-700 p-2 w-12">নং</th>
-                                            <th className="border border-green-700 p-2 text-left pl-3">বিষয়ের নাম</th>
-                                            <th className="border border-green-700 p-2 w-20">পূর্ণমান</th>
-                                            <th className="border border-green-700 p-2 w-20">প্রাপ্ত নম্বর</th>
-                                            <th className="border border-green-700 p-2 w-24">লেটার গ্রেড</th>
-                                            <th className="border border-green-700 p-2 w-24">গ্রেড পয়েন্ট</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {result.marks.map((sub: any, idx: number) => {
-                                            const gradeInfo = getGradePoint(sub.marks_obtained);
-                                            return (
-                                                <tr key={idx} className="hover:bg-green-50 print:hover:bg-transparent">
-                                                    <td className="border border-green-700 p-2">{toBengaliNumber(idx + 1)}</td>
-                                                    <td className="border border-green-700 p-2 text-left pl-3 font-semibold text-green-900">{sub.subject_name}</td>
-                                                    <td className="border border-green-700 p-2">{toBengaliNumber(sub.full_marks)}</td>
-                                                    <td className="border border-green-700 p-2 font-bold">{toBengaliNumber(sub.marks_obtained)}</td>
-                                                    <td className="border border-green-700 p-2 font-medium">{gradeInfo.grade}</td>
-                                                    <td className="border border-green-700 p-2">{toBengaliNumber(gradeInfo.gp.toFixed(2))}</td>
-                                                </tr>
-                                            );
-                                        })}
-                                        
-                                        {/* Summary Row */}
-                                        <tr className="font-bold bg-green-100 print:bg-green-100 print-color-exact">
-                                            <td colSpan={2} className="border border-green-700 p-2 text-right pr-4 text-green-900">সর্বমোট:</td>
-                                            <td className="border border-green-700 p-2"></td>
-                                            <td className="border border-green-700 p-2 text-green-900">{toBengaliNumber(result.summary.total)}</td>
-                                            <td className="border border-green-700 p-2 text-green-900">গ্রেড: {result.summary.grade}</td>
-                                            <td className="border border-green-700 p-2 text-green-900">জিপিএ: {toBengaliNumber(result.summary.gpa)}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* Grading Scale Chart - Moved below table */}
-                            <div className="flex justify-start mb-4">
-                                <div className="border border-green-700 text-[10px] rounded overflow-hidden w-full max-w-[400px]">
-                                    <div className="bg-green-700 text-white p-1 text-center font-bold border-b border-green-700 print:bg-green-700 print:text-white print-color-exact">গ্রেডিং সিস্টেম</div>
-                                    <div className="grid grid-cols-6 gap-0 text-center bg-white">
-                                        {/* Banding Rows */}
-                                        <div className="contents bg-green-50 print:bg-green-50 print-color-exact">
-                                            <div className="border-r border-b border-green-700 p-0.5">৮০-১০০</div><div className="border-r border-b border-green-700 p-0.5 font-bold">A+</div>
-                                        </div>
-                                        <div className="contents">
-                                            <div className="border-r border-b border-green-700 p-0.5">৭০-৭৯</div><div className="border-r border-b border-green-700 p-0.5 font-bold">A</div>
-                                        </div>
-                                        <div className="contents bg-green-50 print:bg-green-50 print-color-exact">
-                                            <div className="border-r border-b border-green-700 p-0.5">৬০-৬৯</div><div className="border-b border-green-700 p-0.5 font-bold">A-</div>
-                                        </div>
-                                        
-                                        <div className="contents">
-                                            <div className="border-r border-green-700 p-0.5">৫০-৫৯</div><div className="border-r border-green-700 p-0.5 font-bold">B</div>
-                                        </div>
-                                        <div className="contents bg-green-50 print:bg-green-50 print-color-exact">
-                                            <div className="border-r border-green-700 p-0.5">৪০-৪৯</div><div className="border-r border-green-700 p-0.5 font-bold">C</div>
-                                        </div>
-                                        <div className="contents">
-                                            <div className="border-r border-green-700 p-0.5">৩৩-৩৯</div><div className="font-bold p-0.5">D</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Bottom Section: Signatures */}
-                        <div className="mt-auto">
-                            <div className="flex flex-col sm:flex-row justify-between items-center sm:items-end gap-8 sm:gap-0 pb-4 px-4">
-                                <div className="text-center">
-                                    <div className="w-32 border-t border-black border-dashed mb-1 mx-auto"></div>
-                                    <p className="font-bold text-xs text-green-900">শ্রেণি শিক্ষকের স্বাক্ষর</p>
-                                </div>
-                                <div className="text-center">
-                                    <div className="w-32 border-t border-black border-dashed mb-1 mx-auto"></div>
-                                    <p className="font-bold text-xs text-green-900">মুহতামিমের স্বাক্ষর</p>
-                                </div>
-                                <div className="text-center">
-                                    <div className="w-32 border-t border-black border-dashed mb-1 mx-auto"></div>
-                                    <p className="font-bold text-xs text-green-900">অভিভাবকের স্বাক্ষর</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div id="public-print-area" className="w-full flex justify-center print:block">
+              <TranscriptSheet
+              student={{
+                id: result.student.student_id,
+                nameBn: result.student.name_bn,
+                fatherNameBn: result.student.father_name_bn,
+                motherNameBn: result.student.mother_name_bn,
+                className: result.student.class_name,
+                rollNo: (result.student.roll_number ?? result.student.roll_no) || '-'
+              }}
+              exam={{
+                title: result.exam.title,
+                academicYear: selectedYear
+              }}
+              branch={{
+                address: result.branch?.address || ""
+              }}
+              marks={result.marks.map((m: any) => {
+                const mk = m.marks_obtained ? parseInt(m.marks_obtained) : 0;
+                const gi = m.marks_obtained !== null && m.marks_obtained !== undefined ? getGradePoint(mk) : { gp: 0, grade: 'AB' };
+                return {
+                  subjectName: m.subject_name,
+                  fullMarks: m.full_marks || 100,
+                  marksObtained: m.marks_obtained,
+                  grade: gi.grade,
+                  gp: gi.gp
+                };
+              })}
+              summary={{
+                totalMarks: result.summary.total,
+                totalFullMarks: result.marks.reduce((acc: number, curr: any) => acc + (curr.full_marks || 100), 0),
+                gpa: result.summary.gpa,
+                grade: result.summary.grade
+              }}
+            />
             </div>
         </div>
       )}
@@ -548,7 +462,7 @@ export default function ResultPage() {
                 height: 100%;
                 margin: 0 !important;
                 padding: 0 !important;
-                overflow: hidden; /* Prevent scrollbars */
+                background: white;
             }
 
             body * {
@@ -556,25 +470,16 @@ export default function ResultPage() {
             }
 
             /* Main Printable Container */
-            #printable-content, #printable-content * {
+            #public-print-area, #public-print-area * {
                 visibility: visible; /* Show only printable content */
             }
 
-            #printable-content {
+            #public-print-area {
                 position: absolute;
                 left: 0;
                 top: 0;
-                width: 210mm;
-                height: 296mm; /* Slightly less than 297mm to prevent spillover */
-                padding: 0;
-                margin: 0 auto;
-                background: white;
-                display: flex;
-                flex-direction: column;
+                width: 100%;
                 z-index: 9999;
-                page-break-after: avoid;
-                page-break-before: avoid;
-                overflow: hidden;
             }
 
             .print\\:hidden {

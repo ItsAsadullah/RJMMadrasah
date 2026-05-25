@@ -7,9 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Loader2, Printer, Save, Calendar, CheckCircle, Edit, Trash2, AlertTriangle, School, RefreshCcw, FileText, Download, Users, FileSpreadsheet } from "lucide-react";
+import { Loader2, Printer, Search, FileText, CheckCircle, Download, Check, Save, Share2, Calendar, Edit, Trash2, AlertTriangle, School, RefreshCcw, Users, FileSpreadsheet } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
+import * as XLSX from 'xlsx';
 import Image from "next/image";
+import TranscriptSheet from "@/components/academic/TranscriptSheet";
+import { sortClassNames } from "@/lib/classOrder";
 
 // --- বাংলা কনভার্সন হেল্পার ---
 const toBengaliNumber = (num: string | number) => {
@@ -131,9 +134,13 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
     // --- Result Tabulation State ---
     const [tabulationData, setTabulationData] = useState<Record<string, Record<string, string>>>({});
     const [isSavingTabulation, setIsSavingTabulation] = useState(false);
+    
+    // --- Subject Reordering (Drag and Drop) ---
+    const [draggedSubjectIndex, setDraggedSubjectIndex] = useState<number | null>(null);
 
     // --- Printing State ---
     const [printMode, setPrintMode] = useState<'admit' | 'transcript-single' | 'transcript-all' | 'tabulation'>('admit');
+    const [tabulationPrintSort, setTabulationPrintSort] = useState<'roll' | 'merit'>('merit');
     const [studentForTranscript, setStudentForTranscript] = useState<any>(null);
 
 
@@ -145,7 +152,14 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
     async function fetchClasses(branchId: string) {
         if (!exam?.academic_year) return;
         const { data: cls } = await supabase.from("academic_classes").select("id, name").eq("branch_id", branchId).eq("academic_year", exam.academic_year);
-        if (cls) setClasses(cls);
+        if (cls) {
+            // Sort by class order (শিশু → প্রথম → দ্বিতীয় → ...)
+            const sorted = [...cls].sort((a, b) => {
+                const names = sortClassNames([a.name, b.name]);
+                return names[0] === a.name ? -1 : 1;
+            });
+            setClasses(sorted);
+        }
     }
 
     useEffect(() => {
@@ -217,18 +231,42 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
 
     const fetchClassData = async () => {
       const { data: subs } = await supabase.from("academic_subjects").select("*").eq("class_id", selectedClass).eq("is_active", true).order('code');
-      if (subs) setSubjects(subs);
+      if (subs) {
+          // Load custom subject order from localStorage if available
+          try {
+              const savedOrderStr = localStorage.getItem(`subject_order_${id}_${selectedClass}`);
+              if (savedOrderStr) {
+                  const savedOrder = JSON.parse(savedOrderStr) as string[];
+                  subs.sort((a, b) => {
+                      let aIdx = savedOrder.indexOf(a.id);
+                      let bIdx = savedOrder.indexOf(b.id);
+                      if (aIdx === -1) aIdx = 999;
+                      if (bIdx === -1) bIdx = 999;
+                      return aIdx - bIdx;
+                  });
+              }
+          } catch(e) {}
+          setSubjects(subs);
+      }
 
       const className = classes.find(c => c.id === selectedClass)?.name;
       if (className) {
           const { data: stds } = await supabase
               .from("students")
-              .select("id, student_id, name_bn, roll_no, father_name_bn, mother_name_bn, photo_url")
+              .select("id, student_id, name_bn, roll_no, roll_number, father_name_bn, mother_name_bn, photo_url, branch_id")
               .eq("class_name", className)
               .eq("academic_year", exam.academic_year)
-              .order("roll_no", { ascending: true });
+              .eq("branch_id", selectedBranch);
           
-          if (stds) setStudents(stds);
+          if (stds) {
+              // Client-side numeric sort for roll numbers (handling both string/number types gracefully)
+              const sortedStds = [...stds].sort((a, b) => {
+                  const rA = parseInt((a.roll_number ?? a.roll_no) || "0", 10);
+                  const rB = parseInt((b.roll_number ?? b.roll_no) || "0", 10);
+                  return rA - rB;
+              });
+              setStudents(sortedStds);
+          }
       }
 
       fetchRoutines();
@@ -236,7 +274,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
     };
 
     const fetchRoutines = async () => {
-      const { data: rts } = await supabase.from("exam_routines").select("*, academic_subjects(name)").eq("exam_id", id).eq("class_id", selectedClass).order('exam_date');
+      const { data: rts } = await supabase.from("exam_routines").select("*, academic_subjects(name, exam_type)").eq("exam_id", id).eq("class_id", selectedClass).order('exam_date');
       if (rts) {
           setRoutines(rts);
           const initialData: any = {};
@@ -264,13 +302,21 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
         }
     };
 
-    const handleTabulationChange = (studentTableId: string, subjectId: string, val: string) => {
+    const handleTabulationChange = (studentTableId: string, subjectId: string, value: string) => {
         const student = students.find(s => s.id === studentTableId);
         if(!student) return;
-        const stdId = student.student_id; 
+        const stdId = student.student_id;
+
+        // Double-check conversion & sanitization just in case
+        const bengaliToEnglishMap: Record<string, string> = {
+            '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4',
+            '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9'
+        };
+        let engValue = value.replace(/[০-৯]/g, m => bengaliToEnglishMap[m]).replace(/[^0-9.]/g, '');
+
         setTabulationData(prev => ({
             ...prev,
-            [stdId]: { ...prev[stdId], [subjectId]: val }
+            [stdId]: { ...prev[stdId], [subjectId]: engValue }
         }));
     };
 
@@ -299,6 +345,66 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
             alert("সেভ করার মতো কোনো পরিবর্তন পাওয়া যায়নি।");
         }
         setIsSavingTabulation(false);
+    };
+
+    // --- Subject Reordering Handlers ---
+    const handleDragStart = (e: React.DragEvent, index: number) => {
+        setDraggedSubjectIndex(index);
+        e.dataTransfer.effectAllowed = "move";
+        // for firefox compatibility
+        e.dataTransfer.setData("text/plain", index.toString());
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+    };
+
+    const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+        e.preventDefault();
+        if (draggedSubjectIndex === null || draggedSubjectIndex === dropIndex) return;
+
+        const newSubjects = [...subjects];
+        const [draggedItem] = newSubjects.splice(draggedSubjectIndex, 1);
+        newSubjects.splice(dropIndex, 0, draggedItem);
+        
+        // Update local state instantly
+        setSubjects(newSubjects);
+        
+        // 1. Save to database by updating 'code' so Public Result page & everything else follows this order
+        try {
+            const tempUpdates = newSubjects.map((sub, index) => {
+                const finalCode = String(index + 1).padStart(2, '0');
+                const tempCode = `TMP-${Date.now()}-${index}`;
+                sub.code = finalCode; // Optimistic local update
+                return { id: sub.id, finalCode, tempCode };
+            });
+            
+            // Fire-and-forget background two-step updates to avoid Unique Constraint (class_id, code) errors when swapping
+            (async () => {
+                try {
+                    // Step 1: Set temporary codes to clear out existing codes
+                    for (const update of tempUpdates) {
+                        await supabase.from("academic_subjects").update({ code: update.tempCode }).eq("id", update.id);
+                    }
+                    // Step 2: Set final sorted codes
+                    for (const update of tempUpdates) {
+                        await supabase.from("academic_subjects").update({ code: update.finalCode }).eq("id", update.id);
+                    }
+                } catch(e) {
+                    console.error("Failed async DB order swap:", e);
+                }
+            })();
+        } catch(e) {
+            console.error("Failed to prepare subject order in DB:", e);
+        }
+        
+        // 2. Save to localStorage for fallback
+        try {
+            localStorage.setItem(`subject_order_${id}_${selectedClass}`, JSON.stringify(newSubjects.map(s => s.id)));
+        } catch(e) {}
+        
+        setDraggedSubjectIndex(null);
     };
 
     const openRoutineModal = () => {
@@ -389,144 +495,58 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
         setTimeout(() => window.print(), 200);
     };
 
-    const handlePrintTabulation = () => {
+    const handlePrintTabulation = (mode: 'roll' | 'merit') => {
         if (students.length === 0) return alert("প্রিন্ট করার মতো কোনো শিক্ষার্থী নেই!");
+        setTabulationPrintSort(mode);
         setPrintMode('tabulation');
         setTimeout(() => window.print(), 200);
     };
 
     // --- Render Transcript Component ---
-    const TranscriptTemplate = ({ student }: { student: any }) => (
-        <div className="transcript-page relative border-[8px] border-double border-emerald-700 box-border bg-white" style={{ fontFamily: "'Kalpurush', 'Siyam Rupali', sans-serif" }}>
-            {/* Watermark (Logo) */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-[0.04] pointer-events-none">
-                <div className="relative w-[30rem] h-[30rem]">
-                  <Image src="/images/logo.png" alt="Watermark" fill className="object-contain grayscale" priority />
-                </div>
+    const TranscriptTemplate = ({ student }: { student: any }) => {
+        const summary = calculateResultSummary(student.student_id, subjects, tabulationData);
+        
+        return (
+            <div className="transcript-page page-break-after-always">
+                <TranscriptSheet
+                    student={{
+                        id: student.student_id,
+                        nameBn: student.name_bn,
+                        fatherNameBn: student.father_name_bn,
+                        motherNameBn: student.mother_name_bn,
+                        className: classes.find(c => c.id === selectedClass)?.name || "",
+                        rollNo: (student.roll_number ?? student.roll_no) || "-"
+                    }}
+                    exam={{
+                        title: exam?.title || "",
+                        academicYear: exam?.academic_year || ""
+                    }}
+                    branch={{
+                        address: "হলিধানী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ"
+                    }}
+                    marks={subjects.map(sub => {
+                        const markStr = tabulationData[student.student_id]?.[sub.id];
+                        const mark = markStr ? parseInt(markStr) : 0;
+                        const result = markStr ? getGradePoint(mark) : { gp: 0, grade: 'AB' };
+                        return {
+                            subjectName: sub.name,
+                            isOral: sub.exam_type === 'Oral',
+                            fullMarks: sub.full_marks || 100,
+                            marksObtained: markStr ? mark : null,
+                            grade: result.grade,
+                            gp: result.gp
+                        };
+                    })}
+                    summary={{
+                        totalMarks: summary.total,
+                        totalFullMarks: summary.totalFull,
+                        gpa: summary.gpa,
+                        grade: summary.grade
+                    }}
+                />
             </div>
-
-            <div className="p-8 h-full flex flex-col justify-between">
-                <div>
-                    {/* Header */}
-                    <div className="text-center relative z-10 mb-6">
-                        <div className="flex justify-center mb-2 h-8 relative">
-                            <Image src="/images/bismillah.svg" alt="Bismillah" fill className="object-contain" priority />
-                        </div>
-                        <div className="w-full flex justify-center relative h-16 mb-2">
-                            <Image src="/images/long_logo.svg" alt="Madrasa Logo" fill className="object-contain" priority />
-                        </div>
-                        <p className="text-base font-semibold text-slate-600 mb-3">হলিধানী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ</p>
-                        
-                        <div className="inline-block bg-emerald-700 text-white px-8 py-1.5 rounded-full text-xl font-bold uppercase tracking-widest shadow-sm print:bg-emerald-700 print-color-exact mb-3">
-                            একাডেমিক ট্রান্সক্রিপ্ট
-                        </div>
-                        
-                        <div className="flex items-center justify-center gap-2">
-                            <h2 className="text-lg font-bold text-emerald-800">{exam?.title}</h2>
-                            <span className="text-emerald-300 font-bold">|</span>
-                            <span className="text-md font-semibold text-emerald-700">শিক্ষাবর্ষ: {toBengaliNumber(exam?.academic_year || "")}</span>
-                        </div>
-                    </div>
-
-                    {/* Student Info Box */}
-                    <div className="relative z-10 mb-6 bg-slate-50 border border-slate-200 rounded-xl p-5 text-sm print:bg-slate-50 print-color-exact shadow-sm">
-                        <div className="grid grid-cols-3 gap-y-4 gap-x-4">
-                            {/* Row 1 */}
-                            <div className="flex items-center"><span className="text-slate-500 w-24 shrink-0">শিক্ষার্থীর নাম:</span> <span className="font-bold text-base text-slate-800">{student.name_bn}</span></div>
-                            <div className="flex items-center"><span className="text-slate-500 w-20 shrink-0">পিতার নাম:</span> <span className="font-semibold text-slate-700">{student.father_name_bn}</span></div>
-                            <div className="flex items-center"><span className="text-slate-500 w-16 shrink-0">শ্রেণি:</span> <span className="font-bold text-emerald-800 bg-emerald-100/80 px-3 py-0.5 rounded-full border border-emerald-200 print:bg-emerald-100">{classes.find(c => c.id === selectedClass)?.name}</span></div>
-                            
-                            {/* Row 2 */}
-                            <div className="flex items-center"><span className="text-slate-500 w-24 shrink-0">আইডি নম্বর:</span> <span className="font-mono font-semibold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">{toBengaliNumber(student.student_id)}</span></div>
-                            <div className="flex items-center"><span className="text-slate-500 w-20 shrink-0">মাতার নাম:</span> <span className="font-semibold text-slate-700">{student.mother_name_bn}</span></div>
-                            <div className="flex items-center"><span className="text-slate-500 w-16 shrink-0">রোল নম্বর:</span> <span className="font-mono font-bold text-base text-slate-800">{toBengaliNumber(student.roll_no)}</span></div>
-                        </div>
-                    </div>
-
-                    {/* Result Table */}
-                    <div className="relative z-10 mb-6 rounded-xl overflow-hidden border border-emerald-200 print:border-emerald-300">
-                        <table className="w-full text-center text-sm border-collapse">
-                            <thead className="bg-emerald-600 text-white print:bg-emerald-600 print:text-white print-color-exact font-semibold tracking-wide">
-                                <tr>
-                                    <th className="p-3 w-12 border-r border-emerald-500/50">নং</th>
-                                    <th className="p-3 text-left border-r border-emerald-500/50">বিষয়ের নাম</th>
-                                    <th className="p-3 w-24 border-r border-emerald-500/50">পূর্ণমান</th>
-                                    <th className="p-3 w-24 border-r border-emerald-500/50">প্রাপ্ত নম্বর</th>
-                                    <th className="p-3 w-24 border-r border-emerald-500/50">লেটার গ্রেড</th>
-                                    <th className="p-3 w-24">গ্রেড পয়েন্ট</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-emerald-100 bg-white">
-                                {subjects.map((sub, idx) => {
-                                    const markStr = tabulationData[student.student_id]?.[sub.id];
-                                    const mark = markStr ? parseInt(markStr) : 0;
-                                    const result = markStr ? getGradePoint(mark) : { gp: 0, grade: 'AB' };
-                                    return (
-                                        <tr key={sub.id} className="hover:bg-slate-50 transition-colors">
-                                            <td className="p-2.5 border-r border-emerald-100 text-slate-500">{toBengaliNumber(idx + 1)}</td>
-                                            <td className="p-2.5 text-left font-semibold text-slate-800 border-r border-emerald-100">{sub.name}</td>
-                                            <td className="p-2.5 border-r border-emerald-100 text-slate-600">{toBengaliNumber(sub.full_marks || 100)}</td>
-                                            <td className="p-2.5 font-bold text-emerald-700 border-r border-emerald-100 text-base">{markStr ? toBengaliNumber(mark) : '-'}</td>
-                                            <td className="p-2.5 border-r border-emerald-100">
-                                                <span className={`font-bold ${result.grade === 'F' ? 'text-red-600' : 'text-slate-700'}`}>{result.grade}</span>
-                                            </td>
-                                            <td className="p-2.5 font-semibold text-slate-700">{toBengaliNumber(result.gp.toFixed(2))}</td>
-                                        </tr>
-                                    );
-                                })}
-                                {/* Final Summary Row */}
-                                {(() => {
-                                    const summary = calculateResultSummary(student.student_id, subjects, tabulationData);
-                                    return (
-                                        <tr className="font-bold bg-emerald-50 print:bg-emerald-50 print-color-exact border-t-2 border-emerald-200">
-                                            <td colSpan={2} className="p-3 text-right pr-4 text-emerald-900 uppercase tracking-wider border-r border-emerald-200">সর্বমোট</td>
-                                            <td className="p-3 text-center text-emerald-800 border-r border-emerald-200">{toBengaliNumber(summary.totalFull)}</td>
-                                            <td className="p-3 text-center text-emerald-800 text-lg border-r border-emerald-200">{toBengaliNumber(summary.total)}</td>
-                                            <td className="p-3 text-center text-emerald-800 text-lg border-r border-emerald-200">{summary.grade}</td>
-                                            <td className="p-3 text-center text-emerald-800 text-lg">{toBengaliNumber(summary.gpa.toFixed(2))}</td>
-                                        </tr>
-                                    );
-                                })()}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Grading Scale */}
-                    <div className="relative z-10 mb-6 flex justify-center">
-                        <div className="w-full max-w-2xl border border-slate-200 rounded-lg overflow-hidden flex bg-white text-[10px]">
-                            <div className="bg-slate-100 p-2 flex items-center justify-center font-bold text-slate-700 border-r border-slate-200 whitespace-nowrap print:bg-slate-100 print-color-exact">
-                                গ্রেডিং সিস্টেম
-                            </div>
-                            <div className="flex-1 grid grid-cols-6 divide-x divide-slate-200 text-center">
-                                <div className="p-1.5"><div className="font-bold text-slate-800">৮০-১০০</div><div className="text-emerald-600 font-bold">A+ (5.00)</div></div>
-                                <div className="p-1.5"><div className="font-bold text-slate-800">৭০-৭৯</div><div className="text-emerald-600 font-bold">A (4.00)</div></div>
-                                <div className="p-1.5"><div className="font-bold text-slate-800">৬০-৬৯</div><div className="text-emerald-600 font-bold">A- (3.50)</div></div>
-                                <div className="p-1.5"><div className="font-bold text-slate-800">৫০-৫৯</div><div className="text-blue-600 font-bold">B (3.00)</div></div>
-                                <div className="p-1.5"><div className="font-bold text-slate-800">৪০-৪৯</div><div className="text-amber-600 font-bold">C (2.00)</div></div>
-                                <div className="p-1.5"><div className="font-bold text-slate-800">৩৩-৩৯</div><div className="text-orange-600 font-bold">D (1.00)</div></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Footer Signatures */}
-                <div className="relative z-10 flex justify-between items-end pb-4 pt-8">
-                    <div className="text-center">
-                        <div className="w-40 border-t border-slate-400 mb-2"></div>
-                        <p className="font-semibold text-sm text-slate-700">শ্রেণি শিক্ষকের স্বাক্ষর</p>
-                    </div>
-                    <div className="text-center">
-                        <div className="w-40 border-t border-slate-400 mb-2"></div>
-                        <p className="font-semibold text-sm text-slate-700">অধ্যক্ষের স্বাক্ষর</p>
-                    </div>
-                    <div className="text-center">
-                        <div className="w-40 border-t border-slate-400 mb-2"></div>
-                        <p className="font-semibold text-sm text-slate-700">অভিভাবকের স্বাক্ষর</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+        );
+    };
 
     if (loading) return <div className="p-10 text-center"><Loader2 className="animate-spin mx-auto text-purple-600"/></div>;
 
@@ -596,7 +616,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                           ) : (
                                               routines.map(r => (
                                                   <TableRow key={r.id}>
-                                                      <TableCell className="font-bold text-gray-700">{r.academic_subjects?.name}</TableCell>
+                                                      <TableCell className="font-bold text-gray-700">{r.academic_subjects?.name}{r.academic_subjects?.exam_type === 'Oral' ? ' (মৌখিক)' : ''}</TableCell>
                                                       <TableCell>{toBengaliNumber(format(new Date(r.exam_date), 'dd/MM/yyyy'))}</TableCell>
                                                       <TableCell className="font-mono text-xs">{formatTimeBangla(r.start_time)} - {formatTimeBangla(r.end_time)}</TableCell>
                                                       <TableCell>{toBengaliNumber(r.full_marks)}</TableCell>
@@ -664,9 +684,18 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                               <th className="p-2 border border-gray-300 w-16 text-center bg-gray-100 md:sticky md:left-0 z-30">রোল</th>
                                               <th className="p-2 border border-gray-300 w-24 text-center bg-gray-100 md:sticky md:left-16 z-30">আইডি</th>
                                               <th className="p-2 border border-gray-300 w-48 bg-gray-100 md:sticky md:left-40 z-30 shadow-r">নাম</th>
-                                              {subjects.map(sub => (
-                                                  <th key={sub.id} className="p-2 border border-gray-300 min-w-[80px] text-center whitespace-nowrap" title={sub.name}>
-                                                      <div className="text-xs">{sub.name}</div>
+                                              {subjects.map((sub, index) => (
+                                                  <th 
+                                                    key={sub.id} 
+                                                    className={`p-2 border border-gray-300 min-w-[80px] text-center whitespace-nowrap cursor-grab active:cursor-grabbing hover:bg-purple-50 transition-colors ${draggedSubjectIndex === index ? 'opacity-50 border-purple-400 bg-purple-100' : 'bg-gray-100'}`} 
+                                                    title="ডান-বামে সরানোর জন্য ড্র্যাগ করুন"
+                                                    draggable
+                                                    onDragStart={(e) => handleDragStart(e, index)}
+                                                    onDragOver={handleDragOver}
+                                                    onDrop={(e) => handleDrop(e, index)}
+                                                    onDragEnd={() => setDraggedSubjectIndex(null)}
+                                                  >
+                                                      <div className="text-xs">{sub.name}{sub.exam_type === 'Oral' ? ' (মৌখিক)' : ''}</div>
                                                       <div className="text-[10px] text-gray-500 font-normal">({sub.full_marks})</div>
                                                   </th>
                                               ))}
@@ -678,7 +707,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                           ) : (
                                               students.map((student) => (
                                                   <tr key={student.id} className="hover:bg-gray-50 group">
-                                                      <td className="p-2 border border-gray-300 text-center font-bold bg-white group-hover:bg-gray-50 md:sticky md:left-0 z-10">{toBengaliNumber(student.roll_no)}</td>
+                                                      <td className="p-2 border border-gray-300 text-center font-bold bg-white group-hover:bg-gray-50 md:sticky md:left-0 z-10">{toBengaliNumber(student.roll_number ?? student.roll_no)}</td>
                                                       <td className="p-2 border border-gray-300 text-center font-mono text-gray-600 bg-white group-hover:bg-gray-50 md:sticky md:left-16 z-10">{toBengaliNumber(student.student_id)}</td>
                                                       <td className="p-2 border border-gray-300 font-medium truncate bg-white group-hover:bg-gray-50 md:sticky md:left-40 z-10 shadow-r" title={student.name_bn}>{student.name_bn}</td>
                                                       {subjects.map(sub => {
@@ -686,7 +715,8 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                                           return (
                                                               <td key={sub.id} className="p-1 border border-gray-300 text-center">
                                                                   <input 
-                                                                      type="number"
+                                                                      type="text"
+                                                                      inputMode="numeric"
                                                                       className="w-full h-8 text-center text-sm font-bold bg-transparent focus:bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-green-500 rounded transition-all"
                                                                       placeholder="-"
                                                                       value={currentMark}
@@ -713,9 +743,17 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                        <Button size="sm" variant="ghost" onClick={fetchTabulationData} title="রিফ্রেশ"><RefreshCcw className="w-4 h-4 text-gray-500"/></Button>
                                    </div>
                                    <div className="flex flex-wrap gap-2">
-                                       <Button onClick={handlePrintTabulation} className="bg-blue-600 hover:bg-blue-700 text-white shadow-md text-xs sm:text-sm">
-                                           <FileSpreadsheet className="w-4 h-4 mr-1 sm:mr-2"/> <span className="hidden sm:inline">ফলাফল শিট</span> প্রিন্ট
-                                       </Button>
+                                       <div className="flex bg-blue-600 rounded-md overflow-hidden shadow-md">
+                                           <div className="px-3 py-2 bg-blue-700 text-white text-xs sm:text-sm font-semibold flex items-center">
+                                               <FileSpreadsheet className="w-4 h-4 mr-1 sm:mr-2"/> ফলাফল শিট প্রিন্ট:
+                                           </div>
+                                           <button onClick={() => handlePrintTabulation('roll')} className="px-3 hover:bg-blue-500 text-white text-xs sm:text-sm transition-colors border-l border-blue-500" title="রোল নম্বর অনুযায়ী">
+                                               রোল অনুসারে
+                                           </button>
+                                           <button onClick={() => handlePrintTabulation('merit')} className="px-3 hover:bg-blue-500 text-white text-xs sm:text-sm transition-colors border-l border-blue-500" title="মেধাস্থান অনুযায়ী">
+                                               মেধা অনুসারে
+                                           </button>
+                                       </div>
                                        <Button onClick={handlePrintTranscriptAll} className="bg-purple-600 hover:bg-purple-700 text-white shadow-md text-xs sm:text-sm">
                                            <Users className="w-4 h-4 mr-1 sm:mr-2"/> <span className="hidden sm:inline">সকল</span> মার্কশিট
                                        </Button>
@@ -730,8 +768,9 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                           
                                           {/* Subject Columns Headers */}
                                           {subjects.map(sub => (
-                                              <TableHead key={sub.id} className="text-center border text-xs font-semibold px-2 min-w-[60px]" title={sub.name}>
+                                              <TableHead key={sub.id} className="text-center border text-xs font-semibold px-2 min-w-[60px]" title={sub.name + (sub.exam_type === 'Oral' ? ' (মৌখিক)' : '')}>
                                                   {sub.name.substring(0, 10)}{sub.name.length > 10 ? '..' : ''}
+                                                  {sub.exam_type === 'Oral' && <span className="block text-[9px] font-normal text-gray-500 leading-tight">(মৌখিক)</span>}
                                               </TableHead>
                                           ))}
 
@@ -745,7 +784,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                   <TableBody>
                                       {resultsWithRank.map((std: any) => (
                                           <TableRow key={std.id} className="hover:bg-gray-50">
-                                              <TableCell className="text-center font-bold border">{toBengaliNumber(std.roll_no || '-')}</TableCell>
+                                              <TableCell className="text-center font-bold border">{toBengaliNumber((std.roll_number ?? std.roll_no) || '-')}</TableCell>
                                               <TableCell className="font-medium border">{std.name_bn}</TableCell>
                                               
                                               {/* Subject Marks Columns */}
@@ -803,7 +842,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                       <tbody className="divide-y">
                           {subjects.map(sub => (
                               <tr key={sub.id} className="hover:bg-gray-50">
-                                  <td className="p-3 font-medium">{sub.name}</td>
+                                  <td className="p-3 font-medium">{sub.name}{sub.exam_type === 'Oral' ? ' (মৌখিক)' : ''}</td>
                                   <td className="p-3"><Input type="date" value={routineData[sub.id]?.date || ""} onChange={(e) => handleRoutineChange(sub.id, 'date', e.target.value)} className="h-8" /></td>
                                   <td className="p-3"><Input type="time" value={routineData[sub.id]?.start || "10:00"} onChange={(e) => handleRoutineChange(sub.id, 'start', e.target.value)} className="h-8" /></td>
                                   <td className="p-3"><Input type="time" value={routineData[sub.id]?.end || "13:00"} onChange={(e) => handleRoutineChange(sub.id, 'end', e.target.value)} className="h-8" /></td>
@@ -817,7 +856,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
               <div className="sm:hidden space-y-3 mt-4">
                   {subjects.map(sub => (
                       <div key={sub.id} className="border rounded-lg p-3 space-y-2 bg-gray-50">
-                          <p className="font-bold text-gray-800 text-sm">{sub.name}</p>
+                          <p className="font-bold text-gray-800 text-sm">{sub.name}{sub.exam_type === 'Oral' ? ' (মৌখিক)' : ''}</p>
                           <div className="grid grid-cols-2 gap-2">
                               <div>
                                   <label className="text-[10px] text-gray-500 font-semibold block mb-1">তারিখ</label>
@@ -882,7 +921,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                       <div className="flex justify-between items-center mb-1 font-bold text-xs">
                                           <div className="border border-green-700 rounded px-2 py-0.5 bg-white text-green-900 shadow-sm">আইডি: <span className="font-mono">{toBengaliNumber(student.student_id)}</span></div>
                                           <div className="border border-green-700 rounded px-2 py-0.5 bg-white text-green-900 shadow-sm">শ্রেণি: {classes.find(c => c.id === selectedClass)?.name}</div>
-                                          <div className="border border-green-700 rounded px-2 py-0.5 bg-white text-green-900 shadow-sm">রোল: <span className="font-mono">{toBengaliNumber(student.roll_no || '---')}</span></div>
+                                          <div className="border border-green-700 rounded px-2 py-0.5 bg-white text-green-900 shadow-sm">রোল: <span className="font-mono">{toBengaliNumber((student.roll_number ?? student.roll_no) || '---')}</span></div>
                                       </div>
                                       <div className="grid grid-cols-3 gap-1 pt-1 border-t border-green-200 text-xs font-semibold text-center">
                                           <div><span className="text-gray-600 block text-[10px]">নাম</span><span className="text-gray-900 leading-tight block">{student.name_bn}</span></div>
@@ -906,7 +945,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                               <tr key={r.id}>
                                                   <td className="border border-green-900 p-0.5 text-center font-bold">{toBengaliNumber(format(new Date(r.exam_date), 'dd/MM/yy'))}</td>
                                                   <td className="border border-green-900 p-0.5 text-center">{getBengaliDay(r.exam_date)}</td>
-                                                  <td className="border border-green-900 p-0.5 font-bold truncate pl-1">{r.academic_subjects?.name}</td>
+                                                  <td className="border border-green-900 p-0.5 font-bold truncate pl-1">{r.academic_subjects?.name}{r.academic_subjects?.exam_type === 'Oral' ? ' (মৌখিক)' : ''}</td>
                                                   <td className="border border-green-900 p-0.5 text-center whitespace-nowrap text-[11px]">{formatTimeBangla(r.start_time)} - {formatTimeBangla(r.end_time)}</td>
                                               </tr>
                                           ))}
@@ -936,78 +975,111 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
         )}
 
         {/* 3. TABULATION SHEET PRINT AREA (NEW) */}
-        {printMode === 'tabulation' && (
-            <div id="printable-tabulation-area" className="hidden print:block font-[Kalpurush] w-full">
-                <div className="p-4">
-                    {/* Header */}
-                    <div className="text-center mb-6">
-                        <div className="flex justify-center mb-2 h-8 relative">
-                            <Image src="/images/bismillah.svg" alt="Bismillah" fill className="object-contain" priority />
-                        </div>
-                        <div className="w-full flex justify-center relative h-16 mb-2">
-                            <Image src="/images/long_logo.svg" alt="Madrasa Logo" fill className="object-contain" priority />
-                        </div>
-                        <p className="text-lg font-bold text-gray-700">হলিধানী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ</p>
-                        <div className="border-b-2 border-green-800 w-full my-2"></div>
-                        <h2 className="text-2xl font-extrabold text-black mb-1">ফলাফল তালিকা (Tabulation Sheet)</h2>
-                        <h3 className="text-lg font-bold text-green-800">
-                            {exam?.title} - {toBengaliNumber(exam?.academic_year || "")} | শ্রেণি: {classes.find(c => c.id === selectedClass)?.name}
-                        </h3>
-                    </div>
+        {printMode === 'tabulation' && (() => {
+            const sortedForPrint = [...resultsWithRank].sort((a, b) => {
+                if (tabulationPrintSort === 'roll') {
+                    const rA = parseInt((a.roll_number ?? a.roll_no) || "0", 10);
+                    const rB = parseInt((b.roll_number ?? b.roll_no) || "0", 10);
+                    return rA - rB;
+                } else {
+                    // Merit sort (Higher GPA -> Higher Total -> Lower Roll)
+                    if (a.summary.status === 'Fail' && b.summary.status !== 'Fail') return 1;
+                    if (b.summary.status === 'Fail' && a.summary.status !== 'Fail') return -1;
+                    
+                    if (b.summary.gpa !== a.summary.gpa) return b.summary.gpa - a.summary.gpa;
+                    if (b.summary.total !== a.summary.total) return b.summary.total - a.summary.total;
+                    
+                    const rA = parseInt((a.roll_number ?? a.roll_no) || "0", 10);
+                    const rB = parseInt((b.roll_number ?? b.roll_no) || "0", 10);
+                    return rA - rB;
+                }
+            });
 
-                    {/* Table */}
-                    <table className="w-full border-collapse border border-black text-[10px] text-center">
-                        <thead>
-                            <tr className="bg-gray-200 print:bg-gray-200">
-                                <th className="border border-black p-1 w-10">রোল</th>
-                                <th className="border border-black p-1 w-40 text-left">শিক্ষার্থীর নাম</th>
-                                {subjects.map(sub => (
-                                    <th key={sub.id} className="border border-black p-1 min-w-[40px]">
-                                        {sub.name} <br/> ({toBengaliNumber(sub.full_marks || 100)})
-                                    </th>
-                                ))}
-                                <th className="border border-black p-1 w-12 bg-gray-100">মোট</th>
-                                <th className="border border-black p-1 w-10 bg-gray-100">জিপিএ</th>
-                                <th className="border border-black p-1 w-10 bg-gray-100">গ্রেড</th>
-                                <th className="border border-black p-1 w-10 bg-gray-100">মেধা</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {resultsWithRank.map((std: any) => (
-                                <tr key={std.id}>
-                                    <td className="border border-black p-1 font-bold">{toBengaliNumber(std.roll_no || '-')}</td>
-                                    <td className="border border-black p-1 text-left font-medium">{std.name_bn}</td>
-                                    {subjects.map(sub => {
-                                        const markStr = tabulationData[std.student_id]?.[sub.id];
-                                        return (
-                                            <td key={sub.id} className="border border-black p-1">
-                                                {markStr ? toBengaliNumber(markStr) : '-'}
-                                            </td>
-                                        )
-                                    })}
-                                    <td className="border border-black p-1 font-bold">{toBengaliNumber(std.summary.total)}</td>
-                                    <td className="border border-black p-1 font-bold">{toBengaliNumber(std.summary.gpa.toFixed(2))}</td>
-                                    <td className="border border-black p-1 font-bold">{std.summary.grade}</td>
-                                    <td className="border border-black p-1 font-bold">{toBengaliNumber(std.rank)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            const chunkSize = 15;
+            const chunks = [];
+            for (let i = 0; i < sortedForPrint.length; i += chunkSize) {
+                chunks.push(sortedForPrint.slice(i, i + chunkSize));
+            }
 
-                    {/* Signatures */}
-                    <div className="flex justify-between items-end mt-16 pt-8 px-8">
-                        <div className="text-center">
-                            <div className="w-40 border-t border-black border-dashed mb-2"></div>
-                            <p className="font-bold">শ্রেণি শিক্ষকের স্বাক্ষর</p>
+            return (
+                <div id="printable-tabulation-area" className="hidden print:block font-[Kalpurush] w-full">
+                    {chunks.map((chunk, pageIndex) => (
+                        <div key={pageIndex} className="p-4" style={{ pageBreakAfter: pageIndex < chunks.length - 1 ? 'always' : 'auto' }}>
+                            {/* Header */}
+                            <div className="text-center mb-6 relative">
+                                <div className="flex justify-center mb-2 h-8 relative">
+                                    <Image src="/images/bismillah.svg" alt="Bismillah" fill className="object-contain" priority />
+                                </div>
+                                <div className="w-full flex justify-center relative h-16 mb-2">
+                                    <Image src="/images/long_logo.svg" alt="Madrasa Logo" fill className="object-contain" priority />
+                                </div>
+                                <p className="text-lg font-bold text-gray-700">হলিধানী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ</p>
+                                <div className="border-b-2 border-green-800 w-full my-2"></div>
+                                <h2 className="text-2xl font-extrabold text-black mb-1">ফলাফল তালিকা (Tabulation Sheet)</h2>
+                                <h3 className="text-lg font-bold text-green-800">
+                                    {exam?.title} - {toBengaliNumber(exam?.academic_year || "")} | শ্রেণি: {classes.find(c => c.id === selectedClass)?.name}
+                                </h3>
+                                <div className="absolute top-0 right-0 text-xs font-semibold text-gray-500 border rounded px-2 py-1">
+                                    পৃষ্ঠা: {toBengaliNumber(pageIndex + 1)} / {toBengaliNumber(chunks.length)} <br/>
+                                    {tabulationPrintSort === 'roll' ? '(রোল অনুযায়ী)' : '(মেধা অনুযায়ী)'}
+                                </div>
+                            </div>
+
+                            {/* Table */}
+                            <table className="w-full border-collapse border border-black text-[10px] text-center">
+                                <thead>
+                                    <tr className="bg-gray-200 print:bg-gray-200">
+                                        <th className="border border-black p-1 w-10">রোল</th>
+                                        <th className="border border-black p-1 w-40 text-left">শিক্ষার্থীর নাম</th>
+                                        {subjects.map(sub => (
+                                            <th key={sub.id} className="border border-black p-1">
+                                                {sub.name}{sub.exam_type === 'Oral' ? ' (মৌখিক)' : ''} <br/> ({toBengaliNumber(sub.full_marks || 100)})
+                                            </th>
+                                        ))}
+                                        <th className="border border-black p-1 w-12 bg-gray-100">মোট</th>
+                                        <th className="border border-black p-1 w-10 bg-gray-100">জিপিএ</th>
+                                        <th className="border border-black p-1 w-10 bg-gray-100">গ্রেড</th>
+                                        <th className="border border-black p-1 w-10 bg-gray-100">মেধা</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {chunk.map((std: any) => (
+                                        <tr key={std.id}>
+                                            <td className="border border-black p-1 font-bold">{toBengaliNumber((std.roll_number ?? std.roll_no) || '-')}</td>
+                                            <td className="border border-black p-1 text-left font-medium">{std.name_bn}</td>
+                                            {subjects.map(sub => {
+                                                const markStr = tabulationData[std.student_id]?.[sub.id];
+                                                return (
+                                                    <td key={sub.id} className="border border-black p-1">
+                                                        {markStr ? toBengaliNumber(markStr) : '-'}
+                                                    </td>
+                                                )
+                                            })}
+                                            <td className="border border-black p-1 font-bold">{toBengaliNumber(std.summary.total)}</td>
+                                            <td className="border border-black p-1 font-bold">{toBengaliNumber(std.summary.gpa.toFixed(2))}</td>
+                                            <td className="border border-black p-1 font-bold">{std.summary.grade}</td>
+                                            <td className="border border-black p-1 font-bold">{toBengaliNumber(std.rank)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+
+                            {/* Signatures */}
+                            <div className="flex justify-between items-end mt-16 pt-8 px-8">
+                                <div className="text-center">
+                                    <div className="w-40 border-t border-black border-dashed mb-2"></div>
+                                    <p className="font-bold">শ্রেণি শিক্ষকের স্বাক্ষর</p>
+                                </div>
+                                <div className="text-center">
+                                    <div className="w-40 border-t border-black border-dashed mb-2"></div>
+                                    <p className="font-bold">অধ্যক্ষের স্বাক্ষর</p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="text-center">
-                            <div className="w-40 border-t border-black border-dashed mb-2"></div>
-                            <p className="font-bold">অধ্যক্ষের স্বাক্ষর</p>
-                        </div>
-                    </div>
+                    ))}
                 </div>
-            </div>
-        )}
+            );
+        })()}
 
         {/* Print CSS */}
         <style jsx global>{`
@@ -1016,7 +1088,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
           @media print {
               @page {
                   size: ${printMode === 'tabulation' ? 'A4 landscape' : 'A4 portrait'};
-                  margin: 0.25in;
+                  margin: ${printMode === 'tabulation' ? '0.25in' : '0'};
               }
               body {
                   -webkit-print-color-adjust: exact;

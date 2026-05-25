@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Bengali } from "next/font/google";
 import "./globals.css";
 import JsonLd from "@/components/shared/JsonLd";
+import BengaliNumberConverter from "@/components/shared/BengaliNumberConverter";
 import { createClient } from "@/lib/supabase/server";
 
 const notoSansBengali = Noto_Sans_Bengali({
@@ -118,6 +119,7 @@ export default function RootLayout({
   return (
     <html lang="bn" className={notoSansBengali.variable} suppressHydrationWarning>
       <body className="font-bengali bg-white min-h-screen" suppressHydrationWarning>
+        <BengaliNumberConverter />
         <JsonLd />
         {children}
       </body>

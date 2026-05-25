@@ -81,8 +81,8 @@ export default function AdminLayout({
       {/* ডান পাশে মেইন কনটেন্ট */}
       {/* flex-1: বাকি জায়গা নিবে */}
       {/* overflow-y-auto: শুধু এই অংশটুকু স্ক্রল হবে, সাইডবার ফিক্সড থাকবে */}
-      <main className="flex-1 h-full overflow-y-auto overflow-x-hidden p-4 pt-16 md:p-6 md:pt-6 pb-24 scrollbar-thin scrollbar-thumb-gray-200">
-        <div className="max-w-7xl mx-auto w-full">
+      <main className="flex-1 h-full overflow-y-auto p-2 pt-16 md:p-3 md:pt-3 pb-24 scrollbar-thin scrollbar-thumb-gray-200">
+        <div className="w-full">
            {children}
         </div>
       </main>
