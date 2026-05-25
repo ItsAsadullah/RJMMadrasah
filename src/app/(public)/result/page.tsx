@@ -409,41 +409,43 @@ export default function ResultPage() {
             </div>
 
             {/* --- PRINTABLE CONTENT (A4 Size) --- */}
-            <div id="public-print-area" className="w-full flex justify-center print:block">
-              <TranscriptSheet
-              student={{
-                id: result.student.student_id,
-                nameBn: result.student.name_bn,
-                fatherNameBn: result.student.father_name_bn,
-                motherNameBn: result.student.mother_name_bn,
-                className: result.student.class_name,
-                rollNo: (result.student.roll_number ?? result.student.roll_no) || '-'
-              }}
-              exam={{
-                title: result.exam.title,
-                academicYear: selectedYear
-              }}
-              branch={{
-                address: result.branch?.address || ""
-              }}
-              marks={result.marks.map((m: any) => {
-                const mk = m.marks_obtained ? parseInt(m.marks_obtained) : 0;
-                const gi = m.marks_obtained !== null && m.marks_obtained !== undefined ? getGradePoint(mk) : { gp: 0, grade: 'AB' };
-                return {
-                  subjectName: m.subject_name,
-                  fullMarks: m.full_marks || 100,
-                  marksObtained: m.marks_obtained,
-                  grade: gi.grade,
-                  gp: gi.gp
-                };
-              })}
-              summary={{
-                totalMarks: result.summary.total,
-                totalFullMarks: result.marks.reduce((acc: number, curr: any) => acc + (curr.full_marks || 100), 0),
-                gpa: result.summary.gpa,
-                grade: result.summary.grade
-              }}
-            />
+            <div id="public-print-area" className="w-full max-w-full overflow-x-auto pb-10 print:block">
+              <div className="min-w-max mx-auto px-4 sm:px-0 flex justify-center">
+                <TranscriptSheet
+                  student={{
+                    id: result.student.student_id,
+                    nameBn: result.student.name_bn,
+                    fatherNameBn: result.student.father_name_bn,
+                    motherNameBn: result.student.mother_name_bn,
+                    className: result.student.class_name,
+                    rollNo: (result.student.roll_number ?? result.student.roll_no) || '-'
+                  }}
+                  exam={{
+                    title: result.exam.title,
+                    academicYear: selectedYear
+                  }}
+                  branch={{
+                    address: result.branch?.address || ""
+                  }}
+                  marks={result.marks.map((m: any) => {
+                    const mk = m.marks_obtained ? parseInt(m.marks_obtained) : 0;
+                    const gi = m.marks_obtained !== null && m.marks_obtained !== undefined ? getGradePoint(mk) : { gp: 0, grade: 'AB' };
+                    return {
+                      subjectName: m.subject_name,
+                      fullMarks: m.full_marks || 100,
+                      marksObtained: m.marks_obtained,
+                      grade: gi.grade,
+                      gp: gi.gp
+                    };
+                  })}
+                  summary={{
+                    totalMarks: result.summary.total,
+                    totalFullMarks: result.marks.reduce((acc: number, curr: any) => acc + (curr.full_marks || 100), 0),
+                    gpa: result.summary.gpa,
+                    grade: result.summary.grade
+                  }}
+                />
+              </div>
             </div>
         </div>
       )}
