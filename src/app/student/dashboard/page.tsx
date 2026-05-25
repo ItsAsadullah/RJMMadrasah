@@ -82,7 +82,9 @@ type Transaction = {
 type Result = {
   exam_id: string;
   exam_name: string;
+  class_name?: string;
   academic_year: string | number;
+  created_at?: string;
   total_full_marks: number;
   total_marks_obtained: number;
   grade: string;
