@@ -33,8 +33,8 @@ export default function StudentLoginPage() {
       // ১. ডাটাবেসে স্টুডেন্ট যাচাই করা
       const { data, error } = await supabase
         .from("students")
-        .select("id, student_id, name_bn, father_mobile, status")
-        .eq("student_id", studentId)
+        .select("id, student_id, name_bn, father_mobile, mother_mobile, guardian_mobile, status")
+        .eq("student_id", studentId.trim())
         .single();
 
       if (error || !data) {
@@ -42,8 +42,16 @@ export default function StudentLoginPage() {
       }
 
       // ২. মোবাইল নম্বর যাচাই করা (পাসওয়ার্ড হিসেবে)
-      // নোট: মোবাইল নম্বরের ফরম্যাট নিয়ে সমস্যা হতে পারে (যেমন +880 বা 01...), তাই আমরা শেষ ১১ ডিজিট চেক করতে পারি অথবা হুবহু ম্যাচ
-      if (data.father_mobile !== mobileNo && data.father_mobile.slice(-11) !== mobileNo.slice(-11)) {
+      const inputMobile = mobileNo.trim();
+      const normalize = (num: string | null) => (num || "").replace(/\D/g, "").slice(-11);
+      const targetInput = normalize(inputMobile);
+      
+      const isMatch = 
+        (data.father_mobile && normalize(data.father_mobile) === targetInput) ||
+        (data.mother_mobile && normalize(data.mother_mobile) === targetInput) ||
+        (data.guardian_mobile && normalize(data.guardian_mobile) === targetInput);
+
+      if (!isMatch) {
         throw new Error("মোবাইল নম্বর সঠিক নয়।");
       }
 
