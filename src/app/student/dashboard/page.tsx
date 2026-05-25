@@ -288,7 +288,7 @@ export default function StudentDashboard() {
             .select(`
                 exam_id, marks_obtained, 
                 exams(id, title, academic_year, created_at),
-                academic_subjects(full_marks)
+                academic_subjects(full_marks, academic_classes(name))
             `)
             .eq("student_id", studentData.student_id);
 
@@ -304,6 +304,7 @@ export default function StudentDashboard() {
                         exam_id: eId,
                         exam_name: mark.exams?.title || "অজানা পরীক্ষা",
                         academic_year: mark.exams?.academic_year || "",
+                        class_name: mark.academic_subjects?.academic_classes?.name || "",
                         created_at: mark.exams?.created_at,
                         total_obtained: 0,
                         total_full: 0,
@@ -331,6 +332,7 @@ export default function StudentDashboard() {
                     exam_id: res.exam_id,
                     exam_name: res.exam_name,
                     academic_year: res.academic_year,
+                    class_name: res.class_name,
                     created_at: res.created_at,
                     total_marks_obtained: res.total_obtained,
                     total_full_marks: res.total_full,
@@ -669,6 +671,7 @@ export default function StudentDashboard() {
                                     <TableHeader className="bg-blue-50/50">
                                         <TableRow>
                                             <TableHead className="font-bold text-blue-900 min-w-[150px]">পরীক্ষার নাম</TableHead>
+                                            <TableHead className="font-bold text-blue-900 text-center whitespace-nowrap">শ্রেণি</TableHead>
                                             <TableHead className="font-bold text-blue-900 text-center whitespace-nowrap">শিক্ষাবর্ষ</TableHead>
                                             <TableHead className="font-bold text-blue-900 text-center whitespace-nowrap">মোট নম্বর</TableHead>
                                             <TableHead className="font-bold text-blue-900 text-center whitespace-nowrap">প্রাপ্ত নম্বর</TableHead>
@@ -680,6 +683,7 @@ export default function StudentDashboard() {
                                         {historicalResults.map((res, idx) => (
                                             <TableRow key={idx}>
                                                 <TableCell className="font-bold text-gray-800">{res.exam_name}</TableCell>
+                                                <TableCell className="text-center font-bold text-gray-800">{res.class_name}</TableCell>
                                                 <TableCell className="text-center text-gray-600">{toBengaliNumber(res.academic_year)}</TableCell>
                                                 <TableCell className="text-center text-gray-600">{toBengaliNumber(res.total_full_marks)}</TableCell>
                                                 <TableCell className="text-center font-bold text-gray-800">{toBengaliNumber(res.total_marks_obtained)}</TableCell>
