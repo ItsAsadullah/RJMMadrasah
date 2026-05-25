@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import StudentPrintProfile from "@/components/dashboard/StudentPrintProfile";
 import PaymentHistory from "@/components/dashboard/students/PaymentHistory";
+import TranscriptPreviewModal from "@/components/academic/TranscriptPreviewModal";
 import { divisions, districts, upazilas } from "@/data/bangladesh-data";
 import { differenceInYears, differenceInMonths, differenceInDays } from "date-fns";
 
@@ -30,6 +31,13 @@ const relations = ["চাচা", "চাচী", "মামা", "মামী
 const days = Array.from({ length: 31 }, (_, i) => i + 1);
 const months = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
 const years = Array.from({ length: 25 }, (_, i) => new Date().getFullYear() - i);
+
+const toBengaliNumber = (num: string | number) => {
+  if (!num && num !== 0) return "";
+  const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+  const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+  return String(num).replace(/[0-9]/g, (char) => bengali[parseInt(char)]);
+};
 
 // --- কম্পোনেন্ট ---
 
@@ -135,6 +143,9 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
     const [payments, setPayments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const [previewModalOpen, setPreviewModalOpen] = useState(false);
+    const [previewExamId, setPreviewExamId] = useState<string>("");
+
     // Edit State
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [showEditConfirmModal, setShowEditConfirmModal] = useState(false);
@@ -191,8 +202,56 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
               });
           }
 
-          const { data: res } = await supabase.from("results").select("*").eq("student_id", stu.id).order("created_at", { ascending: false });
-          if (res) setResults(res);
+          // Fetch historical results from exam_marks
+          const { data: marksData } = await supabase
+              .from("exam_marks")
+              .select("exam_id, marks_obtained, academic_subjects(full_marks), exams(title, academic_year, created_at)")
+              .eq("student_id", stu.student_id);
+
+          if (marksData && marksData.length > 0) {
+              const examMap = new Map();
+              marksData.forEach((m: any) => {
+                  if (!m.exams) return;
+                  const eId = m.exam_id;
+                  if (!examMap.has(eId)) {
+                      examMap.set(eId, {
+                          exam_id: eId,
+                          exam_name: m.exams.title,
+                          academic_year: m.exams.academic_year,
+                          created_at: m.exams.created_at,
+                          total_marks_obtained: 0,
+                          total_full_marks: 0,
+                          marks_array: []
+                      });
+                  }
+                  const e = examMap.get(eId);
+                  e.total_marks_obtained += (m.marks_obtained || 0);
+                  e.total_full_marks += (m.academic_subjects?.full_marks || 100);
+                  e.marks_array.push({ obtained: m.marks_obtained });
+              });
+
+              const historicalResults = Array.from(examMap.values()).map(e => {
+                  const percentage = (e.total_marks_obtained / e.total_full_marks) * 100;
+                  let grade = 'F';
+                  if (percentage >= 80) grade = 'A+';
+                  else if (percentage >= 70) grade = 'A';
+                  else if (percentage >= 60) grade = 'A-';
+                  else if (percentage >= 50) grade = 'B';
+                  else if (percentage >= 40) grade = 'C';
+                  else if (percentage >= 33) grade = 'D';
+
+                  if (e.marks_array.some((m: any) => m.obtained < 33)) grade = 'F';
+
+                  return {
+                      ...e,
+                      grade
+                  };
+              }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+              setResults(historicalResults);
+          } else {
+              setResults([]);
+          }
 
           const { data: pay } = await supabase.from("payments").select("*").eq("student_id", stu.student_id).order("payment_date", { ascending: false });
           if (pay) setPayments(pay);
@@ -448,7 +507,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                   {student.photo_url ? (
                       <Image src={student.photo_url} alt="Student" width={140} height={140} loading="eager" className="w-36 h-36 rounded-xl object-cover bg-gray-100" />
                   ) : (
-                      <div className="w-36 h-36 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 font-bold text-4xl">{student.name_bn?.[0]}</div>
+                      <img src="/images/default-avatar.png" alt="ডিফল্ট অ্যাভাটার" className="w-36 h-36 rounded-xl object-cover bg-gray-100" />
                   )}
               </div>
               <div className="flex-1 space-y-2 mb-2">
@@ -536,7 +595,52 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
           </TabsContent>
 
           <TabsContent value="results">
-               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden text-center p-10 text-gray-400">রেজাল্ট টেবিল এখানে আসবে</div>
+              {results.length === 0 ? (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 text-center p-10 text-gray-400">
+                      কোনো ফলাফল পাওয়া যায়নি।
+                  </div>
+              ) : (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                      <table className="w-full text-sm text-left">
+                          <thead className="bg-gray-50 text-gray-600 font-medium border-b">
+                              <tr>
+                                  <th className="p-4">পরীক্ষার নাম</th>
+                                  <th className="p-4">শিক্ষাবর্ষ</th>
+                                  <th className="p-4 text-center">প্রাপ্ত নম্বর</th>
+                                  <th className="p-4 text-center">গ্রেড</th>
+                                  <th className="p-4 text-right">অ্যাকশন</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              {results.map((res, idx) => (
+                                  <tr key={idx} className="border-b last:border-0 hover:bg-gray-50">
+                                      <td className="p-4 font-bold text-gray-800">{res.exam_name}</td>
+                                      <td className="p-4 text-gray-600">{toBengaliNumber(res.academic_year)}</td>
+                                      <td className="p-4 text-center font-mono">{toBengaliNumber(res.total_marks_obtained)} / {toBengaliNumber(res.total_full_marks)}</td>
+                                      <td className="p-4 text-center">
+                                          <span className={`px-2 py-1 rounded text-xs font-bold ${res.grade === 'F' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                              {res.grade}
+                                          </span>
+                                      </td>
+                                      <td className="p-4 text-right">
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline" 
+                                            className="h-8 text-blue-600 border-blue-200 hover:bg-blue-50"
+                                            onClick={() => {
+                                                setPreviewExamId(res.exam_id);
+                                                setPreviewModalOpen(true);
+                                            }}
+                                          >
+                                              <FileText className="w-4 h-4 mr-2"/> দেখুন
+                                          </Button>
+                                      </td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  </div>
+              )}
           </TabsContent>
           <TabsContent value="payments">
               <PaymentHistory studentId={student.student_id} />
@@ -710,7 +814,6 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
           </DialogContent>
         </Dialog>
 
-        {/* Edit Confirmation Modal */}
         <Dialog open={showEditConfirmModal} onOpenChange={setShowEditConfirmModal}>
             <DialogContent className="sm:max-w-sm">
                <DialogHeader>
@@ -737,6 +840,14 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
 
         <StudentPrintProfile student={student} />
 
+        {previewModalOpen && (
+            <TranscriptPreviewModal 
+                isOpen={previewModalOpen}
+                onClose={() => setPreviewModalOpen(false)}
+                studentDbId={student.id}
+                examId={previewExamId}
+            />
+        )}
       </div>
     );
 }

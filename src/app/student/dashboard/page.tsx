@@ -39,6 +39,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Progress } from "@/components/ui/progress";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import TranscriptPreviewModal from "@/components/academic/TranscriptPreviewModal";
 
 // --- Types ---
 type Student = {
@@ -108,7 +109,9 @@ export default function StudentDashboard() {
   const [nextActivity, setNextActivity] = useState<Routine | null>(null);
   
   const [financials, setFinancials] = useState({ due: 0, paid: 0, lastPayment: null as string | null, history: [] as Transaction[] });
-  const [latestResult, setLatestResult] = useState<Result[]>([]);
+  const [historicalResults, setHistoricalResults] = useState<any[]>([]);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewExamId, setPreviewExamId] = useState<string>("");
   const [attendanceStats, setAttendanceStats] = useState({ present: 0, absent: 0, late: 0, percentage: 0 });
   const [notices, setNotices] = useState<Notice[]>([]);
   
@@ -275,23 +278,55 @@ export default function StudentDashboard() {
             history: paidHistory.slice(0, 5)
         });
 
-        // 4. Fetch Results (Latest Exam)
-        const { data: examData } = await supabase.from("exams").select("title").order("created_at", { ascending: false }).limit(1).maybeSingle();
-        if (examData) {
-            const { data: resData } = await supabase.from("results")
-                .select("*")
-                .eq("student_id", studentData.id) 
-                .eq("exam_name", examData.title);
-            
-            if (!resData || resData.length === 0) {
-                 const { data: resData2 } = await supabase.from("results")
-                .select("*")
-                .eq("student_id", studentData.student_id)
-                .eq("exam_name", examData.title);
-                if(resData2) setLatestResult(resData2);
-            } else {
-                setLatestResult(resData);
-            }
+        // 4. Fetch Results (Historical)
+        const { data: marksData } = await supabase
+            .from("exam_marks")
+            .select("exam_id, marks_obtained, academic_subjects(full_marks), exams(title, academic_year, created_at)")
+            .eq("student_id", studentData.student_id);
+
+        if (marksData && marksData.length > 0) {
+            const examMap = new Map();
+            marksData.forEach((m: any) => {
+                if (!m.exams) return;
+                const eId = m.exam_id;
+                if (!examMap.has(eId)) {
+                    examMap.set(eId, {
+                        exam_id: eId,
+                        exam_name: m.exams.title,
+                        academic_year: m.exams.academic_year,
+                        created_at: m.exams.created_at,
+                        total_marks_obtained: 0,
+                        total_full_marks: 0,
+                        marks_array: []
+                    });
+                }
+                const e = examMap.get(eId);
+                e.total_marks_obtained += (m.marks_obtained || 0);
+                e.total_full_marks += (m.academic_subjects?.full_marks || 100);
+                e.marks_array.push({ obtained: m.marks_obtained });
+            });
+
+            const resultsList = Array.from(examMap.values()).map(e => {
+                const percentage = (e.total_marks_obtained / e.total_full_marks) * 100;
+                let grade = 'F';
+                if (percentage >= 80) grade = 'A+';
+                else if (percentage >= 70) grade = 'A';
+                else if (percentage >= 60) grade = 'A-';
+                else if (percentage >= 50) grade = 'B';
+                else if (percentage >= 40) grade = 'C';
+                else if (percentage >= 33) grade = 'D';
+
+                if (e.marks_array.some((m: any) => m.obtained < 33)) grade = 'F';
+
+                return {
+                    ...e,
+                    grade
+                };
+            }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+            setHistoricalResults(resultsList);
+        } else {
+            setHistoricalResults([]);
         }
 
         // 5. Fetch Attendance (Current Month)
@@ -399,7 +434,7 @@ export default function StudentDashboard() {
                       {student.photo_url ? (
                           <img src={student.photo_url} alt="Profile" className="h-full w-full object-cover" />
                       ) : (
-                          <div className="h-full w-full flex items-center justify-center text-green-700 font-bold">{student.name_bn[0]}</div>
+                          <img src="/images/default-avatar.png" alt="Profile" className="h-full w-full object-cover" />
                       )}
                   </div>
                   <div>
@@ -519,35 +554,33 @@ export default function StudentDashboard() {
                       <CardTitle className="text-lg flex items-center gap-2"><GraduationCap className="w-5 h-5 text-blue-600"/> পরীক্ষার ফলাফল</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                      {latestResult.length > 0 ? (
-                          <>
-                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
-                                <p className="text-sm font-bold text-blue-800">{latestResult[0].exam_name}</p>
-                                <div className="flex justify-center items-end gap-2 mt-2">
-                                    <span className="text-4xl font-black text-blue-600">
-                                        {((latestResult.reduce((a, b) => a + b.marks, 0) / latestResult.reduce((a, b) => a + b.total_marks, 0)) * 5).toFixed(2)}
-                                    </span>
-                                    <span className="text-sm text-gray-500 mb-1 font-bold">GPA</span>
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">মোট প্রাপ্ত নম্বর: {toBengaliNumber(latestResult.reduce((a, b) => a + b.marks, 0))}</p>
-                            </div>
-                            
-                            <div className="space-y-1">
-                                <p className="text-xs font-bold text-gray-500 mb-2 uppercase">বিষয়ভিত্তিক গ্রেড</p>
-                                {latestResult.slice(0, 3).map((res, idx) => (
-                                    <div key={idx} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
-                                        <span className="text-gray-700">{res.subject_name}</span>
-                                        <Badge variant={res.grade === 'F' ? 'destructive' : 'default'} className="h-5 text-[10px]">{res.grade}</Badge>
-                                    </div>
-                                ))}
-                            </div>
-                            
-                            <Link href="/result" className="block">
-                                <Button variant="outline" className="w-full h-9 text-sm border-blue-200 text-blue-700 hover:bg-blue-50">
-                                    <Download className="w-4 h-4 mr-2"/> মার্কশিট ডাউনলোড
-                                </Button>
-                            </Link>
-                          </>
+                      {historicalResults.length > 0 ? (
+                          <div className="space-y-3">
+                              {historicalResults.slice(0, 3).map((res, idx) => (
+                                  <div key={idx} className="bg-blue-50/50 p-3 rounded-lg border border-blue-100 flex justify-between items-center">
+                                      <div>
+                                          <p className="font-bold text-blue-800 text-sm">{res.exam_name}</p>
+                                          <p className="text-[10px] text-gray-500">{toBengaliNumber(res.academic_year)} | প্রাপ্ত নম্বর: {toBengaliNumber(res.total_marks_obtained)}/{toBengaliNumber(res.total_full_marks)}</p>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                          <Badge variant={res.grade === 'F' ? 'destructive' : 'default'} className="bg-blue-600">
+                                              {res.grade}
+                                          </Badge>
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline" 
+                                            className="h-7 text-xs px-2 border-blue-200 text-blue-700 hover:bg-blue-100"
+                                            onClick={() => {
+                                                setPreviewExamId(res.exam_id);
+                                                setPreviewModalOpen(true);
+                                            }}
+                                          >
+                                              <FileText className="w-3 h-3 mr-1"/> দেখুন
+                                          </Button>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
                       ) : (
                           <div className="text-center py-10 text-gray-400">
                               <FileText className="w-12 h-12 mx-auto mb-2 opacity-20"/>
@@ -713,6 +746,15 @@ export default function StudentDashboard() {
               </Tabs>
           </DialogContent>
       </Dialog>
+
+      {previewModalOpen && student && (
+          <TranscriptPreviewModal 
+              isOpen={previewModalOpen}
+              onClose={() => setPreviewModalOpen(false)}
+              studentDbId={student.id}
+              examId={previewExamId}
+          />
+      )}
 
     </div>
   );
