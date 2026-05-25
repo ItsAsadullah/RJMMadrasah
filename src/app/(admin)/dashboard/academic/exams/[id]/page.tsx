@@ -477,49 +477,44 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
     };
 
     // --- Print Handlers ---
+    const triggerPrint = (newTitle: string) => {
+        const originalTitle = document.title;
+        document.title = newTitle;
+        setTimeout(() => window.print(), 300);
+        
+        const cleanup = () => {
+            document.title = originalTitle;
+            window.removeEventListener('afterprint', cleanup);
+            window.removeEventListener('focus', cleanup);
+        };
+        window.addEventListener('afterprint', cleanup);
+        window.addEventListener('focus', cleanup);
+        setTimeout(cleanup, 15000);
+    };
+
     const handlePrintAdmitCards = () => {
       if (students.length === 0) return alert("প্রিন্ট করার মতো কোনো শিক্ষার্থী নেই!");
       setPrintMode('admit');
-      const originalTitle = document.title;
-      document.title = `${exam?.title || 'Admit Cards'} - ${classes.find(c => c.id === selectedClass)?.name || ''}`;
-      setTimeout(() => {
-          window.print();
-          setTimeout(() => { document.title = originalTitle; }, 1000);
-      }, 200);
+      triggerPrint(`${exam?.title || 'Admit Cards'} - ${classes.find(c => c.id === selectedClass)?.name || ''}`);
     };
 
     const handlePrintTranscriptSingle = (student: any) => {
       setStudentForTranscript(student);
       setPrintMode('transcript-single');
-      const originalTitle = document.title;
-      document.title = `${exam?.title || 'Result'} - ${student.student_id} - ${student.name_bn}`;
-      setTimeout(() => {
-          window.print();
-          setTimeout(() => { document.title = originalTitle; }, 1000);
-      }, 200);
+      triggerPrint(`${exam?.title || 'Result'} - ${student.student_id} - ${student.name_bn}`);
     };
 
     const handlePrintTranscriptAll = () => {
         if (students.length === 0) return alert("প্রিন্ট করার মতো কোনো শিক্ষার্থী নেই!");
         setPrintMode('transcript-all');
-        const originalTitle = document.title;
-        document.title = `${exam?.title || 'Result'} - All Transcripts - ${classes.find(c => c.id === selectedClass)?.name || ''}`;
-        setTimeout(() => {
-            window.print();
-            setTimeout(() => { document.title = originalTitle; }, 1000);
-        }, 200);
+        triggerPrint(`${exam?.title || 'Result'} - All Transcripts - ${classes.find(c => c.id === selectedClass)?.name || ''}`);
     };
 
     const handlePrintTabulation = (mode: 'roll' | 'merit') => {
         if (students.length === 0) return alert("প্রিন্ট করার মতো কোনো শিক্ষার্থী নেই!");
         setTabulationPrintSort(mode);
         setPrintMode('tabulation');
-        const originalTitle = document.title;
-        document.title = `${exam?.title || 'Tabulation Sheet'} - ${classes.find(c => c.id === selectedClass)?.name || ''}`;
-        setTimeout(() => {
-            window.print();
-            setTimeout(() => { document.title = originalTitle; }, 1000);
-        }, 200);
+        triggerPrint(`${exam?.title || 'Tabulation Sheet'} - ${classes.find(c => c.id === selectedClass)?.name || ''}`);
     };
 
     // --- Render Transcript Component ---
