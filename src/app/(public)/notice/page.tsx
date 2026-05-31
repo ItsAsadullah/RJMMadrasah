@@ -5,13 +5,6 @@ import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-} from "@/components/ui/dialog";
-import { 
   Bell, 
   Calendar, 
   Search, 
@@ -21,8 +14,11 @@ import {
   Loader2,
   ChevronRight,
   X,
-  Filter
+  Filter,
+  Printer,
+  Paperclip
 } from "lucide-react";
+import NoticeDetail from "@/components/notice/NoticeDetail";
 
 type Notice = {
   id: string;
@@ -41,8 +37,8 @@ export default function PublicNoticePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDate, setFilterDate] = useState("");
 
+  // Selected notice for detail view
   const [selectedNotice, setSelectedNotice] = useState<Notice | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   async function fetchNotices() {
     setLoading(true);
@@ -62,10 +58,10 @@ export default function PublicNoticePage() {
 
   // অ্যাডভান্সড ফিল্টার লজিক
   const filteredNotices = notices.filter(notice => {
-    // ১. নাম/শিরোনাম দিয়ে সার্চ
+    // ১. নাম/শিরোনাম দিয়ে সার্চ
     const matchesTitle = notice.title.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // ২. তারিখ দিয়ে ফিল্টার
+    // ২. তারিখ দিয়ে ফিল্টার
     let matchesDate = true;
     if (filterDate) {
       const noticeDate = new Date(notice.created_at).toISOString().split('T')[0]; // YYYY-MM-DD ফরম্যাট
@@ -81,24 +77,43 @@ export default function PublicNoticePage() {
     setFilterDate("");
   };
 
-  const handleView = (notice: Notice) => {
-    setSelectedNotice(notice);
-    setIsModalOpen(true);
-  };
+  // If a notice is selected, show the detail view
+  if (selectedNotice) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-6 sm:py-10 px-4 sm:px-6">
+        <NoticeDetail 
+          notice={selectedNotice} 
+          onBack={() => setSelectedNotice(null)} 
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-4 sm:px-6">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-10 px-4 sm:px-6">
       <div className="max-w-6xl mx-auto space-y-8">
         
-        {/* হেডার সেকশন */}
-        <div className="text-center space-y-3">
-          <div className="inline-flex items-center justify-center p-3 bg-green-100 rounded-full mb-2">
-            <Bell className="w-8 h-8 text-green-700" />
+        {/* হেডার সেকশন — ইম্প্রুভড ডিজাইন */}
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center justify-center p-4 bg-gradient-to-br from-emerald-100 to-green-50 rounded-full mb-2 shadow-sm">
+            <Bell className="w-8 h-8 text-emerald-700" />
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800">নোটিশ বোর্ড</h1>
-          <p className="text-gray-500 max-w-xl mx-auto">
-            মাদ্রাসার সকল প্রকার বিজ্ঞপ্তি, ছুটির ঘোষণা এবং পরীক্ষার রুটিন এখানে প্রকাশ করা হয়।
+          <h1 className="text-3xl md:text-4xl font-extrabold text-gray-800 tracking-tight">
+            নোটিশ বোর্ড
+          </h1>
+          <p className="text-gray-500 max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
+            মাদ্রাসার সকল প্রকার বিজ্ঞপ্তি, ছুটির ঘোষণা এবং পরীক্ষার রুটিন এখানে প্রকাশ করা হয়।
+            যেকোনো নোটিশে ক্লিক করে PDF ডাউনলোড বা প্রিন্ট করতে পারবেন।
           </p>
+          {/* Feature badges */}
+          <div className="flex flex-wrap justify-center gap-2 pt-2">
+            <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full text-xs font-medium border border-emerald-100">
+              <Printer className="w-3.5 h-3.5" /> প্রিন্ট করুন
+            </span>
+            <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-xs font-medium border border-blue-100">
+              <Download className="w-3.5 h-3.5" /> PDF ডাউনলোড
+            </span>
+          </div>
         </div>
 
         {/* সার্চ এবং ফিল্টার সেকশন */}
@@ -130,7 +145,7 @@ export default function PublicNoticePage() {
               />
             </div>
 
-            {/* ক্লিয়ার বাটন (যদি ফিল্টার থাকে) */}
+            {/* ক্লিয়ার বাটন (যদি ফিল্টার থাকে) */}
             {(searchTerm || filterDate) && (
               <Button 
                 onClick={clearFilters}
@@ -146,11 +161,11 @@ export default function PublicNoticePage() {
         {/* রেজাল্ট কাউন্ট */}
         {!loading && (
           <div className="text-center text-sm text-gray-500">
-            মোট {filteredNotices.length} টি বিজ্ঞপ্তি পাওয়া গেছে
+            মোট {filteredNotices.length} টি বিজ্ঞপ্তি পাওয়া গেছে
           </div>
         )}
 
-        {/* নোটিশ গ্রিড */}
+        {/* নোটিশ গ্রিড — উন্নত ডিজাইন */}
         {loading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="w-10 h-10 text-green-600 animate-spin" />
@@ -160,7 +175,7 @@ export default function PublicNoticePage() {
             <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
               <Filter className="w-10 h-10 text-gray-300" />
             </div>
-            <h3 className="text-xl font-medium text-gray-600">কোনো বিজ্ঞপ্তি পাওয়া যায়নি</h3>
+            <h3 className="text-xl font-medium text-gray-600">কোনো বিজ্ঞপ্তি পাওয়া যায়নি</h3>
             <p className="text-gray-400 mt-2">আপনার সার্চ ফিল্টার পরিবর্তন করে আবার চেষ্টা করুন</p>
             {(searchTerm || filterDate) && (
               <Button onClick={clearFilters} variant="link" className="text-green-600 mt-2">
@@ -169,97 +184,62 @@ export default function PublicNoticePage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredNotices.map((notice) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+            {filteredNotices.map((notice, index) => (
               <div 
                 key={notice.id} 
-                className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md hover:border-green-200 transition-all cursor-pointer group flex flex-col h-full"
-                onClick={() => handleView(notice)}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-emerald-200 transition-all duration-300 cursor-pointer group flex flex-col h-full overflow-hidden"
+                onClick={() => setSelectedNotice(notice)}
+                style={{ animationDelay: `${index * 50}ms` }}
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
-                    <Calendar className="w-4 h-4 text-green-600" />
-                    {new Date(notice.created_at).toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' })}
+                {/* Green top accent */}
+                <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-600 group-hover:h-2 transition-all duration-300"></div>
+                
+                <div className="p-5 sm:p-6 flex flex-col h-full">
+                  {/* Date and attachment badge */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+                      <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-xs font-medium">
+                        {new Date(notice.created_at).toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </span>
+                    </div>
+                    {(notice.file_url || notice.google_drive_link) && (
+                      <span className="text-xs bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-medium border border-blue-100 flex items-center gap-1">
+                        <Paperclip className="w-3 h-3" />
+                        ফাইল সংযুক্ত
+                      </span>
+                    )}
                   </div>
-                  {(notice.file_url || notice.google_drive_link) && (
-                    <span className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded font-medium border border-blue-100">
-                      ফাইল সংযুক্ত
-                    </span>
-                  )}
-                </div>
-                
-                <h3 className="text-xl font-bold text-gray-800 mb-3 group-hover:text-green-700 transition-colors line-clamp-2">
-                  {notice.title}
-                </h3>
-                
-                {/* HTML কন্টেন্টের প্রিভিউ */}
-                <div 
-                  className="text-gray-600 text-sm line-clamp-3 mb-4 flex-grow prose prose-sm max-w-none"
-                  dangerouslySetInnerHTML={{ __html: notice.content }}
-                />
+                  
+                  {/* Title */}
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 group-hover:text-emerald-700 transition-colors line-clamp-2 leading-snug">
+                    {notice.title}
+                  </h3>
+                  
+                  {/* HTML কন্টেন্টের প্রিভিউ */}
+                  <div 
+                    className="text-gray-500 text-sm line-clamp-3 mb-4 flex-grow leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: notice.content }}
+                  />
 
-                <div className="flex items-center text-green-600 font-medium text-sm group-hover:translate-x-1 transition-transform border-t pt-4 mt-auto">
-                  বিস্তারিত দেখুন <ChevronRight className="w-4 h-4 ml-1" />
+                  {/* Bottom action row */}
+                  <div className="flex items-center justify-between border-t pt-4 mt-auto">
+                    <div className="flex items-center text-emerald-600 font-medium text-sm group-hover:translate-x-1 transition-transform">
+                      বিস্তারিত দেখুন <ChevronRight className="w-4 h-4 ml-1" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 flex items-center gap-1">
+                        <Printer className="w-3 h-3" /> PDF
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
-
-      {/* বিস্তারিত দেখার মোডাল */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[700px] bg-white max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl md:text-2xl font-bold text-gray-800 leading-tight pr-8">
-              {selectedNotice?.title}
-            </DialogTitle>
-            <DialogDescription className="flex items-center gap-2 mt-2 text-gray-500">
-              <Calendar className="w-4 h-4" />
-              প্রকাশিত: {selectedNotice && new Date(selectedNotice.created_at).toLocaleDateString('bn-BD', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="mt-6 space-y-6">
-            {/* মেইন কন্টেন্ট */}
-            <div 
-              className="prose prose-green prose-sm sm:prose-base max-w-none text-gray-700
-                [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5
-                [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:text-xl [&_h2]:font-bold
-                [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:bg-gray-50 [&_blockquote]:py-2"
-              dangerouslySetInnerHTML={{ __html: selectedNotice?.content || "<p>কোনো বিবরণ নেই</p>" }}
-            />
-
-            {/* ডাউনলোড বাটন */}
-            {(selectedNotice?.file_url || selectedNotice?.google_drive_link) && (
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mt-6">
-                <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                  <Download className="w-4 h-4" /> প্রয়োজনীয় ফাইল ও লিংক:
-                </h4>
-                <div className="flex flex-wrap gap-3">
-                  {selectedNotice.file_url && (
-                    <a href={selectedNotice.file_url} target="_blank" className="flex items-center gap-2 bg-white text-green-700 px-4 py-2.5 rounded-lg border border-green-200 hover:bg-green-50 hover:shadow-sm transition-all text-sm font-medium">
-                      <FileText className="w-4 h-4" /> ডাউনলোড করুন
-                    </a>
-                  )}
-                  {selectedNotice.google_drive_link && (
-                    <a href={selectedNotice.google_drive_link} target="_blank" className="flex items-center gap-2 bg-white text-blue-700 px-4 py-2.5 rounded-lg border border-blue-200 hover:bg-blue-50 hover:shadow-sm transition-all text-sm font-medium">
-                      <LinkIcon className="w-4 h-4" /> গুগল ড্রাইভ লিংক
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <div className="flex justify-end pt-6 border-t mt-6">
-            <Button onClick={() => setIsModalOpen(false)} className="bg-gray-800 text-white hover:bg-gray-900">
-              বন্ধ করুন
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
     </div>
   );
 }

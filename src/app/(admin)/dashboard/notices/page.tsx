@@ -18,7 +18,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { 
   Plus, 
@@ -175,6 +174,7 @@ export default function NoticeManagement() {
   const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Modals State
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -264,7 +264,7 @@ export default function NoticeManagement() {
     const { error } = await supabase.storage.from("images").upload(fileName, file);
     
     if (error) {
-      setFeedback({ open: true, title: "ত্রুটি", message: "ফাইল আপলোড করা যায়নি!", type: "error" });
+      setFeedback({ open: true, title: "ত্রুটি", message: `ফাইল আপলোড করা যায়নি! ${error.message}`, type: "error" });
     } else {
       const { data } = supabase.storage.from("images").getPublicUrl(fileName);
       setFormData({ ...formData, file_url: data.publicUrl });
@@ -275,20 +275,21 @@ export default function NoticeManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title) {
-        setFeedback({ open: true, title: "প্রয়োজনীয় তথ্য", message: "অনুগ্রহ করে নোটিশের শিরোনাম দিন", type: "warning" });
+        setFeedback({ open: true, title: "প্রয়োজনীয় তথ্য", message: "অনুগ্রহ করে নোটিশের শিরোনাম দিন", type: "warning" });
         return;
     }
 
-    let error;
-    
-    // Prepare payload
+    setSubmitting(true);
+
+    // Prepare payload — client-side supabase (authenticated session ব্যবহার করে)
     const payload = {
         title: formData.title,
         content: formData.content,
         file_url: formData.file_url,
         google_drive_link: formData.google_drive_link,
-        branch_id: formData.branch_id === "all" ? null : parseInt(formData.branch_id)
     };
+
+    let error;
 
     if (editingId) {
       // আপডেট মোড
@@ -305,9 +306,16 @@ export default function NoticeManagement() {
       error = insertError;
     }
 
+    setSubmitting(false);
+
     if (error) {
-      console.error(error);
-      setFeedback({ open: true, title: "ত্রুটি", message: "তথ্য সেভ করা যায়নি। আবার চেষ্টা করুন।", type: "error" });
+      console.error("Notice save failed:", error.message, "Code:", error.code, "Details:", error.details, "Hint:", error.hint);
+      setFeedback({ 
+        open: true, 
+        title: "ত্রুটি", 
+        message: `তথ্য সেভ করা যায়নি: ${error.message} (Code: ${error.code})`, 
+        type: "error" 
+      });
     } else {
       // Trigger WhatsApp if checked
       if (formData.send_whatsapp) {
@@ -320,7 +328,7 @@ export default function NoticeManagement() {
       setFeedback({ 
           open: true, 
           title: "সফল!", 
-          message: editingId ? "নোটিশ সফলভাবে আপডেট হয়েছে!" : "নোটিশ সফলভাবে প্রকাশিত হয়েছে!" + (formData.send_whatsapp ? " (হোয়াটসএ্যাপ ওপেন হচ্ছে...)" : ""), 
+          message: (editingId ? "নোটিশ সফলভাবে আপডেট হয়েছে!" : "নোটিশ সফলভাবে প্রকাশিত হয়েছে!") + (formData.send_whatsapp ? " (হোয়াটসএ্যাপ ওপেন হচ্ছে...)" : ""), 
           type: "success" 
       });
     }
@@ -338,9 +346,10 @@ export default function NoticeManagement() {
     
     if (!error) {
         fetchNotices();
-        setFeedback({ open: true, title: "সফল!", message: "নোটিশ ডিলিট করা হয়েছে।", type: "success" });
+        setFeedback({ open: true, title: "সফল!", message: "নোটিশ ডিলিট করা হয়েছে।", type: "success" });
     } else {
-        setFeedback({ open: true, title: "ত্রুটি", message: "ডিলিট করা যায়নি।", type: "error" });
+        console.error("Delete failed:", error.message, error.code);
+        setFeedback({ open: true, title: "ত্রুটি", message: `ডিলিট করা যায়নি: ${error.message}`, type: "error" });
     }
   };
 
@@ -350,7 +359,7 @@ export default function NoticeManagement() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-800">নোটিশ বোর্ড</h1>
-          <p className="text-sm text-gray-500">মাদ্রাসার সকল বিজ্ঞপ্তি নিয়ন্ত্রণ করুন</p>
+          <p className="text-sm text-gray-500">মাদ্রাসার সকল বিজ্ঞপ্তি নিয়ন্ত্রণ করুন</p>
         </div>
         
         <Button onClick={handleCreateNew} className="bg-green-600 hover:bg-green-700 gap-2 text-white">
@@ -395,7 +404,7 @@ export default function NoticeManagement() {
                      ) : (
                         <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">
                            <Building2 className="w-3 h-3 mr-1"/>
-                           উভয় শাখা
+                           উভয় শাখা
                         </span>
                      )}
                   </TableCell>
@@ -448,7 +457,7 @@ export default function NoticeManagement() {
                   <SelectValue placeholder="শাখা নির্বাচন করুন" />
                 </SelectTrigger>
                 <SelectContent className="z-[9999]">
-                  <SelectItem value="all">উভয় শাখা (সকলের জন্য)</SelectItem>
+                  <SelectItem value="all">উভয় শাখা (সকলের জন্য)</SelectItem>
                   {branches.length > 0 ? (
                     branches.map((b) => (
                       <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
@@ -489,7 +498,7 @@ export default function NoticeManagement() {
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2 text-green-800"
                 >
                     <MessageCircle className="w-4 h-4" />
-                    হোয়াটসএ্যাপ গ্রুপে শেয়ার করুন (স্বয়ংক্রিয়)
+                    হোয়াটসএ্যাপ গ্রুপে শেয়ার করুন (স্বয়ংক্রিয়)
                 </label>
             </div>
 
@@ -500,13 +509,13 @@ export default function NoticeManagement() {
                   <label htmlFor="notice-file" className="cursor-pointer flex flex-col items-center gap-2 text-sm text-gray-500 hover:text-green-600 w-full">
                     <FileText className={`w-8 h-8 ${formData.file_url ? 'text-green-600' : 'text-gray-400'}`} />
                     <span className="font-medium">
-                      {uploading ? "আপলোড হচ্ছে..." : formData.file_url ? "ফাইল যুক্ত হয়েছে ✅" : "ফাইল আপলোড করতে ক্লিক করুন"}
+                      {uploading ? "আপলোড হচ্ছে..." : formData.file_url ? "ফাইল যুক্ত হয়েছে ✅" : "ফাইল আপলোড করতে ক্লিক করুন"}
                     </span>
                   </label>
               </div>
             </div>
-            <Button type="submit" disabled={uploading} className="w-full bg-green-600 hover:bg-green-700 text-white">
-              {uploading ? <Loader2 className="animate-spin mr-2" /> : (editingId ? "আপডেট করুন" : "প্রকাশ করুন")}
+            <Button type="submit" disabled={uploading || submitting} className="w-full bg-green-600 hover:bg-green-700 text-white">
+              {submitting ? <><Loader2 className="animate-spin mr-2 w-4 h-4" /> প্রক্রিয়াকরণ হচ্ছে...</> : uploading ? <Loader2 className="animate-spin mr-2" /> : (editingId ? "আপডেট করুন" : "প্রকাশ করুন")}
             </Button>
           </form>
         </DialogContent>
@@ -514,7 +523,6 @@ export default function NoticeManagement() {
 
       {/* --- ২. বিস্তারিত দেখার মোডাল (View Details) --- */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        {/* ... (Existing View Details Content) ... */}
         <DialogContent className="sm:max-w-[700px] bg-white max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-gray-800">{selectedNotice?.title}</DialogTitle>
@@ -592,7 +600,7 @@ export default function NoticeManagement() {
                 <AlertTriangle className="w-5 h-5"/> নিশ্চিতকরণ
             </AlertDialogTitle>
             <AlertDialogDescription>
-              আপনি কি নিশ্চিত যে আপনি এই বিজ্ঞপ্তিটি ডিলিট করতে চান? এটি আর ফিরিয়ে আনা সম্ভব হবে না।
+              আপনি কি নিশ্চিত যে আপনি এই বিজ্ঞপ্তিটি ডিলিট করতে চান? এটি আর ফিরিয়ে আনা সম্ভব হবে না।
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
