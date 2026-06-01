@@ -73,10 +73,16 @@ type Notice = {
 type Transaction = {
   id: string;
   amount: number;
-  title: string;
-  receipt_no: string;
-  payment_date: string;
-  status: string;
+  title?: string;
+  description?: string;
+  receipt_no?: string;
+  payment_date?: string;
+  transaction_date?: string;
+  created_at?: string;
+  updated_at?: string;
+  paid_amount?: number;
+  net_amount?: number;
+  status?: string;
 };
 
 type Result = {
@@ -93,10 +99,23 @@ type Result = {
 // --- Helper Functions ---
 const toBengaliNumber = (num: string | number) => {
   if (!num && num !== 0) return "";
-  const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
   const bengali = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
   return String(num).replace(/[0-9]/g, (char) => bengali[parseInt(char)]);
 };
+
+const getNetAmount = (due: any) => {
+  const amount = Number(due?.amount) || 0;
+  const fine = Number(due?.fine) || 0;
+  const waiver = Number(due?.waiver) || 0;
+  const calculated = Math.max(amount + fine - waiver, 0);
+  const stored = due?.net_amount == null ? null : Number(due.net_amount);
+  return stored !== null && (stored > 0 || calculated === 0) ? stored : calculated;
+};
+
+const getOutstandingAmount = (due: any) => Math.max(getNetAmount(due) - (Number(due?.paid_amount) || 0), 0);
+const getHistoryAmount = (item: Transaction) => Number(item.paid_amount ?? item.amount ?? item.net_amount ?? 0);
+const getHistoryDate = (item: Transaction) => item.payment_date || item.transaction_date || item.created_at || item.updated_at || "";
+const getHistoryTitle = (item: Transaction) => item.title || item.description || "বেতন/ফি";
 
 const getHijriDate = () => {
     return "১৪৪৬ হিজরি"; 
@@ -230,49 +249,37 @@ export default function StudentDashboard() {
             }
         }
 
-        // 3. Fetch Financials
-        // Dues - Try with UUID first, then fallback to Student ID
+        // 3. Fetch Financials from the live fee ledger
         let dueAmount = 0;
         let paidHistory: any[] = [];
         let totalPaidAmount = 0;
 
-        // Try fetching by UUID
-        const { data: dueDataUUID } = await supabase.from("payments")
-            .select("amount")
+        const { data: dueData } = await supabase.from("student_dues")
+            .select("id, amount, waiver, fine, paid_amount, net_amount, status")
             .eq("student_id", studentData.id)
-            .eq("status", "due");
-        
-        if (dueDataUUID && dueDataUUID.length > 0) {
-            dueAmount = dueDataUUID.reduce((sum, item) => sum + item.amount, 0);
-        } else {
-             // Fallback to Readable ID
-             const { data: dueDataID } = await supabase.from("payments")
-                .select("amount")
-                .eq("student_id", studentData.student_id)
-                .eq("status", "due");
-             dueAmount = dueDataID?.reduce((sum, item) => sum + item.amount, 0) || 0;
-        }
+            .not("status", "in", '("paid","waived")');
 
-        // Paid History
-        const { data: paidDataUUID } = await supabase.from("payments")
-            .select("*")
+        dueAmount = dueData?.reduce((sum, item) => sum + getOutstandingAmount(item), 0) || 0;
+
+        const { data: paidDueData } = await supabase.from("student_dues")
+            .select("id, title, amount, waiver, fine, paid_amount, net_amount, payment_date, receipt_no, status, updated_at")
             .eq("student_id", studentData.id)
             .eq("status", "paid")
             .order("payment_date", { ascending: false });
 
-        if (paidDataUUID && paidDataUUID.length > 0) {
-            paidHistory = paidDataUUID;
-            totalPaidAmount = paidDataUUID.reduce((sum, item) => sum + item.amount, 0);
+        if (paidDueData && paidDueData.length > 0) {
+            paidHistory = paidDueData;
+            totalPaidAmount = paidDueData.reduce((sum, item) => sum + getHistoryAmount(item), 0);
         } else {
-            const { data: paidDataID } = await supabase.from("payments")
-                .select("*")
+            const { data: transactionData } = await supabase.from("transactions")
+                .select("id, amount, description, transaction_date, created_at")
                 .eq("student_id", studentData.student_id)
-                .eq("status", "paid")
-                .order("payment_date", { ascending: false });
-            
-            if (paidDataID) {
-                paidHistory = paidDataID;
-                totalPaidAmount = paidDataID.reduce((sum, item) => sum + item.amount, 0);
+                .eq("type", "income")
+                .order("created_at", { ascending: false });
+
+            if (transactionData) {
+                paidHistory = transactionData;
+                totalPaidAmount = transactionData.reduce((sum, item) => sum + getHistoryAmount(item), 0);
             }
         }
 
@@ -280,7 +287,7 @@ export default function StudentDashboard() {
             due: dueAmount,
             paid: totalPaidAmount,
             history: paidHistory,
-            lastPayment: paidHistory.length > 0 ? paidHistory[0].payment_date : null
+            lastPayment: paidHistory.length > 0 ? getHistoryDate(paidHistory[0]) : null
         });
 
         // 4. Fetch Academic Results (Aggregated)
@@ -782,12 +789,12 @@ export default function StudentDashboard() {
                                     </TableHeader>
                                     <TableBody>
                                         {financials.history.map((t: any) => (
-                                            <TableRow key={t.id}>
-                                                <TableCell className="whitespace-nowrap">{format(new Date(t.payment_date), "dd MMM yyyy", { locale: bn })}</TableCell>
-                                                <TableCell className="font-medium text-gray-800">{t.title}</TableCell>
+                                          <TableRow key={t.id}>
+                                                <TableCell className="whitespace-nowrap">{getHistoryDate(t) ? format(new Date(getHistoryDate(t)), "dd MMM yyyy", { locale: bn }) : "-"}</TableCell>
+                                                <TableCell className="font-medium text-gray-800">{getHistoryTitle(t)}</TableCell>
                                                 <TableCell className="text-gray-500">{t.receipt_no || '-'}</TableCell>
-                                                <TableCell className="text-right font-bold text-green-600">৳ {toBengaliNumber(t.amount)}</TableCell>
-                                            </TableRow>
+                                                <TableCell className="text-right font-bold text-green-600">৳ {toBengaliNumber(getHistoryAmount(t))}</TableCell>
+                                          </TableRow>
                                         ))}
                                     </TableBody>
                                 </Table>

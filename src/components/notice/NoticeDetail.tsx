@@ -38,7 +38,7 @@ const toBengaliNumber = (num: string | number) => {
   return result;
 };
 
-export default function NoticeDetail({ notice, onBack }: { notice: Notice; onBack: () => void }) {
+export default function NoticeDetail({ notice, onBack, branchName }: { notice: Notice; onBack: () => void; branchName?: string }) {
   const printRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
 
@@ -230,10 +230,18 @@ export default function NoticeDetail({ notice, onBack }: { notice: Notice; onBac
 
               {/* ====== NOTICE META ====== */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 text-sm text-gray-600 bg-emerald-50/50 p-3 sm:p-4 rounded-xl border border-emerald-100">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-emerald-600 no-print" />
-                  <span className="font-semibold text-gray-700">তারিখ:</span>
-                  <span>{shortDate}</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-emerald-600 no-print" />
+                    <span className="font-semibold text-gray-700">তারিখ:</span>
+                    <span>{shortDate}</span>
+                  </div>
+                  {branchName && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-emerald-200 rounded-full">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      <span className="text-xs font-semibold text-emerald-800">{branchName}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-gray-700">নোটিশ নং:</span>

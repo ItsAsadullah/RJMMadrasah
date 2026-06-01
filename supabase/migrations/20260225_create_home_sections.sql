@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.home_sections (
 
 -- Enable RLS
 ALTER TABLE public.home_sections ENABLE ROW LEVEL SECURITY;
-
+http://localhost:3000/dashboard/settings/academic
 -- Public can read
 CREATE POLICY "Public Read home_sections"
   ON public.home_sections FOR SELECT

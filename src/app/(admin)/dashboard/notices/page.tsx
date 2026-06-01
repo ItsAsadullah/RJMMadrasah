@@ -287,6 +287,7 @@ export default function NoticeManagement() {
         content: formData.content,
         file_url: formData.file_url,
         google_drive_link: formData.google_drive_link,
+        branch: formData.branch_id,
     };
 
     let error;

@@ -16,7 +16,8 @@ import {
   X,
   Filter,
   Printer,
-  Paperclip
+  Paperclip,
+  MapPin
 } from "lucide-react";
 import NoticeDetail from "@/components/notice/NoticeDetail";
 
@@ -27,33 +28,53 @@ type Notice = {
   file_url: string;
   google_drive_link: string;
   created_at: string;
+  branch: string;
+};
+
+type Branch = {
+  id: number;
+  name: string;
 };
 
 export default function PublicNoticePage() {
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
 
   // ফিল্টার স্টেট
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDate, setFilterDate] = useState("");
+  const [filterBranch, setFilterBranch] = useState("all");
 
   // Selected notice for detail view
   const [selectedNotice, setSelectedNotice] = useState<Notice | null>(null);
 
-  async function fetchNotices() {
+  async function fetchData() {
     setLoading(true);
-    const { data, error } = await supabase
+    
+    // Fetch notices
+    const { data: noticeData, error: noticeError } = await supabase
       .from("notices")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error) console.error(error);
-    else setNotices(data || []);
+    if (noticeError) console.error(noticeError);
+    else setNotices(noticeData || []);
+
+    // Fetch branches
+    const { data: branchData, error: branchError } = await supabase
+      .from("branches")
+      .select("id, name")
+      .order("id");
+      
+    if (branchError) console.error(branchError);
+    else setBranches(branchData || []);
+    
     setLoading(false);
   }
 
   useEffect(() => {
-    fetchNotices();
+    fetchData();
   }, []);
 
   // অ্যাডভান্সড ফিল্টার লজিক
@@ -67,14 +88,47 @@ export default function PublicNoticePage() {
       const noticeDate = new Date(notice.created_at).toISOString().split('T')[0]; // YYYY-MM-DD ফরম্যাট
       matchesDate = noticeDate === filterDate;
     }
+    
+    // ৩. শাখা দিয়ে ফিল্টার
+    let matchesBranch = true;
+    if (filterBranch !== "all") {
+      // যদি 'all' ফিল্টার না হয়, তাহলে notice.branch এর সাথে মেলাবো।
+      // notice.branch হয় 'all' হবে, অথবা নির্দিষ্ট ব্রাঞ্চ আইডি হবে। 
+      // আমরা চাই যে ফিল্টার করলে সেই ব্রাঞ্চের নোটিশ এবং সাধারণ (all) নোটিশ দুটোই দেখাবে।
+      // যদি ইউজার নির্দিষ্টভাবে শুধু ওই ব্রাঞ্চেরই নোটিশ দেখতে চায়:
+      matchesBranch = notice.branch === filterBranch || notice.branch === "all";
+    }
 
-    return matchesTitle && matchesDate;
+    return matchesTitle && matchesDate && matchesBranch;
   });
 
   // ফিল্টার রিসেট ফাংশন
   const clearFilters = () => {
     setSearchTerm("");
     setFilterDate("");
+    setFilterBranch("all");
+  };
+
+  // Helper to get branch name and color
+  const getBranchInfo = (branchId: string) => {
+    if (!branchId || branchId === "all") {
+      return { name: "সকল শাখা", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" };
+    }
+    
+    const branch = branches.find(b => b.id.toString() === branchId);
+    if (!branch) return { name: "অজানা শাখা", bg: "bg-gray-50", text: "text-gray-700", border: "border-gray-200" };
+    
+    // Generate some consistent colors based on branch ID
+    const colors = [
+      { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
+      { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
+      { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
+      { bg: "bg-pink-50", text: "text-pink-700", border: "border-pink-200" },
+      { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
+    ];
+    
+    const colorIndex = parseInt(branchId) % colors.length;
+    return { name: branch.name, ...colors[colorIndex] };
   };
 
   // If a notice is selected, show the detail view
@@ -83,7 +137,8 @@ export default function PublicNoticePage() {
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-6 sm:py-10 px-4 sm:px-6">
         <NoticeDetail 
           notice={selectedNotice} 
-          onBack={() => setSelectedNotice(null)} 
+          onBack={() => setSelectedNotice(null)}
+          branchName={getBranchInfo(selectedNotice.branch).name}
         />
       </div>
     );
@@ -117,11 +172,11 @@ export default function PublicNoticePage() {
         </div>
 
         {/* সার্চ এবং ফিল্টার সেকশন */}
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 max-w-3xl mx-auto">
-          <div className="flex flex-col md:flex-row gap-4 items-center">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
             
             {/* সার্চ ইনপুট */}
-            <div className="relative flex-1 w-full">
+            <div className="relative md:col-span-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
               <Input 
                 type="text" 
@@ -132,29 +187,50 @@ export default function PublicNoticePage() {
               />
             </div>
 
+            {/* শাখা ফিল্টার */}
+            <div className="relative md:col-span-4">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <MapPin className="h-5 w-5 text-gray-400" />
+              </div>
+              <select
+                className="w-full pl-10 h-12 text-base rounded-xl border border-gray-200 focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-gray-50/50 focus:bg-white transition-all appearance-none cursor-pointer"
+                value={filterBranch}
+                onChange={(e) => setFilterBranch(e.target.value)}
+              >
+                <option value="all">সকল শাখার নোটিশ</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id.toString()}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+
             {/* তারিখ ফিল্টার */}
-            <div className="relative w-full md:w-auto">
+            <div className="relative md:col-span-3">
               <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
                 <Calendar className="h-5 w-5 text-gray-400" />
               </div>
               <Input 
                 type="date" 
-                className="pl-10 h-12 w-full md:w-48 text-base rounded-xl border-gray-200 focus:ring-green-500 bg-gray-50/50 focus:bg-white transition-all cursor-pointer"
+                className="pl-10 h-12 w-full text-base rounded-xl border-gray-200 focus:ring-green-500 bg-gray-50/50 focus:bg-white transition-all cursor-pointer"
                 value={filterDate}
                 onChange={(e) => setFilterDate(e.target.value)}
               />
             </div>
 
             {/* ক্লিয়ার বাটন (যদি ফিল্টার থাকে) */}
-            {(searchTerm || filterDate) && (
-              <Button 
-                onClick={clearFilters}
-                variant="ghost" 
-                className="text-red-500 hover:text-red-700 hover:bg-red-50 h-12 px-4 rounded-xl flex items-center gap-2"
-              >
-                <X className="w-4 h-4" /> রিসেট
-              </Button>
-            )}
+            <div className="md:col-span-1 flex justify-end">
+              {(searchTerm || filterDate || filterBranch !== "all") && (
+                <Button 
+                  onClick={clearFilters}
+                  variant="ghost" 
+                  size="icon"
+                  title="ফিল্টার রিসেট করুন"
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50 h-12 w-12 rounded-xl flex items-center justify-center"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -177,7 +253,7 @@ export default function PublicNoticePage() {
             </div>
             <h3 className="text-xl font-medium text-gray-600">কোনো বিজ্ঞপ্তি পাওয়া যায়নি</h3>
             <p className="text-gray-400 mt-2">আপনার সার্চ ফিল্টার পরিবর্তন করে আবার চেষ্টা করুন</p>
-            {(searchTerm || filterDate) && (
+            {(searchTerm || filterDate || filterBranch !== "all") && (
               <Button onClick={clearFilters} variant="link" className="text-green-600 mt-2">
                 সব ফিল্টার মুছে ফেলুন
               </Button>
@@ -185,58 +261,68 @@ export default function PublicNoticePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-            {filteredNotices.map((notice, index) => (
-              <div 
-                key={notice.id} 
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-emerald-200 transition-all duration-300 cursor-pointer group flex flex-col h-full overflow-hidden"
-                onClick={() => setSelectedNotice(notice)}
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                {/* Green top accent */}
-                <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-600 group-hover:h-2 transition-all duration-300"></div>
-                
-                <div className="p-5 sm:p-6 flex flex-col h-full">
-                  {/* Date and attachment badge */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-                      <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="text-xs font-medium">
-                        {new Date(notice.created_at).toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' })}
+            {filteredNotices.map((notice, index) => {
+              const branchInfo = getBranchInfo(notice.branch);
+              
+              return (
+                <div 
+                  key={notice.id} 
+                  className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-emerald-200 transition-all duration-300 cursor-pointer group flex flex-col h-full overflow-hidden relative"
+                  onClick={() => setSelectedNotice(notice)}
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  {/* Green top accent */}
+                  <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-600 group-hover:h-2 transition-all duration-300"></div>
+                  
+                  <div className="p-5 sm:p-6 flex flex-col h-full">
+                    {/* Date and branch badge */}
+                    <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
+                      <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+                        <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-xs font-medium">
+                          {new Date(notice.created_at).toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </span>
+                      </div>
+                      
+                      {/* Branch Badge */}
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium border flex items-center gap-1.5 ${branchInfo.bg} ${branchInfo.text} ${branchInfo.border}`}>
+                        <MapPin className="w-3 h-3" />
+                        {branchInfo.name}
                       </span>
                     </div>
-                    {(notice.file_url || notice.google_drive_link) && (
-                      <span className="text-xs bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-medium border border-blue-100 flex items-center gap-1">
-                        <Paperclip className="w-3 h-3" />
-                        ফাইল সংযুক্ত
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* Title */}
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 group-hover:text-emerald-700 transition-colors line-clamp-2 leading-snug">
-                    {notice.title}
-                  </h3>
-                  
-                  {/* HTML কন্টেন্টের প্রিভিউ */}
-                  <div 
-                    className="text-gray-500 text-sm line-clamp-3 mb-4 flex-grow leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: notice.content }}
-                  />
+                    
+                    {/* Title */}
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 group-hover:text-emerald-700 transition-colors line-clamp-2 leading-snug">
+                      {notice.title}
+                    </h3>
+                    
+                    {/* HTML কন্টেন্টের প্রিভিউ */}
+                    <div 
+                      className="text-gray-500 text-sm line-clamp-3 mb-4 flex-grow leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: notice.content }}
+                    />
 
-                  {/* Bottom action row */}
-                  <div className="flex items-center justify-between border-t pt-4 mt-auto">
-                    <div className="flex items-center text-emerald-600 font-medium text-sm group-hover:translate-x-1 transition-transform">
-                      বিস্তারিত দেখুন <ChevronRight className="w-4 h-4 ml-1" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400 flex items-center gap-1">
-                        <Printer className="w-3 h-3" /> PDF
-                      </span>
+                    {/* Bottom action row */}
+                    <div className="flex items-center justify-between border-t pt-4 mt-auto">
+                      <div className="flex items-center text-emerald-600 font-medium text-sm group-hover:translate-x-1 transition-transform">
+                        বিস্তারিত দেখুন <ChevronRight className="w-4 h-4 ml-1" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {(notice.file_url || notice.google_drive_link) && (
+                          <span className="text-xs bg-gray-50 text-gray-600 px-2.5 py-1 rounded-md font-medium border border-gray-200 flex items-center gap-1 mr-2">
+                            <Paperclip className="w-3 h-3" />
+                            ফাইল
+                          </span>
+                        )}
+                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                          <Printer className="w-3 h-3" /> PDF
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

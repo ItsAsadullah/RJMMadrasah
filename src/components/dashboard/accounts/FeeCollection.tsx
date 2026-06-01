@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,19 +9,83 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Search, Printer, DollarSign, Eye, Download, FileSpreadsheet, History, Filter, ChevronDown, ChevronUp, Users } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle, DialogHeader } from "@/components/ui/dialog";
+import { Loader2, Search, Printer, DollarSign, UserRound, GraduationCap, X, Receipt, Eye, CreditCard, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
-import html2canvas from "html2canvas";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useReactToPrint } from "react-to-print";
 import PaymentSlip from "@/components/dashboard/accounts/PaymentSlip";
+import { getClassOrder, sortClassNames } from "@/lib/classOrder";
 
 const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
+
+const bengaliMonths = ["জানু", "ফেব্রু", "মার্চ", "এপ্রি", "মে", "জুন", "জুলা", "আগ", "সেপ্টে", "অক্টো", "নভে", "ডিসে"];
+
+const getNetAmount = (due: any, activeWaivers?: any[], studentId?: string) => {
+    if ((due?.status === "paid" || due?.status === "waived") && due?.net_amount != null) {
+        return Number(due.net_amount);
+    }
+    
+    const amount = Number(due?.amount) || 0;
+    const fine = Number(due?.fine) || 0;
+    
+    let dynamicWaiver = Number(due?.waiver) || 0;
+    
+    if (activeWaivers && activeWaivers.length > 0 && studentId) {
+        const feeTypeId = due?.fee_type_id || due?.fee_structures?.fee_type_id || due?.fee_structures?.fee_types?.id;
+        if (feeTypeId) {
+            const matchWaiver = activeWaivers.find(w => String(w.student_id) === String(studentId) && String(w.fee_type_id) === String(feeTypeId));
+            if (matchWaiver) {
+                if (matchWaiver.waiver_type === 'full') dynamicWaiver = amount;
+                else if (matchWaiver.waiver_type === 'percentage') dynamicWaiver = (amount * Number(matchWaiver.waiver_value)) / 100;
+                else if (matchWaiver.waiver_type === 'fixed_amount') dynamicWaiver = Number(matchWaiver.waiver_value);
+            }
+        }
+    }
+    
+    // Attach dynamic waiver back to object for UI rendering
+    due.dynamic_waiver = dynamicWaiver;
+
+    return Math.max(amount + fine - dynamicWaiver, 0);
+};
+
+const getOutstandingAmount = (due: any, activeWaivers?: any[], studentId?: string) => {
+    return Math.max(getNetAmount(due, activeWaivers, studentId) - (Number(due?.paid_amount) || 0), 0);
+};
+
+const getFeeName = (due: any) => {
+    return (
+        due?.fee_types?.name_bn ||
+        due?.fee_structures?.fee_types?.name_bn ||
+        (typeof due?.title === "string" ? due.title.split(" - ")[0] : "") ||
+        "ফি"
+    );
+};
+
+const getMonthYearLabel = (due: any) => {
+    if (due?.fee_month || due?.fee_year) {
+        const monthLabel = due?.fee_month ? bengaliMonths[due.fee_month - 1] : "";
+        const yearLabel = due?.fee_year ? toBengaliNumber(due.fee_year) : "";
+        return `${monthLabel ? `${monthLabel} ` : ""}${yearLabel}`.trim();
+    }
+
+    if (due?.due_date) {
+        const date = new Date(due.due_date);
+        if (!Number.isNaN(date.getTime())) {
+            return `${bengaliMonths[date.getMonth()]} ${toBengaliNumber(date.getFullYear())}`;
+        }
+    }
+
+    if (typeof due?.title === "string") {
+        const title = due.title;
+        const month = bengaliMonths.find(m => title.includes(m));
+        const yearMatch = title.match(/(২০\d{2}|\d{4})/);
+        if (month || yearMatch) {
+            return `${month ? `${month} ` : ""}${yearMatch ? toBengaliNumber(yearMatch[1]) : ""}`.trim();
+        }
+    }
+
+    return "-";
+};
 
 export default function FeeCollection() {
     const [search, setSearch] = useState("");
@@ -30,671 +94,843 @@ export default function FeeCollection() {
     const [classes, setClasses] = useState<string[]>([]);
     const [filterBranch, setFilterBranch] = useState("all");
     const [filterClass, setFilterClass] = useState("all");
-    const [filterStatus, setFilterStatus] = useState("all"); // 'all', 'paid', 'due'
+    const [filterDepartment, setFilterDepartment] = useState("all");
+    const [filterPaymentStatus, setFilterPaymentStatus] = useState("all"); // "all", "due", "paid"
+    const [activeWaivers, setActiveWaivers] = useState<any[]>([]);
 
+    const [departments, setDepartments] = useState<string[]>([]);
+
+    const [sortKey, setSortKey] = useState<"default" | "student_id" | "roll" | "name">("default");
+    const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+    const bnCollator = useMemo(() => new Intl.Collator("bn", { sensitivity: "base", numeric: true }), []);
+
+    const sortIndicator = (key: "student_id" | "roll" | "name") => {
+        if (sortKey !== key) return "";
+        return sortDir === "asc" ? " ▲" : " ▼";
+    };
+
+    const normalizeClassName = (value: unknown) => {
+        return String(value ?? "")
+            .trim()
+            .normalize("NFC")
+            .replace(/\u09AF\u09BC/g, "\u09DF");
+    };
+
+    const getRollNumber = (s: any) => {
+        const raw = s?.roll_number ?? s?.roll_no;
+        const bnToAscii: Record<string, string> = {
+            "০": "0", "১": "1", "২": "2", "৩": "3", "৪": "4",
+            "৫": "5", "৬": "6", "৭": "7", "৮": "8", "৯": "9",
+        };
+        const ascii = String(raw ?? "")
+            .trim()
+            .split("")
+            .map((c) => bnToAscii[c] ?? c)
+            .join("");
+        const n = parseInt(ascii, 10);
+        return Number.isFinite(n) ? n : 999999;
+    };
+
+    const sortStudentList = (
+        list: any[],
+        key: "default" | "student_id" | "roll" | "name",
+        dir: "asc" | "desc"
+    ) => {
+        const direction = dir === "asc" ? 1 : -1;
+        return [...list].sort((a: any, b: any) => {
+            if (key === "default") {
+                const aC = getClassOrder(a.class_name);
+                const bC = getClassOrder(b.class_name);
+                if (aC !== bC) return aC - bC;
+                const aR = getRollNumber(a);
+                const bR = getRollNumber(b);
+                if (aR !== bR) return aR - bR;
+                return bnCollator.compare(String(a.name_bn ?? ""), String(b.name_bn ?? ""));
+            }
+
+            if (key === "roll") {
+                return direction * (getRollNumber(a) - getRollNumber(b));
+            }
+            if (key === "student_id") {
+                return direction * bnCollator.compare(String(a.student_id ?? ""), String(b.student_id ?? ""));
+            }
+            // name
+            return direction * bnCollator.compare(String(a.name_bn ?? ""), String(b.name_bn ?? ""));
+        });
+    };
+
+    const handleSortClick = (key: "student_id" | "roll" | "name") => {
+        const nextKey = sortKey === key ? key : key;
+        const nextDir = sortKey === key ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+        setSortKey(nextKey);
+        setSortDir(nextDir);
+        setStudents((prev) => sortStudentList(prev, nextKey, nextDir));
+    };
+
+    // Student selection state
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [dues, setDues] = useState<any[]>([]);
     const [selectedDues, setSelectedDues] = useState<string[]>([]);
+    const [paidHistory, setPaidHistory] = useState<any[]>([]);
+    
+    // UI states
     const [loading, setLoading] = useState(false);
     const [collecting, setCollecting] = useState(false);
+    const [activeTab, setActiveTab] = useState("dues");
+    
+    // Receipt Modal state
     const [receiptData, setReceiptData] = useState<any>(null);
-    const [paidHistory, setPaidHistory] = useState<any[]>([]);
     const printRef = useRef<HTMLDivElement>(null);
+    
+    // Partial Payment state
+    const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+    const [receivedAmount, setReceivedAmount] = useState<string>("");
 
     const handlePrint = useReactToPrint({
         contentRef: printRef,
         documentTitle: `Receipt_${receiptData?.invoiceNo || 'doc'}`,
-        onAfterPrint: () => console.log("Printed")
+        suppressErrors: true,
+        onAfterPrint: () => {
+            console.log("Printed");
+            setReceiptData(null);
+        }
     });
 
-    // Stats
-    const [totalDue, setTotalDue] = useState(0);
-
-    async function fetchInitialData() {
-      const { data: b } = await supabase.from("branches").select("id, name");
-      if(b) setBranches(b);
-      
-      // Fetch unique classes
-      const { data: c } = await supabase.from("students").select("class_name").eq("status", "active");
-      if(c) {
-          // @ts-ignore
-          const uniqueClasses = Array.from(new Set(c.map(i => i.class_name))).filter(Boolean).sort();
-          // @ts-ignore
-          setClasses(uniqueClasses);
-      }
-    }
-
-    async function fetchStudents() {
-      setLoading(true);
-      let query = supabase.from("students")
-          .select(`
-              id, name_bn, student_id, roll_no, class_name, branch_id, father_name_bn, photo_url,
-              student_dues!student_id(amount, paid_amount, status)
-          `)
-          .eq("status", "active")
-          .order("roll_no", { ascending: true });
-
-      if(search) {
-          query = query.or(`name_bn.ilike.%${search}%,student_id.eq.${search}`);
-      }
-      if(filterBranch !== "all") {
-          query = query.eq("branch_id", parseInt(filterBranch));
-      }
-      if(filterClass !== "all") {
-          query = query.eq("class_name", filterClass);
-      }
-
-      const { data } = await query;
-      if(data) {
-          // Process data to calculate total due per student
-          const processed = data.map((s: any) => {
-              const totalDueAmount = s.student_dues
-                  .filter((d: any) => d.status !== 'paid')
-                  .reduce((sum: number, d: any) => sum + (d.amount - (d.paid_amount || 0)), 0);
-              return { ...s, totalDue: totalDueAmount };
-          });
-
-          // Filter by Status if needed
-          let filtered = processed;
-          if(filterStatus === 'due') {
-              filtered = processed.filter((s: any) => s.totalDue > 0);
-          } else if (filterStatus === 'paid') {
-              filtered = processed.filter((s: any) => s.totalDue === 0);
-          }
-
-          setStudents(filtered);
-          setTotalDue(filtered.reduce((sum: number, s: any) => sum + s.totalDue, 0));
-      }
-      setLoading(false);
-    }
-
-    // Initial Data & Filter Logic
     useEffect(() => {
-      fetchInitialData();
+        if (receiptData) {
+            const timer = setTimeout(() => {
+                handlePrint();
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [receiptData, handlePrint]);
+
+    const getBranchInfo = (branchId: string | number) => {
+        return branches.find(b => String(b.id) === String(branchId));
+    };
+
+    const getBranchName = (branchId: string | number) => {
+        return getBranchInfo(branchId)?.name || "-";
+    };
+
+    const withBranchInfo = (student: any) => {
+        const branch = getBranchInfo(student.branch_id);
+        return {
+            ...student,
+            branch_name: branch?.name || "-",
+            branch_phone: branch?.phone || "",
+            branch_address: branch?.address || ""
+        };
+    };
+
+    useEffect(() => {
+        fetchInitialData();
     }, []);
 
     useEffect(() => {
-      fetchStudents();
-    }, [search, filterBranch, filterClass, filterStatus]);
+        fetchStudents();
+    }, [search, filterBranch, filterClass, filterDepartment, filterPaymentStatus]);
 
-    const [activeTab, setActiveTab] = useState("dues");
-    const [showMobileFilterContent, setShowMobileFilterContent] = useState(false);
+    async function fetchInitialData() {
+        const { data: b } = await supabase.from("branches").select("id, name, phone, address");
+        if (b) setBranches(b);
+        
+        const { data: c } = await supabase.from("students").select("class_name, department").eq("status", "active");
+        if (c) {
+            const map = new Map<string, string>();
+            const deptSet = new Set<string>();
+            for (const row of c as any[]) {
+                const trimmedClass = String(row?.class_name ?? "").trim();
+                if (trimmedClass) {
+                    const normalizedClass = normalizeClassName(trimmedClass);
+                    if (normalizedClass && !map.has(normalizedClass)) {
+                        map.set(normalizedClass, trimmedClass);
+                    }
+                }
+                
+                if (row.department) {
+                    const cleanD = String(row.department).replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
+                    if (cleanD) deptSet.add(cleanD);
+                }
+            }
+            const uniqueClasses = sortClassNames(Array.from(map.values()));
+            setClasses(uniqueClasses);
+            setDepartments(Array.from(deptSet).sort());
+        }
+    }
 
-    const handleSelectStudent = async (student: any, tab = "dues") => {
-      setSelectedStudent(student);
-      if(tab) setActiveTab(tab);
-      setLoading(true);
-      // Fetch Dues
-      const { data } = await supabase.from("student_dues")
-        .select("*, fee_structures(class_name, department)")
-        .eq("student_id", student.id)
-        .neq("status", "paid")
-        .order("created_at");
-      
-      if(data) setDues(data);
-      setSelectedDues([]);
+    async function fetchStudents() {
+        setLoading(true);
+        let query = supabase.from("students")
+            .select(`
+                id, name_bn, student_id, roll_no, roll_number, class_name, department, branch_id, academic_year, photo_url,
+                student_dues!student_id(amount, waiver, fine, paid_amount, status, net_amount, fee_type_id)
+            `)
+            .eq("status", "active")
+            .order("created_at", { ascending: false });
 
-      // Fetch History
-      // Fix: status check should be consistent. Some rows might be 'Paid' or 'paid'. 
-      // Also ensuring we fetch all relevant fields.
-      const { data: paidData } = await supabase.from("student_dues")
-        .select("*, fee_structures(class_name, department)")
-        .eq("student_id", student.id)
-        .eq("status", "paid")
-        .order("updated_at", { ascending: false });
-      
-      // Fallback if no paid data found with exact match, try case insensitive or check paid_amount > 0
-      if(!paidData || paidData.length === 0) {
-          const { data: paidDataFallback } = await supabase.from("student_dues")
-              .select("*, fee_structures(class_name, department)")
-              .eq("student_id", student.id)
-              .gt("paid_amount", 0)
-              .order("updated_at", { ascending: false });
-              
-          if(paidDataFallback) setPaidHistory(paidDataFallback);
-      } else {
-          setPaidHistory(paidData);
-      }
+        const cleanSearch = search.trim();
+        if (cleanSearch) query = query.or(`name_bn.ilike.%${cleanSearch}%,student_id.ilike.%${cleanSearch}%`);
+        if (filterBranch !== "all") query = query.eq("branch_id", parseInt(filterBranch));
+        if (filterClass !== "all") query = query.eq("class_name", filterClass);
+        if (filterDepartment !== "all") query = query.eq("department", filterDepartment);
 
-      setLoading(false);
+        const { data: wData } = await supabase.from('student_waivers').select('*').eq('is_active', true);
+        const waivers = wData || [];
+        setActiveWaivers(waivers);
+
+        const { data } = await query;
+        if (data) {
+            let processed = data.map((s: any) => {
+                const unpaidDues = (s.student_dues || [])
+                    .filter((d: any) => d.status !== "paid" && d.status !== "waived")
+                    .filter((d: any) => getOutstandingAmount(d, waivers, s.student_id) > 0);
+                const totalDue = unpaidDues.reduce((sum: number, d: any) => sum + getOutstandingAmount(d, waivers, s.student_id), 0);
+                const paidCount = (s.student_dues || []).filter((d: any) => d.status === "paid").length;
+                return { ...s, totalDue, dueCount: unpaidDues.length, paidCount };
+            });
+
+            if (filterPaymentStatus === "due") {
+                processed = processed.filter((s: any) => s.totalDue > 0);
+            } else if (filterPaymentStatus === "paid") {
+                processed = processed.filter((s: any) => s.totalDue === 0 && (s.student_dues && s.student_dues.length > 0));
+            } else if (filterPaymentStatus === "not_assigned") {
+                processed = processed.filter((s: any) => !s.student_dues || s.student_dues.length === 0);
+            }
+
+            setStudents(sortStudentList(processed, sortKey, sortDir));
+        }
+        setLoading(false);
+    }
+
+    const handleSelectStudent = async (student: any) => {
+        const studentWithBranch = withBranchInfo(student);
+        setSelectedStudent(studentWithBranch);
+        setActiveTab("dues");
+        setLoading(true);
+        
+        const [dueRes, paidRes] = await Promise.all([
+            supabase
+                .from("student_dues")
+                .select("id, title, amount, waiver, fine, paid_amount, status, due_date, fee_month, fee_year, net_amount, fee_type_id, fee_structure_id, created_at, fee_types(name_bn), fee_structures(branch_id, class_name, frequency, fee_types(name_bn))")
+                .eq("student_id", student.id)
+                .not("status", "in", '("paid","waived")')
+                .order("created_at"),
+            supabase
+                .from("student_dues")
+                .select("id, title, amount, waiver, fine, paid_amount, status, due_date, fee_month, fee_year, net_amount, fee_type_id, fee_structure_id, fee_types(name_bn), fee_structures(branch_id, class_name, frequency, fee_types(name_bn)), payment_date, receipt_no, updated_at")
+                .eq("student_id", student.id)
+                .eq("status", "paid")
+                .order("updated_at", { ascending: false })
+        ]);
+        
+        if (dueRes.error) {
+            console.error("Due fetch error:", dueRes.error);
+            setDues([]);
+            setSelectedStudent({ ...studentWithBranch, totalDue: 0, dueCount: 0 });
+        } else {
+            const unpaidDues = (dueRes.data || []).filter((d: any) => getOutstandingAmount(d, activeWaivers, student.student_id) > 0);
+            setDues(unpaidDues);
+            setSelectedStudent({
+                ...studentWithBranch,
+                totalDue: unpaidDues.reduce((sum: number, d: any) => sum + getOutstandingAmount(d, activeWaivers, student.student_id), 0),
+                dueCount: unpaidDues.length
+            });
+        }
+
+        if (paidRes.error) {
+            console.error("Paid history fetch error:", paidRes.error);
+            setPaidHistory([]);
+        } else {
+            setPaidHistory(paidRes.data || []);
+        }
+        
+        setSelectedDues([]);
+        setLoading(false);
     };
 
-    const handleDownloadReceipt = async (receiptContentId: string, filename: string) => {
-        const element = document.getElementById(receiptContentId);
-        if(!element) return;
+    const handleCollectClick = () => {
+        if (!selectedStudent || selectedDues.length === 0) return;
+        
+        const feesToPay = dues.filter(d => selectedDues.includes(d.id) && getOutstandingAmount(d, activeWaivers, selectedStudent.student_id) > 0);
+        const total = feesToPay.reduce((acc, curr) => acc + getOutstandingAmount(curr, activeWaivers, selectedStudent.student_id), 0);
+        
+        if (feesToPay.length === 0 || total <= 0) {
+            alert("আদায়ের জন্য কোনো বকেয়া টাকা পাওয়া যায়নি।");
+            return;
+        }
+
+        setReceivedAmount(total.toString());
+        setPaymentModalOpen(true);
+    };
+
+    const processPayment = async () => {
+        if (!selectedStudent || selectedDues.length === 0) return;
+        
+        const amountToPay = parseFloat(receivedAmount);
+        if (isNaN(amountToPay) || amountToPay <= 0) {
+            alert("সঠিক টাকার পরিমাণ দিন।");
+            return;
+        }
+
+        const feesToPay = dues.filter(d => selectedDues.includes(d.id) && getOutstandingAmount(d, activeWaivers, selectedStudent.student_id) > 0);
+        const totalOutstanding = feesToPay.reduce((acc, curr) => acc + getOutstandingAmount(curr, activeWaivers, selectedStudent.student_id), 0);
+        
+        if (amountToPay > totalOutstanding) {
+            alert(`সর্বোচ্চ ৳${totalOutstanding} জমা নেওয়া যাবে। বকেয়ার চেয়ে বেশি টাকা জমা নেওয়া সম্ভব নয়।`);
+            return;
+        }
+
+        setCollecting(true);
         
         try {
-            const canvas = await html2canvas(element, { scale: 2 } as any);
-            const imgData = canvas.toDataURL("image/png");
-            const pdf = new jsPDF("p", "mm", "a4");
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            const receiptNo = `INV-${Date.now().toString().slice(-6)}`;
+            const { data: { user } } = await supabase.auth.getUser();
             
-            pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`${filename}.pdf`);
+            let remainingAmount = amountToPay;
+            const receiptFees = [];
+            
+            // 1. Update Dues Status Sequentially
+            for (const fee of feesToPay) {
+                if (remainingAmount <= 0) break;
+
+                const outstanding = getOutstandingAmount(fee, activeWaivers, selectedStudent.student_id);
+                if (outstanding <= 0) continue;
+
+                const payForThisDue = Math.min(outstanding, remainingAmount);
+                const currentPaid = Number(fee.paid_amount) || 0;
+                const newPaidAmount = currentPaid + payForThisDue;
+
+                const finalNetAmount = getNetAmount(fee, activeWaivers, selectedStudent.student_id);
+                const finalWaiver = fee.dynamic_waiver ?? fee.waiver;
+                const newStatus = newPaidAmount >= finalNetAmount ? "paid" : "partial";
+
+                const { error } = await supabase.from("student_dues")
+                    .update({
+                        status: newStatus,
+                        paid_amount: newPaidAmount,
+                        net_amount: finalNetAmount,
+                        waiver: finalWaiver,
+                        payment_date: new Date().toISOString(),
+                        receipt_no: receiptNo
+                    })
+                    .eq("id", fee.id);
+                
+                if (error) throw error;
+
+                receiptFees.push({ 
+                    description: `${getFeeName(fee)} - ${getMonthYearLabel(fee)}${payForThisDue < outstanding ? ' (আংশিক)' : ''}`, 
+                    amount: payForThisDue 
+                });
+
+                remainingAmount -= payForThisDue;
+            }
+
+            const actualTotalPaid = amountToPay - remainingAmount;
+
+            // 2. Create Transaction
+            const { error: txError } = await supabase.from("transactions").insert({
+                amount: actualTotalPaid,
+                type: "income",
+                fund_type: "general",
+                description: `বেতন আদায় - ${selectedStudent.name_bn} (${selectedStudent.student_id}) - রসিদ ${receiptNo} - ${receiptFees.length} টি ফি`,
+                transaction_date: new Date().toISOString().split("T")[0],
+                created_by: user?.id,
+                student_id: selectedStudent.student_id,
+                branch_id: selectedStudent.branch_id,
+                payment_method: "cash"
+            });
+            if (txError) throw txError;
+
+            // Refresh data
+            await handleSelectStudent(selectedStudent);
+            await fetchStudents(); // Refresh master list to update due count
+
+            // Show Receipt
+            setReceiptData({
+                student: selectedStudent,
+                fees: receiptFees,
+                total: actualTotalPaid,
+                invoiceNo: receiptNo,
+                date: new Date()
+            });
+
+            setPaymentModalOpen(false);
         } catch (error) {
-            console.error("PDF Gen Error", error);
-            alert("রসিদ ডাউনলোড করতে সমস্যা হয়েছে");
+            console.error(error);
+            alert("পেমেন্ট সম্পন্ন করতে সমস্যা হয়েছে।");
         }
+        setCollecting(false);
     };
 
-    const handleHistoryReceipt = (item: any) => {
-        // Create a temporary receipt data for viewing/downloading
+    const handleShowReceipt = (item: any) => {
+        const amt = item.paid_amount || getNetAmount(item, activeWaivers, selectedStudent?.student_id);
         setReceiptData({
             student: selectedStudent,
-            fees: [item],
-            total: item.amount,
-            invoiceNo: `REC-${item.id.slice(0,6).toUpperCase()}`,
-            date: new Date(item.updated_at || item.created_at)
+            fees: [{ description: `${getFeeName(item)} - ${getMonthYearLabel(item)}`, amount: amt }],
+            total: amt,
+            invoiceNo: item.receipt_no || `REC-${item.id.slice(0,6).toUpperCase()}`,
+            date: new Date(item.payment_date || item.updated_at)
         });
     };
 
-    const handleCollect = async () => {
-      if(selectedDues.length === 0) return;
-      setCollecting(true);
-      
-      try {
-         const feesToPay = dues.filter(d => selectedDues.includes(d.id));
-         const total = feesToPay.reduce((acc, curr) => acc + curr.amount, 0);
-         
-         // 1. Update Dues Status
-         await supabase.from("student_dues")
-           .update({ status: 'paid', paid_amount: total, updated_at: new Date() }) 
-           .in("id", selectedDues);
+    const selectedFeesTotal = dues
+        .filter(d => selectedDues.includes(d.id))
+        .reduce((sum, d) => sum + getOutstandingAmount(d, activeWaivers, selectedStudent?.student_id), 0);
 
-         // 2. Create Transaction
-         const { data: { user } } = await supabase.auth.getUser();
-         
-         const transactions = feesToPay.map(fee => ({
-             branch_id: selectedStudent.branch_id,
-             category_id: 1, 
-             student_id: selectedStudent.student_id, 
-             amount: fee.amount,
-             description: fee.title,
-             type: 'income',
-             fund_type: 'general',
-             created_by: user?.id,
-             due_id: fee.id
-         }));
-         
-         await supabase.from("transactions").insert(transactions);
-
-         // 3. Receipt Data
-         setReceiptData({
-             student: selectedStudent,
-             fees: feesToPay,
-             total: total,
-             invoiceNo: `INV-${Date.now().toString().slice(-6)}`,
-             date: new Date()
-         });
-
-         // Refresh
-         handleSelectStudent(selectedStudent);
-         fetchStudents(); // Refresh list stats
-
-      } catch (e) { console.error(e); alert("Failed"); }
-      setCollecting(false);
-    };
-
-    // Export Functions
-    const exportPDF = () => {
-        const doc = new jsPDF();
-        doc.text("Student Due List Report", 14, 10);
-        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 16);
-        
-        const tableColumn = ["ID", "Name", "Class", "Roll", "Total Due"];
-        const tableRows = students.map(s => [
-            s.student_id,
-            s.name_bn,
-            s.class_name,
-            s.roll_no || '-',
-            s.totalDue
-        ]);
-    
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 25,
-        });
-        doc.save("student_due_list.pdf");
-    };
-
-    const exportExcel = () => {
-        const worksheet = XLSX.utils.json_to_sheet(students.map(s => ({
-            ID: s.student_id,
-            Name: s.name_bn,
-            Class: s.class_name,
-            Roll: s.roll_no,
-            "Total Due": s.totalDue,
-            "Father Name": s.father_name_bn
-        })));
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
-        const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-        const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" });
-        saveAs(data, "student_due_list.xlsx");
-    };
+    const totalDueAmount = students.reduce((sum, student) => sum + (Number(student.totalDue) || 0), 0);
+    const dueStudentCount = students.filter(student => (Number(student.totalDue) || 0) > 0).length;
+    const paidStudentCount = students.filter(student => (Number(student.totalDue) || 0) === 0 && student.student_dues && student.student_dues.length > 0).length;
+    const totalDueItems = students.reduce((sum, student) => sum + (Number(student.dueCount) || 0), 0);
 
     return (
         <div className="space-y-6">
-            {/* Stats Summary */}
-            {!selectedStudent && (
-                <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                    <Card className="border-l-[3px] sm:border-l-4 border-l-red-500 py-0 gap-0 rounded-2xl shadow-sm">
-                        <CardContent className="p-2.5 sm:p-3 flex items-start justify-between gap-2">
-                            <div className="min-w-0 space-y-0.5">
-                                <p className="text-[9px] sm:text-[11px] leading-tight font-bold text-gray-500">সর্বমোট বকেয়া</p>
-                                <h3 className="text-sm sm:text-2xl leading-none font-bold text-red-600">৳ {toBengaliNumber(totalDue)}</h3>
-                            </div>
-                            <div className="shrink-0 rounded-full bg-red-50 p-1 sm:p-1.5 text-red-600">
-                                <DollarSign className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
+            {!selectedStudent ? (
+                // ---------------- STUDENT SELECTION LIST ----------------
+                <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                        <div>
+                            <h2 className="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <DollarSign className="w-5 h-5 text-green-600" /> বেতন আদায়
+                            </h2>
+                            <p className="text-xs sm:text-sm text-gray-500">শিক্ষার্থীর বকেয়া ফি আদায় করুন</p>
+                        </div>
+                    </div>
+
+                    <Card className="rounded-2xl shadow-sm">
+                        <CardContent className="p-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-gray-600">খুঁজুন</label>
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                                        <Input
+                                            className="pl-9 h-10"
+                                            placeholder="আইডি বা নাম..."
+                                            value={search}
+                                            onChange={e => setSearch(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-gray-600">শাখা</label>
+                                    <Select value={filterBranch} onValueChange={setFilterBranch}>
+                                        <SelectTrigger className="h-10"><SelectValue placeholder="শাখা" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">সকল শাখা</SelectItem>
+                                            {branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-gray-600">বিভাগ</label>
+                                    <Select value={filterDepartment} onValueChange={setFilterDepartment}>
+                                        <SelectTrigger className="h-10"><SelectValue placeholder="বিভাগ" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">সকল বিভাগ</SelectItem>
+                                            {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-gray-600">শ্রেণি</label>
+                                    <Select value={filterClass} onValueChange={setFilterClass}>
+                                        <SelectTrigger className="h-10"><SelectValue placeholder="শ্রেণি" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">সকল শ্রেণি</SelectItem>
+                                            {classes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-gray-600">পেমেন্ট স্ট্যাটাস</label>
+                                    <Select value={filterPaymentStatus} onValueChange={setFilterPaymentStatus}>
+                                        <SelectTrigger className="h-10"><SelectValue placeholder="স্ট্যাটাস" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">সকল শিক্ষার্থী</SelectItem>
+                                            <SelectItem value="due">বকেয়া আছে</SelectItem>
+                                            <SelectItem value="paid">পরিশোধিত (বকেয়া নেই)</SelectItem>
+                                            <SelectItem value="not_assigned">নির্ধারণ করা হয়নি</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
-                    <Card className="border-l-[3px] sm:border-l-4 border-l-blue-500 py-0 gap-0 rounded-2xl shadow-sm">
-                        <CardContent className="p-2.5 sm:p-3 flex items-start justify-between gap-2">
-                            <div className="min-w-0 space-y-0.5">
-                                <p className="text-[9px] sm:text-[11px] leading-tight font-bold text-gray-500">মোট শিক্ষার্থী (বকেয়া সহ)</p>
-                                <h3 className="text-sm sm:text-2xl leading-none font-bold text-blue-600">{toBengaliNumber(students.filter(s=>s.totalDue>0).length)} জন</h3>
-                            </div>
-                            <div className="shrink-0 rounded-full bg-blue-50 p-1 sm:p-1.5 text-blue-600">
-                                <Users className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
-                            </div>
+
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                        <Card className="rounded-xl border-l-4 border-l-slate-500 py-0">
+                            <CardContent className="p-3">
+                                <p className="text-[10px] sm:text-xs font-bold text-gray-500">মোট শিক্ষার্থী</p>
+                                <h3 className="text-lg sm:text-2xl font-bold text-gray-800">{toBengaliNumber(students.length)} জন</h3>
+                                <p className="text-[10px] text-gray-400">পরিশোধিত: {toBengaliNumber(paidStudentCount)} জন</p>
+                            </CardContent>
+                        </Card>
+                        <Card className="rounded-xl border-l-4 border-l-red-500 py-0">
+                            <CardContent className="p-3">
+                                <p className="text-[10px] sm:text-xs font-bold text-red-600">বকেয়া শিক্ষার্থী</p>
+                                <h3 className="text-lg sm:text-2xl font-bold text-red-700">{toBengaliNumber(dueStudentCount)} জন</h3>
+                            </CardContent>
+                        </Card>
+                        <Card className="rounded-xl border-l-4 border-l-amber-500 py-0">
+                            <CardContent className="p-3">
+                                <p className="text-[10px] sm:text-xs font-bold text-amber-600">বকেয়া ফি আইটেম</p>
+                                <h3 className="text-lg sm:text-2xl font-bold text-amber-700">{toBengaliNumber(totalDueItems)} টি</h3>
+                            </CardContent>
+                        </Card>
+                        <Card className="rounded-xl border-l-4 border-l-green-600 py-0">
+                            <CardContent className="p-3">
+                                <p className="text-[10px] sm:text-xs font-bold text-green-700">মোট আদায়যোগ্য</p>
+                                <h3 className="text-lg sm:text-2xl font-bold text-green-700">৳ {toBengaliNumber(totalDueAmount)}</h3>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <Card className="rounded-2xl shadow-sm">
+                        <CardContent className="p-0">
+                            {loading ? (
+                                <div className="flex justify-center py-20"><Loader2 className="animate-spin w-8 h-8 text-green-600" /></div>
+                            ) : students.length === 0 ? (
+                                <div className="text-center py-16 text-gray-400">
+                                    <UserRound className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                    <p className="font-bold">শিক্ষার্থী পাওয়া যায়নি</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader className="bg-gray-50">
+                                        <TableRow>
+                                            <TableHead
+                                                className="cursor-pointer select-none"
+                                                onClick={() => handleSortClick("student_id")}
+                                                title="আইডি দিয়ে শর্ট"
+                                            >
+                                                আইডি{sortIndicator("student_id")}
+                                            </TableHead>
+                                            <TableHead
+                                                className="cursor-pointer select-none"
+                                                onClick={() => handleSortClick("roll")}
+                                                title="রোল দিয়ে শর্ট"
+                                            >
+                                                রোল{sortIndicator("roll")}
+                                            </TableHead>
+                                            <TableHead
+                                                className="cursor-pointer select-none"
+                                                onClick={() => handleSortClick("name")}
+                                                title="নাম দিয়ে শর্ট"
+                                            >
+                                                নাম{sortIndicator("name")}
+                                            </TableHead>
+                                            <TableHead>শাখা</TableHead>
+                                            <TableHead>বিভাগ</TableHead>
+                                            <TableHead>শ্রেণি</TableHead>
+                                            <TableHead className="text-center">বেতন</TableHead>
+                                            <TableHead className="text-right">টাকার পরিমাণ</TableHead>
+                                            <TableHead>স্ট্যাটাস</TableHead>
+                                            <TableHead className="text-right">অ্যাকশন</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {students.map(s => (
+                                            <TableRow key={s.id} className="hover:bg-green-50/50 cursor-pointer" onClick={() => handleSelectStudent(s)}>
+                                                <TableCell className="font-mono text-sm">{s.student_id}</TableCell>
+                                                <TableCell className="text-sm text-gray-600">{toBengaliNumber(s.roll_number ?? s.roll_no ?? "") || "-"}</TableCell>
+                                                <TableCell className="font-bold text-gray-800">{s.name_bn}</TableCell>
+                                                <TableCell className="text-sm min-w-35">{getBranchName(s.branch_id)}</TableCell>
+                                                <TableCell className="text-sm text-gray-600">{s.department || "-"}</TableCell>
+                                                <TableCell className="text-sm">{s.class_name}</TableCell>
+                                                <TableCell className="text-center">
+                                                    {s.totalDue > 0 ? (
+                                                        <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">{toBengaliNumber(s.dueCount || 0)} টি</Badge>
+                                                    ) : (
+                                                        <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">নেই</Badge>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {s.totalDue > 0 ? (
+                                                        <span className="font-bold text-red-600">৳ {toBengaliNumber(s.totalDue)}</span>
+                                                    ) : (
+                                                        <span className="text-gray-500">৳ ০</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {!s.student_dues || s.student_dues.length === 0 ? (
+                                                        <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">নির্ধারণ করা হয়নি</span>
+                                                    ) : s.totalDue > 0 ? (
+                                                        <span className="text-xs font-bold text-red-600">বকেয়া</span>
+                                                    ) : (
+                                                        <span className="text-xs font-bold text-green-600">পরিশোধিত</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button
+                                                        size="sm"
+                                                        variant={s.totalDue > 0 ? "default" : "outline"}
+                                                        className={s.totalDue > 0 ? "bg-green-600 hover:bg-green-700" : "text-gray-700"}
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            handleSelectStudent(s);
+                                                        }}
+                                                    >
+                                                        {s.totalDue > 0 ? <CreditCard className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                        {s.totalDue > 0 ? "আদায়" : "বিস্তারিত"}
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>
-            )}
-            <Card>
-                <CardHeader className="pb-4">
-                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-                        <CardTitle>ফি সংগ্রহ ও বকেয়া তালিকা</CardTitle>
-                        {!selectedStudent && (
-                            <div className="flex gap-2 flex-wrap">
-                                <Button variant="outline" size="sm" onClick={exportPDF} title="PDF Download"><Download className="w-4 h-4 mr-1"/> PDF</Button>
-                                <Button variant="outline" size="sm" onClick={exportExcel} title="Excel Export"><FileSpreadsheet className="w-4 h-4 mr-1"/> Excel</Button>
+            ) : (
+                // ---------------- STUDENT DUES / HISTORY ----------------
+                <div className="space-y-4">
+                    <Button variant="outline" size="sm" onClick={() => setSelectedStudent(null)} className="mb-2">
+                        <X className="w-4 h-4 mr-2" /> ফিরে যান
+                    </Button>
+
+                    {/* Student Info Card */}
+                    <Card className="rounded-2xl shadow-sm border-l-4 border-l-green-600">
+                        <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden shrink-0">
+                                {selectedStudent.photo_url ? (
+                                    <img src={selectedStudent.photo_url} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                    <GraduationCap className="w-8 h-8 text-gray-400" />
+                                )}
                             </div>
-                        )}
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    {!selectedStudent ? (
-                        <>
-                          <div className="mb-4 md:hidden">
-                              <Button
-                                  variant="outline"
-                                  className="w-full justify-between"
-                                  onClick={() => setShowMobileFilterContent((prev) => !prev)}
-                              >
-                                  <span className="flex items-center gap-2"><Filter className="w-4 h-4" /> ফিল্টার: ফি সংগ্রহ ও বকেয়া তালিকা</span>
-                                  {showMobileFilterContent ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                              </Button>
-                          </div>
-
-                          <div className={`${showMobileFilterContent ? "block" : "hidden"} md:block`}>
-                          <div className="flex flex-col md:flex-row gap-4 mb-6 bg-gray-50 p-4 rounded-lg border">
-                              <div className="w-full md:w-1/4">
-                                  <label className="text-xs font-bold text-gray-500 mb-1 block">শাখা</label>
-                                  <Select value={filterBranch} onValueChange={setFilterBranch}>
-                                      <SelectTrigger className="bg-white"><SelectValue placeholder="শাখা" /></SelectTrigger>
-                                      <SelectContent>
-                                          <SelectItem value="all">সব শাখা</SelectItem>
-                                          {branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
-                                      </SelectContent>
-                                  </Select>
-                              </div>
-                              <div className="w-full md:w-1/4">
-                                  <label className="text-xs font-bold text-gray-500 mb-1 block">শ্রেণি</label>
-                                  <Select value={filterClass} onValueChange={setFilterClass}>
-                                      <SelectTrigger className="bg-white"><SelectValue placeholder="শ্রেণি" /></SelectTrigger>
-                                      <SelectContent>
-                                          <SelectItem value="all">সব শ্রেণি</SelectItem>
-                                          {classes.map((c, i) => <SelectItem key={i} value={c}>{c}</SelectItem>)}
-                                      </SelectContent>
-                                  </Select>
-                              </div>
-                              <div className="w-full md:w-1/4">
-                                  <label className="text-xs font-bold text-gray-500 mb-1 block">পেমেন্ট স্ট্যাটাস</label>
-                                  <Select value={filterStatus} onValueChange={setFilterStatus}>
-                                      <SelectTrigger className="bg-white"><SelectValue placeholder="স্ট্যাটাস" /></SelectTrigger>
-                                      <SelectContent>
-                                          <SelectItem value="all">সব</SelectItem>
-                                          <SelectItem value="due">বকেয়া আছে</SelectItem>
-                                          <SelectItem value="paid">পরিশোধিত</SelectItem>
-                                      </SelectContent>
-                                  </Select>
-                              </div>
-                              <div className="relative w-full md:w-1/4">
-                                  <label className="text-xs font-bold text-gray-500 mb-1 block">সার্চ</label>
-                                  <div className="relative">
-                                      <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4"/>
-                                      <Input placeholder="নাম বা আইডি..." className="pl-9 bg-white" value={search} onChange={e=>setSearch(e.target.value)} />
-                                  </div>
-                              </div>
-                          </div>
-                          </div>
-
-                          <div className="md:hidden space-y-3">
-                              {loading ? (
-                                  <div className="text-center py-10"><Loader2 className="animate-spin mx-auto text-green-600" /></div>
-                              ) : students.length === 0 ? (
-                                  <div className="text-center py-10 text-gray-400 border rounded-lg">কোনো তথ্য পাওয়া যায়নি</div>
-                              ) : (
-                                  students.map((s, idx) => (
-                                      <Card key={s.id} className="cursor-pointer" onClick={() => handleSelectStudent(s)}>
-                                              <CardContent className="p-2 space-y-2">
-                                                  <div className="flex items-center justify-between gap-2">
-                                                  <div className="flex items-center gap-3 min-w-0">
-                                                      {s.photo_url ? (
-                                                          <img
-                                                              src={s.photo_url}
-                                                              alt={s.name_bn || "Student"}
-                                                              className="h-8 w-8 rounded-full object-cover border border-gray-200 bg-white"
-                                                              loading="lazy"
-                                                          />
-                                                      ) : (
-                                                          <div className="h-8 w-8 rounded-full bg-white border border-gray-200 flex items-center justify-center font-bold text-sm text-green-700">
-                                                              {s.name_bn?.[0] || "?"}
-                                                          </div>
-                                                      )}
-                                                      <div className="min-w-0">
-                                                          <div className="text-sm font-semibold text-gray-800 truncate">{toBengaliNumber(idx + 1)}. {s.name_bn}</div>
-                                                          <div className="text-[11px] text-gray-500 font-mono truncate">ID: {s.student_id}</div>
-                                                      </div>
-                                                  </div>
-                                                  <div className="flex items-center gap-1 shrink-0">
-                                                      <Button
-                                                          size="sm"
-                                                          variant="ghost"
-                                                          className="h-8 w-8 p-0"
-                                                          onClick={(e) => { e.stopPropagation(); handleSelectStudent(s, 'dues'); }}
-                                                          title="View Dues"
-                                                      >
-                                                          <Eye className="w-4 h-4 text-green-600"/>
-                                                      </Button>
-                                                      <Button
-                                                          size="sm"
-                                                          variant="ghost"
-                                                          className="h-8 w-8 p-0"
-                                                          onClick={(e) => { e.stopPropagation(); handleSelectStudent(s, 'history'); }}
-                                                          title="Payment History"
-                                                      >
-                                                          <History className="w-4 h-4 text-blue-600"/>
-                                                      </Button>
-                                                  </div>
-                                              </div>
-
-                                              <div className="grid grid-cols-2 gap-2 text-[12px]">
-                                                  <div className="bg-gray-50 rounded-md p-1">
-                                                      <p className="text-gray-500 text-[11px]">শ্রেণি / রোল</p>
-                                                      <p className="font-medium text-sm text-gray-800">{s.class_name} / {s.roll_no || '-'}</p>
-                                                  </div>
-                                                  <div className="bg-gray-50 rounded-md p-1">
-                                                      <p className="text-gray-500 text-[11px]">শাখা</p>
-                                                      <p className="font-medium text-sm text-gray-800 truncate">{branches.find(b => b.id === s.branch_id)?.name || 'N/A'}</p>
-                                                  </div>
-                                              </div>
-
-                                              <div className="flex justify-between items-center">
-                                                  <span className="text-[12px] text-gray-500">মোট বকেয়া</span>
-                                                  {s.totalDue > 0 ? (
-                                                      <Badge className="bg-red-100 text-red-700 hover:bg-red-200 border-red-200 font-bold">৳ {toBengaliNumber(s.totalDue)}</Badge>
-                                                  ) : (
-                                                      <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-green-200 text-sm">পরিশোধিত</Badge>
-                                                  )}
-                                              </div>
-                                          </CardContent>
-                                      </Card>
-                                  ))
-                              )}
-                          </div>
-
-                          <div className="hidden md:block border rounded-lg overflow-hidden">
-                              <Table>
-                                  <TableHeader className="bg-gray-100">
-                                      <TableRow>
-                                          <TableHead className="w-12.5">#</TableHead>
-                                          <TableHead>শিক্ষার্থী</TableHead>
-                                          <TableHead>শ্রেণি ও রোল</TableHead>
-                                          <TableHead>শাখা</TableHead>
-                                          <TableHead className="text-right">মোট বকেয়া</TableHead>
-                                          <TableHead className="text-right">অ্যাকশন</TableHead>
-                                      </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                      {loading ? (
-                                          <TableRow><TableCell colSpan={6} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-green-600"/></TableCell></TableRow>
-                                      ) : students.length === 0 ? (
-                                          <TableRow><TableCell colSpan={6} className="text-center py-10 text-gray-400">কোনো তথ্য পাওয়া যায়নি</TableCell></TableRow>
-                                      ) : (
-                                          students.map((s, idx) => (
-                                              <TableRow key={s.id} className="hover:bg-green-50/50 cursor-pointer group" onClick={() => handleSelectStudent(s)}>
-                                                  <TableCell className="font-mono text-gray-500">{toBengaliNumber(idx + 1)}</TableCell>
-                                                  <TableCell>
-                                                      <div className="flex items-center gap-3">
-                                                          {s.photo_url ? (
-                                                              <img
-                                                                  src={s.photo_url}
-                                                                  alt={s.name_bn || "Student"}
-                                                                  className="h-10 w-10 rounded-full object-cover border border-gray-200 bg-white"
-                                                                  loading="lazy"
-                                                              />
-                                                          ) : (
-                                                              <div className="h-10 w-10 rounded-full bg-white border border-gray-200 flex items-center justify-center font-bold text-base text-green-700">
-                                                                  {s.name_bn?.[0] || "?"}
-                                                              </div>
-                                                          )}
-                                                          <div>
-                                                              <div className="font-bold text-gray-800 group-hover:text-green-700">{s.name_bn}</div>
-                                                              <div className="text-xs text-gray-500 font-mono">ID: {s.student_id}</div>
-                                                          </div>
-                                                      </div>
-                                                  </TableCell>
-                                                  <TableCell>
-                                                      <div className="text-sm">{s.class_name}</div>
-                                                      <div className="text-xs text-gray-500">Roll: {s.roll_no || '-'}</div>
-                                                  </TableCell>
-                                                  <TableCell><Badge variant="outline" className="font-normal">{branches.find(b => b.id === s.branch_id)?.name || 'N/A'}</Badge></TableCell>
-                                                  <TableCell className="text-right">
-                                                      {s.totalDue > 0 ? (
-                                                          <Badge className="bg-red-100 text-red-700 hover:bg-red-200 border-red-200 font-bold">৳ {toBengaliNumber(s.totalDue)}</Badge>
-                                                      ) : (
-                                                          <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-green-200">পরিশোধিত</Badge>
-                                                      )}
-                                                  </TableCell>
-                                                  <TableCell className="text-right flex justify-end gap-2">
-                                                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleSelectStudent(s, 'dues')} title="View Dues">
-                                                          <Eye className="w-4 h-4 text-gray-400 group-hover:text-green-600"/>
-                                                      </Button>
-                                                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); handleSelectStudent(s, 'history'); }} title="Payment History">
-                                                          <History className="w-4 h-4 text-gray-400 group-hover:text-blue-600"/>
-                                                      </Button>
-                                                  </TableCell>
-                                              </TableRow>
-                                          ))
-                                      )}
-                                  </TableBody>
-                              </Table>
-                          </div>
-                        </>
-                    ) : (
-                        // Selected Student View (Payment Collection)
-                        (<div className="animate-in fade-in slide-in-from-right-4">
-                            <div className="bg-green-50 p-4 rounded-lg flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6 border border-green-100 shadow-sm">
-                                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                                    <div className="h-12 w-12 bg-white rounded-full flex items-center justify-center font-bold text-xl text-green-700 border-2 border-green-200">
-                                        {selectedStudent.name_bn?.[0]}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <h3 className="font-bold text-lg text-gray-800">{selectedStudent.name_bn}</h3>
-                                        <p className="text-xs sm:text-sm text-gray-600 font-mono wrap-break-word">ID: {selectedStudent.student_id} | Class: {selectedStudent.class_name} | Roll: {selectedStudent.roll_no}</p>
-                                    </div>
+                            <div className="text-center sm:text-left flex-1 min-w-0">
+                                <h2 className="text-xl font-bold text-gray-800">{selectedStudent.name_bn}</h2>
+                                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 mt-2 text-sm text-gray-600">
+                                    <p><span className="font-semibold text-gray-500">আইডি:</span> <span className="font-mono">{selectedStudent.student_id}</span></p>
+                                    <p><span className="font-semibold text-gray-500">রোল:</span> {toBengaliNumber(selectedStudent.roll_number ?? selectedStudent.roll_no ?? "") || '-'}</p>
+                                    <p><span className="font-semibold text-gray-500">শাখা:</span> {selectedStudent.branch_name}</p>
+                                    <p><span className="font-semibold text-gray-500">বিভাগ:</span> {selectedStudent.department || "-"}</p>
+                                    <p><span className="font-semibold text-gray-500">শ্রেণি:</span> {selectedStudent.class_name}</p>
                                 </div>
-                                <Button variant="outline" onClick={() => { setSelectedStudent(null); setDues([]); }}>তালিকায় ফিরে যান</Button>
                             </div>
-                            {loading ? <div className="py-20 text-center"><Loader2 className="animate-spin mx-auto"/></div> : (
-                                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                                    <TabsList className="grid w-full grid-cols-2 mb-6 h-auto">
-                                        <TabsTrigger value="dues">বকেয়া সমূহ ({dues.length})</TabsTrigger>
-                                        <TabsTrigger value="history">পেমেন্ট হিস্টোরি ({paidHistory.length})</TabsTrigger>
-                                    </TabsList>
-                                    
-                                    <TabsContent value="dues">
-                                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    <div className="lg:col-span-2 space-y-4">
-                                        <h4 className="font-bold text-gray-700 flex items-center gap-2"><DollarSign className="w-4 h-4"/> বকেয়া ফিস সমূহ</h4>
-                                        <div className="hidden md:block border rounded-lg overflow-hidden">
-                                            <Table>
-                                                <TableHeader className="bg-gray-50">
-                                                    <TableRow>
-                                                        <TableHead className="w-12.5"><Checkbox checked={selectedDues.length===dues.length && dues.length>0} onCheckedChange={(c) => setSelectedDues(c ? dues.map(d=>d.id) : [])} /></TableHead>
-                                                        <TableHead>বিবরণ</TableHead>
-                                                        <TableHead>মাসের নাম</TableHead>
-                                                        <TableHead className="text-right">পরিমাণ</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {dues.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center py-8 text-green-600">কোনো বকেয়া নেই! সব পরিশোধিত।</TableCell></TableRow> : 
-                                                    dues.map(d => (
-                                                        <TableRow key={d.id} className={selectedDues.includes(d.id) ? "bg-green-50" : ""}>
-                                                            <TableCell><Checkbox checked={selectedDues.includes(d.id)} onCheckedChange={() => setSelectedDues(p => p.includes(d.id) ? p.filter(x=>x!==d.id) : [...p, d.id])} /></TableCell>
-                                                            <TableCell className="font-medium">
-                                                                {d.title}
-                                                                <div className="text-[10px] text-gray-400">{d.fee_structures?.department || 'General'}</div>
-                                                            </TableCell>
-                                                            <TableCell className="text-xs text-gray-500">{format(new Date(d.created_at), 'MMMM yyyy')}</TableCell>
-                                                            <TableCell className="text-right font-bold">৳ {toBengaliNumber(d.amount)}</TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
+                            <div className="text-center sm:text-right shrink-0">
+                                <p className="text-xs font-bold text-gray-500 mb-1">সর্বমোট বকেয়া</p>
+                                <h3 className="text-2xl font-bold text-red-600">৳ {toBengaliNumber(selectedStudent.totalDue)}</h3>
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                                        <div className="md:hidden space-y-3">
-                                            {dues.length === 0 ? (
-                                                <div className="text-center py-8 text-green-600 border rounded-lg">কোনো বকেয়া নেই! সব পরিশোধিত।</div>
-                                            ) : dues.map(d => (
-                                                <Card key={d.id} className={selectedDues.includes(d.id) ? "border-green-300 bg-green-50" : ""}>
-                                                    <CardContent className="p-4 space-y-3">
-                                                        <div className="flex items-start justify-between gap-3">
-                                                            <div className="min-w-0">
-                                                                <p className="font-medium text-gray-800">{d.title}</p>
-                                                                <p className="text-[10px] text-gray-500">{d.fee_structures?.department || 'General'}</p>
-                                                            </div>
-                                                            <Checkbox checked={selectedDues.includes(d.id)} onCheckedChange={() => setSelectedDues(p => p.includes(d.id) ? p.filter(x=>x!==d.id) : [...p, d.id])} />
-                                                        </div>
-                                                        <div className="flex items-center justify-between text-xs">
-                                                            <span className="text-gray-500">{format(new Date(d.created_at), 'MMMM yyyy')}</span>
-                                                            <span className="font-bold">৳ {toBengaliNumber(d.amount)}</span>
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
-                                            ))}
-                                        </div>
+                    {/* Tabs */}
+                    <div className="flex gap-2">
+                        <Button 
+                            variant={activeTab === 'dues' ? 'default' : 'outline'} 
+                            onClick={() => setActiveTab('dues')}
+                            className={activeTab === 'dues' ? 'bg-green-700 hover:bg-green-800' : ''}
+                        >
+                            বকেয়া ফি ({toBengaliNumber(dues.length)})
+                        </Button>
+                        <Button 
+                            variant={activeTab === 'history' ? 'default' : 'outline'} 
+                            onClick={() => setActiveTab('history')}
+                            className={activeTab === 'history' ? 'bg-gray-800 hover:bg-gray-900' : ''}
+                        >
+                            পেমেন্ট হিস্টোরি ({toBengaliNumber(paidHistory.length)})
+                        </Button>
+                    </div>
+
+                    {loading ? (
+                        <div className="flex justify-center py-20"><Loader2 className="animate-spin w-8 h-8 text-green-600" /></div>
+                    ) : activeTab === 'dues' ? (
+                        <Card className="rounded-2xl shadow-sm">
+                            <CardHeader className="flex flex-row items-center justify-between pb-2 border-b">
+                                <CardTitle className="text-lg">বকেয়া তালিকা</CardTitle>
+                                <div className="text-right">
+                                    <p className="text-xs text-gray-500">সিলেক্টেড মোট</p>
+                                    <p className="text-lg font-bold text-green-700">৳ {toBengaliNumber(selectedFeesTotal)}</p>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                {dues.length === 0 ? (
+                                    <div className="text-center py-16 text-gray-400">
+                                        <CheckCircle2 className="w-12 h-12 mx-auto mb-3 text-green-500 opacity-50" />
+                                        <p className="font-bold text-green-600">কোনো বকেয়া নেই</p>
                                     </div>
-
-                                    <div>
-                                              <Card className="bg-green-50 border-green-200 sticky top-4">
-                                                  <CardContent className="p-6 space-y-4">
-                                                      <h4 className="font-bold text-gray-800 border-b border-green-200 pb-2">পেমেন্ট সারাংশ</h4>
-                                                      <div className="flex justify-between text-sm">
-                                                          <span>মোট নির্বাচিত আইটেম:</span>
-                                                          <span className="font-bold">{toBengaliNumber(selectedDues.length)} টি</span>
-                                                      </div>
-                                                      <div className="flex justify-between text-lg font-bold text-green-700 pt-2 border-t border-green-200">
-                                                          <span>মোট টাকা:</span>
-                                                          <span>৳ {toBengaliNumber(dues.filter(d=>selectedDues.includes(d.id)).reduce((a,b)=>a+b.amount,0))}</span>
-                                                      </div>
-                                                      <Button disabled={selectedDues.length===0 || collecting} onClick={handleCollect} className="w-full bg-green-700 hover:bg-green-800 h-12 text-lg shadow-md mt-4">
-                                                          {collecting ? <Loader2 className="animate-spin"/> : "পেমেন্ট নিশ্চিত করুন"}
-                                                      </Button>
-                                                  </CardContent>
-                                              </Card>
-                                          </div>
-                                      </div>
-                                    </TabsContent>
-
-                                    <TabsContent value="history">
-                                        <div className="hidden md:block border rounded-lg overflow-hidden">
-                                            <Table>
-                                                <TableHeader className="bg-gray-50">
-                                                    <TableRow>
-                                                        <TableHead>পরিশোধের তারিখ</TableHead>
-                                                        <TableHead>বিবরণ</TableHead>
-                                                        <TableHead className="text-right">পরিমাণ</TableHead>
-                                                        <TableHead className="text-right">রসিদ</TableHead>
+                                ) : (
+                                    <>
+                                        <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader className="bg-gray-50">
+                                                <TableRow>
+                                                    <TableHead className="w-12">
+                                                        <Checkbox 
+                                                            checked={selectedDues.length === dues.length && dues.length > 0}
+                                                            onCheckedChange={(c) => setSelectedDues(c ? dues.map(d => d.id) : [])}
+                                                        />
+                                                    </TableHead>
+                                                    <TableHead>বিবরণ</TableHead>
+                                                    <TableHead>মাস/বছর</TableHead>
+                                                    <TableHead className="text-right">মূল টাকা</TableHead>
+                                                    <TableHead className="text-right">ছাড়/জরিমানা</TableHead>
+                                                    <TableHead className="text-right">পরিশোধিত</TableHead>
+                                                    <TableHead className="text-right">আদায়যোগ্য</TableHead>
+                                                    <TableHead>স্ট্যাটাস</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {dues.map(d => (
+                                                    <TableRow key={d.id} className={selectedDues.includes(d.id) ? "bg-green-50/50" : ""}>
+                                                        <TableCell>
+                                                            <Checkbox 
+                                                                checked={selectedDues.includes(d.id)}
+                                                                onCheckedChange={() => setSelectedDues(p => p.includes(d.id) ? p.filter(x => x !== d.id) : [...p, d.id])}
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell className="font-medium min-w-40">
+                                                            {getFeeName(d)}
+                                                            {d.title && <span className="block text-xs text-gray-500">{d.title}</span>}
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-gray-600">{getMonthYearLabel(d)}</TableCell>
+                                                        <TableCell className="text-right font-medium">৳ {toBengaliNumber(d.amount || 0)}</TableCell>
+                                                        <TableCell className="text-right text-sm">
+                                                            <span className="text-purple-700">-৳ {toBengaliNumber(d.dynamic_waiver ?? d.waiver ?? 0)}</span>
+                                                            {(Number(d.fine) || 0) > 0 && <span className="block text-red-600">+৳ {toBengaliNumber(d.fine)}</span>}
+                                                        </TableCell>
+                                                        <TableCell className="text-right text-gray-600">৳ {toBengaliNumber(d.paid_amount || 0)}</TableCell>
+                                                        <TableCell className="text-right font-bold text-red-600">
+                                                            ৳ {toBengaliNumber(getOutstandingAmount(d, activeWaivers, selectedStudent.student_id))}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50 text-xs">বকেয়া</Badge>
+                                                        </TableCell>
                                                     </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {paidHistory.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center py-8 text-gray-400">কোনো পেমেন্ট হিস্টোরি নেই</TableCell></TableRow> : 
-                                                    paidHistory.map(h => (
-                                                        <TableRow key={h.id}>
-                                                            <TableCell className="text-sm">{format(new Date(h.updated_at || h.created_at), 'dd MMM yyyy')}</TableCell>
-                                                            <TableCell className="font-medium">
-                                                                {h.title}
-                                                                <div className="text-[10px] text-gray-400">{h.fee_structures?.department || 'General'}</div>
-                                                            </TableCell>
-                                                            <TableCell className="text-right font-bold text-green-600">৳ {toBengaliNumber(h.paid_amount || h.amount)}</TableCell>
-                                                            <TableCell className="text-right">
-                                                                <Button size="sm" variant="outline" onClick={() => handleHistoryReceipt(h)}><Download className="w-4 h-4 mr-1"/> রশিদ</Button>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
                                         </div>
-
-                                        <div className="md:hidden space-y-3">
-                                            {paidHistory.length === 0 ? (
-                                                <div className="text-center py-8 text-gray-400 border rounded-lg">কোনো পেমেন্ট হিস্টোরি নেই</div>
-                                            ) : paidHistory.map(h => (
-                                                <Card key={h.id}>
-                                                    <CardContent className="p-4 space-y-2">
-                                                        <p className="text-xs text-gray-500">{format(new Date(h.updated_at || h.created_at), 'dd MMM yyyy')}</p>
-                                                        <div>
-                                                            <p className="font-medium text-gray-800">{h.title}</p>
-                                                            <p className="text-[10px] text-gray-500">{h.fee_structures?.department || 'General'}</p>
-                                                        </div>
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="font-bold text-green-600">৳ {toBengaliNumber(h.paid_amount || h.amount)}</span>
-                                                            <Button size="sm" variant="outline" onClick={() => handleHistoryReceipt(h)}><Download className="w-4 h-4 mr-1"/> রশিদ</Button>
-                                                        </div>
-                                                    </CardContent>
-                                                </Card>
+                                        <div className="p-4 border-t flex justify-end">
+                                            <Button 
+                                                onClick={handleCollectClick} 
+                                                disabled={selectedDues.length === 0 || collecting}
+                                                className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
+                                            >
+                                                {collecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <DollarSign className="w-4 h-4 mr-2" />}
+                                                পেমেন্ট গ্রহণ করুন (৳ {toBengaliNumber(selectedFeesTotal)})
+                                            </Button>
+                                        </div>
+                                    </>
+                                )}
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <Card className="rounded-2xl shadow-sm">
+                            <CardContent className="p-0">
+                                {paidHistory.length === 0 ? (
+                                    <div className="text-center py-16 text-gray-400">
+                                        <Receipt className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                        <p className="font-bold">কোনো পেমেন্ট হিস্টোরি নেই</p>
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                    <Table>
+                                        <TableHeader className="bg-gray-50">
+                                            <TableRow>
+                                                <TableHead>তারিখ</TableHead>
+                                                <TableHead>বিবরণ</TableHead>
+                                                <TableHead>মাস/বছর</TableHead>
+                                                <TableHead>রসিদ নং</TableHead>
+                                                <TableHead className="text-right">মূল টাকা</TableHead>
+                                                <TableHead className="text-right">ছাড়</TableHead>
+                                                <TableHead className="text-right">পরিমাণ</TableHead>
+                                                <TableHead className="text-center">রসিদ</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {paidHistory.map(h => (
+                                                <TableRow key={h.id}>
+                                                    <TableCell className="text-sm">{h.payment_date ? format(new Date(h.payment_date), 'dd/MM/yyyy') : '-'}</TableCell>
+                                                    <TableCell className="font-medium">
+                                                        {getFeeName(h)}
+                                                        {h.title && <span className="block text-xs text-gray-500">{h.title}</span>}
+                                                    </TableCell>
+                                                    <TableCell>{getMonthYearLabel(h)}</TableCell>
+                                                    <TableCell className="font-mono text-xs">{h.receipt_no || '-'}</TableCell>
+                                                    <TableCell className="text-right">৳ {toBengaliNumber(h.amount || 0)}</TableCell>
+                                                    <TableCell className="text-right text-purple-700">৳ {toBengaliNumber(h.waiver || 0)}</TableCell>
+                                                    <TableCell className="text-right font-bold text-green-700">
+                                                        ৳ {toBengaliNumber(h.paid_amount || getNetAmount(h, activeWaivers, selectedStudent?.student_id))}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <Button size="icon" variant="ghost" className="text-blue-600 h-8 w-8" onClick={() => handleShowReceipt(h)}>
+                                                            <Printer className="w-4 h-4" />
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
                                             ))}
-                                        </div>
-                                    </TabsContent>
-                                </Tabs>
-                            )}
-                        </div>)
+                                        </TableBody>
+                                    </Table>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
                     )}
-                </CardContent>
-            </Card>
-            {/* Receipt Modal */}
-            {receiptData && (
-                <Dialog open={!!receiptData} onOpenChange={(o) => !o && setReceiptData(null)}>
-                    <DialogContent className="max-w-[220mm] w-full max-h-[95vh] overflow-y-auto p-0 bg-gray-100">
-                        <div className="sticky top-0 z-50 bg-white border-b p-4 flex justify-between items-center print:hidden">
-                             <DialogTitle>মানি রসিদ প্রিভিউ</DialogTitle>
-                             <div className="flex gap-2">
-                                 <Button variant="outline" onClick={() => handleDownloadReceipt("payment-slip", `Receipt-${receiptData.invoiceNo}`)}>
-                                     <Download className="w-4 h-4 mr-2"/> Download PDF
-                                 </Button>
-                                 <Button onClick={() => handlePrint()}><Printer className="w-4 h-4 mr-2"/> Print</Button>
-                             </div>
-                        </div>
-                        <div className="p-8 print:p-0 flex justify-center">
-                            <PaymentSlip 
-                                ref={printRef}
-                                student={receiptData.student} 
-                                fees={receiptData.fees} 
-                                total={receiptData.total} 
-                                invoiceNo={receiptData.invoiceNo} 
-                                date={receiptData.date} 
-                            />
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                </div>
             )}
+
+            {/* Partial Payment Modal */}
+            <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
+                <DialogContent className="max-w-md p-6">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                            <DollarSign className="w-6 h-6 text-green-600" />
+                            পেমেন্ট গ্রহণ করুন
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-6 mt-4">
+                        <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                            <div className="flex justify-between items-center text-sm font-bold text-amber-800">
+                                <span>মোট বকেয়া (সিলেক্টেড):</span>
+                                <span className="text-lg">৳ {toBengaliNumber(selectedFeesTotal)}</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-gray-700">জমা দিচ্ছেন (৳)</label>
+                            <Input 
+                                type="number"
+                                value={receivedAmount}
+                                onChange={(e) => setReceivedAmount(e.target.value)}
+                                className="text-xl font-bold font-mono h-12"
+                                placeholder="টাকার পরিমাণ লিখুন"
+                            />
+                            <p className="text-xs text-gray-500 font-medium">আংশিক পেমেন্ট করতে চাইলে পরিমাণ পরিবর্তন করুন</p>
+                        </div>
+
+                        <Button 
+                            onClick={processPayment} 
+                            disabled={collecting || !receivedAmount}
+                            className="w-full h-12 text-base font-bold bg-green-600 hover:bg-green-700 text-white rounded-xl"
+                        >
+                            {collecting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
+                            নিশ্চিত করুন
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Hidden Receipt for Printing */}
+            <div style={{ display: "none" }}>
+                {receiptData && (
+                    <PaymentSlip 
+                        ref={printRef}
+                        student={receiptData.student}
+                        fees={receiptData.fees}
+                        total={receiptData.total}
+                        invoiceNo={receiptData.invoiceNo}
+                        date={receiptData.date}
+                    />
+                )}
+            </div>
         </div>
     );
 }

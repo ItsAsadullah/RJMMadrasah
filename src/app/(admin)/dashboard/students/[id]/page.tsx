@@ -253,8 +253,19 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
               setResults([]);
           }
 
-          const { data: pay } = await supabase.from("payments").select("*").eq("student_id", stu.student_id).order("payment_date", { ascending: false });
-          if (pay) setPayments(pay);
+          const { data: pay } = await supabase
+            .from("student_dues")
+            .select("id, title, amount, paid_amount, receipt_no, payment_date, updated_at")
+            .eq("student_id", stu.id)
+            .eq("status", "paid")
+            .order("payment_date", { ascending: false });
+          if (pay) {
+            setPayments(pay.map((p: any) => ({
+              ...p,
+              amount: p.paid_amount || p.amount || 0,
+              payment_date: p.payment_date || p.updated_at
+            })));
+          }
       }
       setLoading(false);
     }

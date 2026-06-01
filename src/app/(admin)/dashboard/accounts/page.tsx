@@ -1,107 +1,93 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
-import { ArrowDownCircle, ArrowUpCircle, DollarSign, PieChart } from "lucide-react";
+import {
+    LayoutDashboard, DollarSign, GraduationCap, Users,
+    Wallet, Heart, ShieldOff, BarChart3
+} from "lucide-react";
 
+import AccountsDashboard from "@/components/dashboard/accounts/AccountsDashboard";
 import FeeSetup from "@/components/dashboard/accounts/FeeSetup";
 import FeeCollection from "@/components/dashboard/accounts/FeeCollection";
+import TeacherSalary from "@/components/dashboard/accounts/TeacherSalary";
 import ExpenseManagement from "@/components/dashboard/accounts/ExpenseManagement";
 import DonationCollection from "@/components/dashboard/accounts/DonationCollection";
+import WaiverManagement from "@/components/dashboard/accounts/WaiverManagement";
 import Reports from "@/components/dashboard/accounts/Reports";
 
-const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
+const tabs = [
+    { value: "dashboard", label: "ড্যাশবোর্ড", icon: LayoutDashboard },
+    { value: "setup", label: "ফি নির্ধারণ", icon: DollarSign },
+    { value: "collection", label: "বেতন আদায়", icon: GraduationCap },
+    { value: "teacher", label: "শিক্ষক বেতন", icon: Users },
+    { value: "expense", label: "খরচ", icon: Wallet },
+    { value: "donation", label: "দান-অনুদান", icon: Heart },
+    { value: "waiver", label: "ছাড়/মওকুফ", icon: ShieldOff },
+    { value: "reports", label: "রিপোর্ট", icon: BarChart3 },
+];
 
 export default function AccountsPage() {
-    const [reportSummary, setReportSummary] = useState({ income: 0, expense: 0, balance: 0, lillah: 0 });
-
-    async function fetchTransactions() {
-      const { data } = await supabase.from("transactions").select("*, categories(name)").order("transaction_date", { ascending: false });
-      
-      if (data) {
-          let inc = 0, exp = 0, lil = 0;
-          data.forEach((t: any) => {
-              if(t.type === 'income') { inc += t.amount; if(t.fund_type === 'lillah') lil += t.amount; }
-              else { exp += t.amount; if(t.fund_type === 'lillah') lil -= t.amount; }
-          });
-          setReportSummary({ income: inc, expense: exp, balance: inc - exp, lillah: lil });
-      }
-    }
-
-    useEffect(() => {
-      fetchTransactions();
-    }, []);
+    const [activeTab, setActiveTab] = useState("dashboard");
 
     return (
-      <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-8 bg-gray-50 min-h-screen font-[Kalpurush]">
-                <div className="print:hidden">
-                    <h1 className="text-lg sm:text-2xl font-bold text-gray-900">বেতন ও ফিস</h1>
-                    <p className="text-xs sm:text-sm text-gray-500">ফি আদায়, দান, ব্যয় ও রিপোর্ট এক জায়গায় দেখুন</p>
+        <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-8 bg-gray-50 min-h-screen font-[Kalpurush]">
+            <div className="print:hidden">
+                <h1 className="text-lg sm:text-2xl font-bold text-gray-900">হিসাব ব্যবস্থাপনা</h1>
+                <p className="text-xs sm:text-sm text-gray-500">ফি, বেতন, দান, ব্যয় ও আর্থিক রিপোর্ট এক জায়গায়</p>
+            </div>
+
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full print:hidden">
+                <div className="overflow-x-auto -mx-3 sm:-mx-4 md:mx-0 px-3 sm:px-4 md:px-0">
+                    <TabsList className="flex w-max min-w-full bg-white border h-auto mb-4 sm:mb-6 p-0.5 sm:p-1 rounded-xl shadow-sm">
+                        {tabs.map(tab => {
+                            const Icon = tab.icon;
+                            return (
+                                <TabsTrigger
+                                    key={tab.value}
+                                    value={tab.value}
+                                    className="font-bold whitespace-nowrap text-[10px] sm:text-sm px-2 sm:px-3.5 py-1.5 sm:py-2 gap-1 sm:gap-1.5 rounded-lg data-[state=active]:bg-green-50 data-[state=active]:text-green-700 data-[state=active]:shadow-sm transition-all"
+                                >
+                                    <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    {tab.label}
+                                </TabsTrigger>
+                            );
+                        })}
+                    </TabsList>
                 </div>
-        
-        {/* Top Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 print:hidden">
-            <StatCard title="মোট আয়" amount={reportSummary.income} icon={ArrowDownCircle} color="green" />
-            <StatCard title="মোট ব্যয়" amount={reportSummary.expense} icon={ArrowUpCircle} color="red" />
-            <StatCard title="বর্তমান স্থিতি" amount={reportSummary.balance} icon={DollarSign} color="blue" />
-            <StatCard title="লিল্লাহ ফান্ড" amount={reportSummary.lillah} icon={PieChart} color="purple" />
+
+                <TabsContent value="dashboard">
+                    <AccountsDashboard />
+                </TabsContent>
+
+                <TabsContent value="setup">
+                    <FeeSetup />
+                </TabsContent>
+
+                <TabsContent value="collection">
+                    <FeeCollection />
+                </TabsContent>
+
+                <TabsContent value="teacher">
+                    <TeacherSalary />
+                </TabsContent>
+
+                <TabsContent value="expense">
+                    <ExpenseManagement />
+                </TabsContent>
+
+                <TabsContent value="donation">
+                    <DonationCollection />
+                </TabsContent>
+
+                <TabsContent value="waiver">
+                    <WaiverManagement />
+                </TabsContent>
+
+                <TabsContent value="reports">
+                    <Reports />
+                </TabsContent>
+            </Tabs>
         </div>
-
-        <Tabs defaultValue="collection" className="w-full print:hidden">
-                    <div className="overflow-x-auto">
-                        <TabsList className="flex w-max min-w-full bg-white border h-auto mb-4 sm:mb-6 p-0.5 sm:p-1 rounded-lg">
-                                <TabsTrigger value="collection" className="font-bold whitespace-nowrap text-[11px] sm:text-sm px-2.5 sm:px-4 py-1.5 sm:py-2">ফি আদায়</TabsTrigger>
-                                <TabsTrigger value="donation" className="font-bold whitespace-nowrap text-[11px] sm:text-sm px-2.5 sm:px-4 py-1.5 sm:py-2">দান গ্রহণ</TabsTrigger>
-                                <TabsTrigger value="setup" className="font-bold whitespace-nowrap text-[11px] sm:text-sm px-2.5 sm:px-4 py-1.5 sm:py-2">ফি নির্ধারণ</TabsTrigger>
-                                <TabsTrigger value="expense" className="font-bold whitespace-nowrap text-[11px] sm:text-sm px-2.5 sm:px-4 py-1.5 sm:py-2">ব্যয়</TabsTrigger>
-                                <TabsTrigger value="reports" className="font-bold whitespace-nowrap text-[11px] sm:text-sm px-2.5 sm:px-4 py-1.5 sm:py-2">রিপোর্ট</TabsTrigger>
-                        </TabsList>
-                    </div>
-
-          <TabsContent value="collection">
-              <FeeCollection />
-          </TabsContent>
-
-          <TabsContent value="donation">
-              <DonationCollection />
-          </TabsContent>
-
-          <TabsContent value="setup">
-              <FeeSetup />
-          </TabsContent>
-
-          <TabsContent value="expense">
-              <ExpenseManagement />
-          </TabsContent>
-
-          <TabsContent value="reports">
-              <Reports />
-          </TabsContent>
-        </Tabs>
-      </div>
     );
 }
-
-// --- Helper Components ---
-const StatCard = ({ title, amount, icon: Icon, color }: any) => {
-    const colorMap: Record<string, string> = {
-        green: "border-green-600 text-green-700 bg-green-50 text-green-600",
-        red: "border-red-600 text-red-700 bg-red-50 text-red-600",
-        blue: "border-blue-600 text-blue-700 bg-blue-50 text-blue-600",
-        purple: "border-purple-600 text-purple-700 bg-purple-50 text-purple-600",
-    };
-    const [border, text, bg, iconColor] = (colorMap[color] || colorMap.blue).split(" ");
-    return (
-        <Card className={`border-l-[3px] sm:border-l-4 ${border} py-0 gap-0 rounded-2xl shadow-sm`}>
-            <CardContent className="p-2.5 sm:p-3 flex items-start justify-between gap-2">
-                <div className="min-w-0 space-y-0.5">
-                    <p className="text-[9px] sm:text-[11px] leading-tight font-bold text-gray-500">{title}</p>
-                    <h3 className={`text-sm sm:text-2xl leading-none font-bold ${text}`}>৳ {toBengaliNumber(amount)}</h3>
-                </div>
-                <div className={`shrink-0 p-1 sm:p-1.5 rounded-full ${bg} ${iconColor}`}><Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5"/></div>
-            </CardContent>
-        </Card>
-    );
-};
