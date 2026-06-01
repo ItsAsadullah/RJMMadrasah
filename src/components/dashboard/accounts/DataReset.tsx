@@ -18,7 +18,8 @@ export default function DataReset() {
 
     const [selectedTypes, setSelectedTypes] = useState({
         feeCollections: false,
-        assignedDues: false,
+        feeGeneration: false,
+        feeStructures: false,
         teacherSalaries: false,
         waivers: false,
         donations: false,
@@ -82,13 +83,13 @@ export default function DataReset() {
                         duesUpdateQuery = duesUpdateQuery.eq("id", -1);
                     }
                 } else {
-                    duesUpdateQuery = duesUpdateQuery.neq("id", -1); // update all
+                    duesUpdateQuery = duesUpdateQuery.not("id", "is", null); // update all
                 }
                 await duesUpdateQuery;
             }
 
-            // 2. Assigned Dues (student_dues)
-            if (selectedTypes.assignedDues) {
+            // 2. Fee Generation (student_dues)
+            if (selectedTypes.feeGeneration) {
                 let duesDeleteQuery = supabase.from("student_dues").delete();
                 if (!isAllBranches) {
                     const internalIds = await getStudentInternalIdsInBranch(selectedBranch);
@@ -98,9 +99,20 @@ export default function DataReset() {
                         duesDeleteQuery = duesDeleteQuery.eq("id", -1);
                     }
                 } else {
-                    duesDeleteQuery = duesDeleteQuery.neq("id", -1);
+                    duesDeleteQuery = duesDeleteQuery.not("id", "is", null);
                 }
                 await duesDeleteQuery;
+            }
+
+            // 2.5 Fee Structures (fee_structures)
+            if (selectedTypes.feeStructures) {
+                let fsDeleteQuery = supabase.from("fee_structures").delete();
+                if (!isAllBranches) {
+                    fsDeleteQuery = fsDeleteQuery.eq("branch_id", parseInt(selectedBranch));
+                } else {
+                    fsDeleteQuery = fsDeleteQuery.not("id", "is", null);
+                }
+                await fsDeleteQuery;
             }
 
             // 3. Teacher Salaries (teacher_salaries and transactions)
@@ -131,10 +143,10 @@ export default function DataReset() {
                     if (studentIds.length > 0) {
                         waiverQuery = waiverQuery.in("student_id", studentIds);
                     } else {
-                        waiverQuery = waiverQuery.eq("id", -1);
+                        waiverQuery = waiverQuery.in("student_id", ["DUMMY_ID"]);
                     }
                 } else {
-                    waiverQuery = waiverQuery.neq("id", -1);
+                    waiverQuery = waiverQuery.not("id", "is", null);
                 }
                 await waiverQuery;
             }
@@ -172,7 +184,8 @@ export default function DataReset() {
             setConfirmText("");
             setSelectedTypes({
                 feeCollections: false,
-                assignedDues: false,
+                feeGeneration: false,
+                feeStructures: false,
                 teacherSalaries: false,
                 waivers: false,
                 donations: false,
@@ -243,14 +256,27 @@ export default function DataReset() {
                             
                             <div className="flex items-start space-x-3">
                                 <Checkbox 
-                                    id="assignedDues" 
-                                    checked={selectedTypes.assignedDues}
-                                    onCheckedChange={() => handleCheckboxChange("assignedDues")}
+                                    id="feeGeneration" 
+                                    checked={selectedTypes.feeGeneration}
+                                    onCheckedChange={() => handleCheckboxChange("feeGeneration")}
                                     className="data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600 mt-0.5"
                                 />
                                 <div className="grid gap-1.5 leading-none">
-                                    <label htmlFor="assignedDues" className="text-sm font-semibold cursor-pointer text-red-600">ফি নির্ধারণ (Assigned Dues)</label>
-                                    <p className="text-xs text-gray-500">সকল নির্ধারিত ফি/বকেয়া রেকর্ড ডেটাবেজ থেকে মুছে যাবে।</p>
+                                    <label htmlFor="feeGeneration" className="text-sm font-semibold cursor-pointer text-red-600">ফি জেনারেশন (Generated Fees)</label>
+                                    <p className="text-xs text-gray-500">সকল জেনারেট করা ফি (Student Dues) মুছে ফেলা হবে।</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-start space-x-3">
+                                <Checkbox 
+                                    id="feeStructures" 
+                                    checked={selectedTypes.feeStructures}
+                                    onCheckedChange={() => handleCheckboxChange("feeStructures")}
+                                    className="data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600 mt-0.5"
+                                />
+                                <div className="grid gap-1.5 leading-none">
+                                    <label htmlFor="feeStructures" className="text-sm font-semibold cursor-pointer text-red-600">ফি কাঠামো (Fee Structures)</label>
+                                    <p className="text-xs text-gray-500">সকল তৈরি করা ফি কাঠামো মুছে ফেলা হবে।</p>
                                 </div>
                             </div>
 
