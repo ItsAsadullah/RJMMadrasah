@@ -7,6 +7,7 @@ interface PaymentSlipProps {
     total: number;
     invoiceNo: string;
     date: Date;
+    paymentMethod?: string;
 }
 
 // Helper functions
@@ -180,7 +181,7 @@ const ReceiptCopy = ({ id, title, student, fees, total, invoiceNo, date, payment
     </div>
 );
 
-export default React.forwardRef<HTMLDivElement, PaymentSlipProps>(function PaymentSlip({ student, fees, total, invoiceNo, date }, ref) {
+export default React.forwardRef<HTMLDivElement, PaymentSlipProps>(function PaymentSlip({ student, fees, total, invoiceNo, date, paymentMethod }, ref) {
     return (
         // Added print styles directly to parent to enforce background colors during print
         <div
@@ -191,7 +192,7 @@ export default React.forwardRef<HTMLDivElement, PaymentSlipProps>(function Payme
         >
             <div className="p-[10mm] print:py-[12mm] print:px-[5mm] flex-1 flex flex-col justify-between">
 
-                <ReceiptCopy title="অফিস কপি" student={student} fees={fees} total={total} invoiceNo={invoiceNo} date={date} />
+                <ReceiptCopy title="অফিস কপি" student={student} fees={fees} total={total} invoiceNo={invoiceNo} date={date} paymentMethod={paymentMethod} />
 
                 {/* Modernized Cut-line */}
                 <div className="relative flex items-center justify-center my-6 opacity-60 print:my-4">
@@ -203,7 +204,7 @@ export default React.forwardRef<HTMLDivElement, PaymentSlipProps>(function Payme
                     </div>
                 </div>
 
-                <ReceiptCopy id="student-copy-area" title="শিক্ষার্থী কপি" student={student} fees={fees} total={total} invoiceNo={invoiceNo} date={date} />
+                <ReceiptCopy id="student-copy-area" title="শিক্ষার্থী কপি" student={student} fees={fees} total={total} invoiceNo={invoiceNo} date={date} paymentMethod={paymentMethod} />
 
             </div>
         </div>
