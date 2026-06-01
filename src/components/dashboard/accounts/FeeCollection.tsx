@@ -31,21 +31,32 @@ const getNetAmount = (due: any, activeWaivers?: any[], studentId?: string) => {
     const fine = Number(due?.fine) || 0;
     
     let dynamicWaiver = Number(due?.waiver) || 0;
+    let waiverDetails = "";
     
     if (activeWaivers && activeWaivers.length > 0 && studentId) {
         const feeTypeId = due?.fee_type_id || due?.fee_structures?.fee_type_id || due?.fee_structures?.fee_types?.id;
         if (feeTypeId) {
             const matchWaiver = activeWaivers.find(w => String(w.student_id) === String(studentId) && String(w.fee_type_id) === String(feeTypeId));
             if (matchWaiver) {
-                if (matchWaiver.waiver_type === 'full') dynamicWaiver = amount;
-                else if (matchWaiver.waiver_type === 'percentage') dynamicWaiver = (amount * Number(matchWaiver.waiver_value)) / 100;
-                else if (matchWaiver.waiver_type === 'fixed_amount') dynamicWaiver = Number(matchWaiver.waiver_value);
+                if (matchWaiver.waiver_type === 'full') {
+                    dynamicWaiver = amount;
+                    waiverDetails = `পূর্ণ মওকুফ (৳${toBengaliNumber(amount)})`;
+                }
+                else if (matchWaiver.waiver_type === 'percentage') {
+                    dynamicWaiver = (amount * Number(matchWaiver.waiver_value)) / 100;
+                    waiverDetails = `${toBengaliNumber(matchWaiver.waiver_value)}%`;
+                }
+                else if (matchWaiver.waiver_type === 'fixed_amount') {
+                    dynamicWaiver = Number(matchWaiver.waiver_value);
+                    waiverDetails = `৳${toBengaliNumber(matchWaiver.waiver_value)}`;
+                }
             }
         }
     }
     
     // Attach dynamic waiver back to object for UI rendering
     due.dynamic_waiver = dynamicWaiver;
+    if (waiverDetails) due.waiver_details = waiverDetails;
 
     return Math.max(amount + fine - dynamicWaiver, 0);
 };
@@ -446,8 +457,12 @@ export default function FeeCollection() {
 
                 const baseFeeName = `${getFeeName(fee)} - ${getMonthYearLabel(fee)}`;
                 let displayTitle = baseFeeName;
+                if (fee.waiver_details) {
+                    displayTitle = `${baseFeeName} (মূল: ৳${toBengaliNumber(Number(fee.amount) || 0)}, মওকুফ: ${fee.waiver_details})`;
+                }
+
                 if (paymentType === "partial_first" || paymentType === "partial_ongoing" || paymentType === "partial_last") {
-                    displayTitle = `${baseFeeName}, ৳${toBengaliNumber(totalFeeAmount)}`;
+                    displayTitle = `${displayTitle}, ৳${toBengaliNumber(totalFeeAmount)}`;
                 }
 
                 let extendedDesc = "";
