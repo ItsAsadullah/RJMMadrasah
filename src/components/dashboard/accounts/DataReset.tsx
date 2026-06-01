@@ -63,9 +63,9 @@ export default function DataReset() {
         try {
             const isAllBranches = selectedBranch === "all";
 
-            // 1. Student Fee Collections (transactions where type='income' and due_id is not null)
+            // 1. Student Fee Collections (transactions where type='income' and student_id is not null)
             if (selectedTypes.feeCollections) {
-                let txQuery = supabase.from("transactions").delete().eq("type", "income").not("due_id", "is", null);
+                let txQuery = supabase.from("transactions").delete().eq("type", "income").not("student_id", "is", null);
                 if (!isAllBranches) {
                     txQuery = txQuery.eq("branch_id", parseInt(selectedBranch));
                 }
