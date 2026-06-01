@@ -120,6 +120,7 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
     }, {})).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return (
+      <>
       <div className="space-y-6 relative">
          {/* Action Buttons */}
          <div className="flex justify-end absolute -top-14 right-0">
@@ -253,6 +254,6 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
                     </div>
                 </DialogContent>
             </Dialog>
-      </div>
+      </>
     );
 }
