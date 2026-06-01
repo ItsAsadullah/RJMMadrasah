@@ -60,6 +60,18 @@ const getBranchName = (student: any) => (
 const getAddress = (student: any) =>
     student?.branch_address || student?.branches?.address || "হলিধানী বাজার, ঝিনাইদহ";
 
+const getPaymentMethodBengali = (method: string) => {
+    const map: Record<string, string> = {
+        'cash': 'নগদ অর্থ',
+        'bkash': 'বিকাশ',
+        'nagad': 'নগদ',
+        'rocket': 'রকেট',
+        'upay': 'উপায়',
+        'bank': 'ব্যাংক'
+    };
+    return map[method?.toLowerCase()] || method || 'নগদ অর্থ';
+};
+
 const ReceiptCopy = ({ id, title, student, fees, total, invoiceNo, date, paymentMethod }: any) => (
     <div id={id} className="h-[135mm] relative bg-white rounded-xl border border-gray-200 p-6 flex flex-col shadow-sm print:shadow-none print:border-gray-300 print:rounded-none overflow-hidden">
 
@@ -103,7 +115,6 @@ const ReceiptCopy = ({ id, title, student, fees, total, invoiceNo, date, payment
                 <div className="flex text-[13px]"><span className="w-16 text-gray-500">নাম</span> <span className="mr-2 text-gray-400">:</span> <span className="font-semibold text-gray-900">{student.name_bn}</span></div>
                 <div className="flex text-[13px]"><span className="w-16 text-gray-500">আইডি</span> <span className="mr-2 text-gray-400">:</span> <span className="font-mono font-medium text-gray-900">{student.student_id}</span></div>
                 <div className="flex text-[13px]"><span className="w-16 text-gray-500">শ্রেণি</span> <span className="mr-2 text-gray-400">:</span> <span className="font-medium text-gray-900">{student.class_name}</span></div>
-                {paymentMethod && <div className="flex text-[13px]"><span className="w-16 text-gray-500">মাধ্যম</span> <span className="mr-2 text-gray-400">:</span> <span className="font-medium text-gray-900 capitalize">{paymentMethod}</span></div>}
             </div>
             <div className="col-span-5 space-y-2">
                 <div className="flex text-[13px]"><span className="w-16 text-gray-500">রসিদ নং</span> <span className="mr-2 text-gray-400">:</span> <span className="font-mono font-medium text-gray-900">{invoiceNo}</span></div>
@@ -161,11 +172,21 @@ const ReceiptCopy = ({ id, title, student, fees, total, invoiceNo, date, payment
         {/* Footer / Total section */}
         <div className="relative z-10 mt-4 mb-8">
             <div className="flex justify-between items-center bg-gray-50 rounded-lg p-3 border border-gray-100">
-                <div className="flex-1 mr-6 flex items-end">
-                    <span className="text-[12px] font-medium text-gray-500 mr-2">কথায়:</span>
-                    <span className="text-[12px] font-bold text-gray-800 border-b border-dashed border-gray-400 pb-0.5 inline-block">
-                        {numberToBengaliWords(total)} টাকা মাত্র।
-                    </span>
+                <div className="flex-1 mr-6 flex flex-col gap-1.5">
+                    <div className="flex items-end">
+                        <span className="text-[12px] font-medium text-gray-500 mr-2">কথায়:</span>
+                        <span className="text-[12px] font-bold text-gray-800 border-b border-dashed border-gray-400 pb-0.5 inline-block">
+                            {numberToBengaliWords(total)} টাকা মাত্র।
+                        </span>
+                    </div>
+                    {paymentMethod && (
+                    <div className="flex items-center">
+                        <span className="text-[12px] font-medium text-gray-500 mr-2">পেমেন্ট মেথড:</span>
+                        <span className="text-[12px] font-bold text-gray-800">
+                            {getPaymentMethodBengali(paymentMethod)}
+                        </span>
+                    </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-4 shrink-0 px-4 py-1.5 bg-emerald-600 text-white rounded-md shadow-sm">
                     <span className="text-[13px] font-medium opacity-90">সর্বমোট</span>
