@@ -732,7 +732,7 @@ export default function WaiverManagement() {
                     <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden">
 
                         {/* ═══ LEFT: filter bar + student table ═══ */}
-                        <div className="flex flex-col lg:flex-1 lg:overflow-hidden border-b lg:border-b-0 lg:border-r p-2.5 sm:p-3 gap-2 min-h-[400px] lg:min-h-0 shrink-0">
+                        <div className={`flex-col lg:flex-1 lg:overflow-hidden lg:border-r p-2.5 sm:p-3 gap-2 min-h-[400px] lg:min-h-0 shrink-0 ${form.student_id ? 'hidden lg:flex' : 'flex'}`}>
 
                             {/* Filter bar */}
                             <div className="shrink-0 bg-gray-50 rounded-lg border border-gray-200 p-3 space-y-2.5">
@@ -864,7 +864,7 @@ export default function WaiverManagement() {
                         </div>
 
                         {/* ═══ RIGHT: student info + waiver form ═══ */}
-                        <div className="w-full lg:w-[450px] xl:w-[600px] shrink-0 overflow-y-auto bg-gray-50/60 p-2.5 sm:p-3 space-y-2.5">
+                        <div className={`w-full lg:w-[450px] xl:w-[600px] shrink-0 overflow-y-auto bg-gray-50/60 p-2.5 sm:p-3 space-y-2.5 ${!form.student_id ? 'hidden lg:block' : 'block'}`}>
                             {!form.student_id ? (
                                 <div className="flex flex-col items-center justify-center h-full text-gray-400 py-16 text-center">
                                     <GraduationCap className="w-12 h-12 mb-3 opacity-30" />
