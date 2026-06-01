@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Trash2, Wallet, Calendar, Tag, ArrowUpCircle, Building2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Wallet, Calendar, Tag, ArrowUpCircle, Building2, Settings, Edit2 } from "lucide-react";
 import { format } from "date-fns";
 
 const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
@@ -25,6 +25,13 @@ export default function ExpenseManagement() {
     const [loading, setLoading] = useState(true);
     const [isOpen, setIsOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // Category Management State
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+    const [categoryName, setCategoryName] = useState("");
+    const [categoryFundType, setCategoryFundType] = useState("general");
+    const [editingCategory, setEditingCategory] = useState<any>(null);
+    const [isCategorySubmitting, setIsCategorySubmitting] = useState(false);
 
     // Filters
     const [filterMonth, setFilterMonth] = useState(new Date().getMonth());
@@ -117,6 +124,51 @@ export default function ExpenseManagement() {
         if (!error) fetchExpenses();
     };
 
+    // Category CRUD operations
+    const fetchCategoriesOnly = async () => {
+        const { data } = await supabase.from("categories").select("id, name").eq("type", "expense").order("id", { ascending: false });
+        if (data) setCategories(data);
+    };
+
+    const handleSaveCategory = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!categoryName.trim()) return;
+        
+        setIsCategorySubmitting(true);
+        if (editingCategory) {
+            const { error } = await supabase.from("categories").update({ name: categoryName.trim() }).eq("id", editingCategory.id);
+            if (error) alert("আপডেট করতে সমস্যা হয়েছে।");
+            else {
+                setEditingCategory(null);
+                setCategoryName("");
+                fetchCategoriesOnly();
+            }
+        } else {
+            const { error } = await supabase.from("categories").insert([{ name: categoryName.trim(), type: "expense", fund_type: categoryFundType }]);
+            if (error) alert("যুক্ত করতে সমস্যা হয়েছে: " + error.message);
+            else {
+                setCategoryName("");
+                setCategoryFundType("general");
+                fetchCategoriesOnly();
+            }
+        }
+        setIsCategorySubmitting(false);
+    };
+
+    const handleDeleteCategory = async (id: number) => {
+        if (!confirm("আপনি কি নিশ্চিত এই খাতটি ডিলিট করতে চান?")) return;
+        const { error } = await supabase.from("categories").delete().eq("id", id);
+        if (error) {
+            if (error.code === '23503') {
+                alert("এই খাতের অধীনে খরচের রেকর্ড রয়েছে, তাই এটি ডিলিট করা যাবে না।");
+            } else {
+                alert("ডিলিট করতে সমস্যা হয়েছে: " + error.message);
+            }
+        } else {
+            fetchCategoriesOnly();
+        }
+    };
+
     const totalExpense = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
     return (
@@ -149,7 +201,12 @@ export default function ExpenseManagement() {
                         <SelectContent>{[2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{toBengaliNumber(y)}</SelectItem>)}</SelectContent>
                     </Select>
                     
-                    <Button onClick={() => setIsOpen(true)} className="bg-red-600 hover:bg-red-700 h-9 ml-auto md:ml-0 shadow-sm">
+                    <Button variant="outline" onClick={() => setIsCategoryModalOpen(true)} className="h-9 ml-auto md:ml-0 shadow-sm text-gray-700">
+                        <Settings className="w-4 h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">খাত ব্যবস্থাপনা</span>
+                    </Button>
+                    
+                    <Button onClick={() => setIsOpen(true)} className="bg-red-600 hover:bg-red-700 h-9 shadow-sm">
                         <Plus className="w-4 h-4 sm:mr-2" />
                         <span className="hidden sm:inline">নতুন খরচ</span>
                     </Button>
@@ -332,6 +389,75 @@ export default function ExpenseManagement() {
                             </Button>
                         </DialogFooter>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Category Management Modal */}
+            <Dialog open={isCategoryModalOpen} onOpenChange={setIsCategoryModalOpen}>
+                <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2"><Settings className="w-5 h-5 text-gray-600" /> খরচের খাত ব্যবস্থাপনা</DialogTitle>
+                    </DialogHeader>
+                    
+                    <div className="flex-1 overflow-y-auto pr-1">
+                        <form onSubmit={handleSaveCategory} className="flex gap-2 mb-6 mt-2">
+                            <Input 
+                                placeholder="খাতের নাম লিখুন..." 
+                                value={categoryName} 
+                                onChange={e => setCategoryName(e.target.value)} 
+                                required
+                                className="flex-1"
+                            />
+                            <Select value={categoryFundType} onValueChange={setCategoryFundType}>
+                                <SelectTrigger className="w-[120px]">
+                                    <SelectValue placeholder="ফান্ড" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="general">জেনারেল</SelectItem>
+                                    <SelectItem value="lillah">লিল্লাহ</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Button type="submit" disabled={isCategorySubmitting} className="bg-gray-800 hover:bg-gray-900">
+                                {isCategorySubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingCategory ? "আপডেট" : "যুক্ত করুন")}
+                            </Button>
+                            {editingCategory && (
+                                <Button type="button" variant="outline" onClick={() => { setEditingCategory(null); setCategoryName(""); }}>
+                                    বাতিল
+                                </Button>
+                            )}
+                        </form>
+
+                        <div className="space-y-2">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">বিদ্যমান খাতসমূহ</p>
+                            {categories.length === 0 ? (
+                                <p className="text-sm text-gray-500 text-center py-4">কোনো খাত নেই</p>
+                            ) : (
+                                categories.map(cat => (
+                                    <div key={cat.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                        <span className="font-medium text-gray-700 text-sm">{cat.name}</span>
+                                        <div className="flex gap-1">
+                                            <Button 
+                                                size="sm" 
+                                                variant="ghost" 
+                                                className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700" 
+                                                onClick={() => { setEditingCategory(cat); setCategoryName(cat.name); }}
+                                            >
+                                                <Edit2 className="w-4 h-4" />
+                                            </Button>
+                                            <Button 
+                                                size="sm" 
+                                                variant="ghost" 
+                                                className="h-8 w-8 p-0 text-red-500 hover:bg-red-50 hover:text-red-700" 
+                                                onClick={() => handleDeleteCategory(cat.id)}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>

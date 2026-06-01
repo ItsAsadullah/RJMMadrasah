@@ -57,10 +57,10 @@ const getBranchName = (student: any) => (
 );
 
 const getAddress = (student: any) =>
-    student?.branch_address || "হোল্ডিং নং-৫২/১, রোড-৩, ব্লক-ডি, দক্ষিণ বনশ্রী, খিলগাঁও, ঢাকা-১২১৯";
+    student?.branch_address || student?.branches?.address || "হলিধানী বাজার, ঝিনাইদহ";
 
-const ReceiptCopy = ({ title, student, fees, total, invoiceNo, date }: any) => (
-    <div className="h-[135mm] relative bg-white rounded-xl border border-gray-200 p-6 flex flex-col shadow-sm print:shadow-none print:border-gray-300 print:rounded-none overflow-hidden">
+const ReceiptCopy = ({ id, title, student, fees, total, invoiceNo, date }: any) => (
+    <div id={id} className="h-[135mm] relative bg-white rounded-xl border border-gray-200 p-6 flex flex-col shadow-sm print:shadow-none print:border-gray-300 print:rounded-none overflow-hidden">
 
         {/* Top Accent Color Bar */}
         <div className="absolute top-0 left-0 w-full h-2 bg-emerald-600 print:bg-emerald-600"></div>
@@ -71,36 +71,29 @@ const ReceiptCopy = ({ title, student, fees, total, invoiceNo, date }: any) => (
         </div>
 
         {/* Header section */}
-        <div className="relative z-10 flex justify-between items-start mb-5">
-            <div className="flex items-center gap-4">
-                <div className="shrink-0 p-1.5 bg-white rounded-lg border border-gray-100 shadow-sm">
-                    <img src="/images/logo.png" alt="Logo" className="w-16 h-16 object-contain" />
-                </div>
-                <div>
-                    <div className="text-[11px] font-medium text-gray-500 mb-0.5 tracking-wide">
-                        বিসমিল্লাহির রাহমানির রাহীম
-                    </div>
-                    <h1 className="text-[22px] font-extrabold text-emerald-900 tracking-tight">
-                        রাহিমা জান্নাত মহিলা মাদ্রাসা
-                    </h1>
-                    <p className="text-[12px] text-gray-600 mt-0.5">{getAddress(student)}</p>
-                    {student?.branch_phone && (
-                        <p className="text-[11px] font-medium text-gray-500 mt-0.5 flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
-                            মোবাইল: {toBengaliNumber(student.branch_phone)}
-                        </p>
-                    )}
-                </div>
-            </div>
-
-            <div className="flex flex-col items-end gap-2">
-                <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full print:border print:border-emerald-600">
+        {/* Header section */}
+        <div className="relative z-10 flex flex-col items-center pb-3 border-b-2 border-emerald-700 mb-4">
+            <div className="absolute top-0 right-0 flex flex-col items-end gap-1">
+                <span className="px-3 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full print:border print:border-emerald-600">
                     {title}
                 </span>
-                <span className="px-3 py-1 bg-gray-50 text-gray-700 text-[11px] font-bold rounded border border-gray-200 tracking-widest uppercase">
+                <span className="px-2 py-0.5 bg-gray-50 text-gray-700 text-[10px] font-bold rounded border border-gray-200 tracking-widest uppercase">
                     মানি রসিদ
                 </span>
             </div>
+            
+            <div className="mb-2">
+                <img src="/images/bismillah.svg" alt="Bismillah" className="h-4 object-contain" />
+            </div>
+            <img src="/images/long_logo.svg" alt="Rahima Jannat Madrasa" className="h-10 object-contain mb-1" />
+            
+            <p className="text-[11px] text-gray-700 font-medium">{getAddress(student)}</p>
+            {student?.branch_phone && (
+                <p className="text-[10px] font-medium text-gray-500 flex items-center gap-1 mt-0.5">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+                    মোবাইল: {toBengaliNumber(student.branch_phone)}
+                </p>
+            )}
         </div>
 
         {/* Modern Info Grid */}
@@ -168,7 +161,7 @@ export default React.forwardRef<HTMLDivElement, PaymentSlipProps>(function Payme
         <div
             ref={ref}
             id="printable-area"
-            className="bg-white text-black w-[210mm] mx-auto min-h-[297mm] flex flex-col justify-between overflow-hidden print:m-0 border border-transparent"
+            className="bg-white text-black w-[210mm] min-w-[210mm] shrink-0 mx-auto min-h-[297mm] flex flex-col justify-between overflow-hidden print:m-0 border border-transparent"
             style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
         >
             <div className="p-[10mm] print:py-[12mm] print:px-[5mm] flex-1 flex flex-col justify-between">
@@ -185,7 +178,7 @@ export default React.forwardRef<HTMLDivElement, PaymentSlipProps>(function Payme
                     </div>
                 </div>
 
-                <ReceiptCopy title="শিক্ষার্থী কপি" student={student} fees={fees} total={total} invoiceNo={invoiceNo} date={date} />
+                <ReceiptCopy id="student-copy-area" title="শিক্ষার্থী কপি" student={student} fees={fees} total={total} invoiceNo={invoiceNo} date={date} />
 
             </div>
         </div>

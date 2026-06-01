@@ -9,11 +9,48 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Heart, Printer, HandCoins, Plus, Calendar, Smartphone, MapPin, Building2 } from "lucide-react";
+import { Loader2, Heart, Printer, HandCoins, Plus, Calendar, Smartphone, MapPin, Building2, Download } from "lucide-react";
 import { format } from "date-fns";
 import { useReactToPrint } from "react-to-print";
+import { toJpeg } from "html-to-image";
 
 const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
+
+const bengaliWords: { [key: number]: string } = {
+  0: "শূন্য", 1: "এক", 2: "দুই", 3: "তিন", 4: "চার", 5: "পাঁচ", 6: "ছয়", 7: "সাত", 8: "আট", 9: "নয়",
+  10: "দশ", 11: "এগারো", 12: "বারো", 13: "তেরো", 14: "চৌদ্দ", 15: "পনেরো", 16: "ষোলো", 17: "সতেরো", 18: "আঠারো", 19: "উনিশ",
+  20: "বিশ", 21: "একুশ", 22: "বাইশ", 23: "তেইশ", 24: "চব্বিশ", 25: "পঁচিশ", 26: "ছাব্বিশ", 27: "সাতাশ", 28: "আঠাশ", 29: "উনত্রিশ",
+  30: "ত্রিশ", 31: "একত্রিশ", 32: "বত্রিশ", 33: "তেত্রিশ", 34: "চৌত্রিশ", 35: "পঁয়ত্রিশ", 36: "ছত্রিশ", 37: "সাঁইত্রিশ", 38: "আটত্রিশ", 39: "উনচল্লিশ",
+  40: "চল্লিশ", 41: "একচল্লিশ", 42: "বিয়াল্লিশ", 43: "তেতাল্লিশ", 44: "চুয়াল্লিশ", 45: "পঁয়তাল্লিশ", 46: "ছেচল্লিশ", 47: "সাতচল্লিশ", 48: "আটচল্লিশ", 49: "উনপঞ্চাশ",
+  50: "পঞ্চাশ", 51: "একান্ন", 52: "বায়ান্ন", 53: "তিপ্পান্ন", 54: "চুয়ান্ন", 55: "পঞ্চান্ন", 56: "ছাপ্পান্ন", 57: "সাতান্ন", 58: "আটান্ন", 59: "উনষাট",
+  60: "ষাট", 61: "একষট্টি", 62: "বাষট্টি", 63: "তেষট্টি", 64: "চৌষট্টি", 65: "পঁয়ষট্টি", 66: "ছেষট্টি", 67: "সাতষট্টি", 68: "আটষট্টি", 69: "উনসত্তর",
+  70: "সত্তর", 71: "একাত্তর", 72: "বাহাত্তর", 73: "তিয়াত্তর", 74: "চুয়াত্তর", 75: "পঁচাত্তর", 76: "ছিয়াত্তর", 77: "সাতাত্তর", 78: "আটাত্তর", 79: "উনআশি",
+  80: "আশি", 81: "একাশি", 82: "বিরাশি", 83: "তিরাশি", 84: "চুরাশি", 85: "পঁচাশি", 86: "ছিয়াশি", 87: "সাতাশি", 88: "অষ্টআশি", 89: "উননব্বই",
+  90: "নব্বই", 91: "একানব্বই", 92: "বিরানব্বই", 93: "তিরানব্বই", 94: "চুরানব্বই", 95: "পঁচানব্বই", 96: "ছিয়ানব্বই", 97: "সাতানব্বই", 98: "আটানব্বই", 99: "নিরানব্বই"
+};
+
+function numberToBengaliWords(num: number): string {
+    if (!num || isNaN(num)) return bengaliWords[0];
+    if (num === 0) return bengaliWords[0];
+    let words = '';
+    
+    let crore = Math.floor(num / 10000000);
+    num %= 10000000;
+    let lakh = Math.floor(num / 100000);
+    num %= 100000;
+    let thousand = Math.floor(num / 1000);
+    num %= 1000;
+    let hundred = Math.floor(num / 100);
+    num %= 100;
+    
+    if (crore > 0) words += numberToBengaliWords(crore) + " কোটি ";
+    if (lakh > 0) words += bengaliWords[lakh] + " লক্ষ ";
+    if (thousand > 0) words += bengaliWords[thousand] + " হাজার ";
+    if (hundred > 0) words += bengaliWords[hundred] + "শত ";
+    if (num > 0) words += bengaliWords[num];
+    
+    return words.trim();
+}
 
 const DONATION_PREFIX = "Donation |";
 
@@ -81,7 +118,16 @@ const purposeLabels: Record<string, string> = {
 };
 
 const methodLabels: Record<string, string> = {
-    cash: "নগদ", bkash: "বিকাশ", nagad: "নগদ", rocket: "রকেট", bank: "ব্যাংক"
+    cash: "নগদ অর্থ", 
+    bkash: "বিকাশ", 
+    nagad: "নগদ", 
+    rocket: "রকেট",
+    upay: "উপায়",
+    ucash: "ইউক্যাশ",
+    dbbl: "ডাচ-বাংলা ব্যাংক",
+    bank_asia: "ব্যাংক এশিয়া",
+    agrani_bank: "অগ্রণী ব্যাংক",
+    bank: "অন্যান্য ব্যাংক"
 };
 
 export default function DonationCollection() {
@@ -96,15 +142,38 @@ export default function DonationCollection() {
     // Receipt Modal
     const [receiptData, setReceiptData] = useState<any>(null);
     const printRef = useRef<HTMLDivElement>(null);
+    const previewRef = useRef<HTMLDivElement>(null);
+    const [savingImage, setSavingImage] = useState(false);
 
     const handlePrint = useReactToPrint({
         contentRef: printRef,
-        documentTitle: `Donation_Receipt_${receiptData?.id?.slice(0, 6) || 'doc'}`,
+        documentTitle: `Donation_Receipt_${String(receiptData?.id || '').slice(0, 6) || 'doc'}`,
     });
+
+    const handleSaveImage = async () => {
+        if (!previewRef.current) return;
+        try {
+            setSavingImage(true);
+            const dataUrl = await toJpeg(previewRef.current, { 
+                quality: 1.0, 
+                pixelRatio: 3,
+                backgroundColor: '#ffffff'
+            });
+            const link = document.createElement("a");
+            link.download = `Donation_Receipt_DON-${String(receiptData?.id || '').padStart(4, '0')}.jpg`;
+            link.href = dataUrl;
+            link.click();
+        } catch (error) {
+            console.error("Error saving image:", error);
+            alert("ছবি সেভ করতে সমস্যা হয়েছে।");
+        } finally {
+            setSavingImage(false);
+        }
+    };
 
     const [formData, setFormData] = useState({
         donor_name: "", donor_address: "", donor_mobile: "",
-        amount: "", purpose: "general", payment_method: "cash", branch_id: ""
+        amount: "", purpose: "general", payment_method: "cash", branch_id: "none"
     });
 
     useEffect(() => {
@@ -116,7 +185,7 @@ export default function DonationCollection() {
         // Fetch Categories & Branches
         const [catDataRes, brDataRes] = await Promise.all([
             supabase.from("categories").select("id, name").eq("type", "income"),
-            supabase.from("branches").select("id, name")
+            supabase.from("branches").select("id, name, address")
         ]);
         
         if (catDataRes.data) {
@@ -159,7 +228,7 @@ export default function DonationCollection() {
             fund_type: formData.purpose === "lillah" || formData.purpose === "zakat" || formData.purpose === "fitra" ? "lillah" : "general",
             created_by: user?.id,
             transaction_date: new Date().toISOString().split("T")[0],
-            branch_id: formData.branch_id ? parseInt(formData.branch_id) : null,
+            branch_id: formData.branch_id === "none" || !formData.branch_id ? null : parseInt(formData.branch_id),
         };
 
         if (donationCategoryId) payload.category_id = donationCategoryId;
@@ -170,7 +239,7 @@ export default function DonationCollection() {
             alert("অনুদান গ্রহণ ব্যর্থ হয়েছে: " + error.message);
         } else {
             setModalOpen(false);
-            setFormData({ donor_name: "", donor_address: "", donor_mobile: "", amount: "", purpose: "general", payment_method: "cash", branch_id: "" });
+            setFormData({ donor_name: "", donor_address: "", donor_mobile: "", amount: "", purpose: "general", payment_method: "cash", branch_id: "none" });
             fetchData();
             
             // Show receipt for newly added donation
@@ -346,7 +415,7 @@ export default function DonationCollection() {
                             <Select value={formData.branch_id} onValueChange={(v) => setFormData({...formData, branch_id: v})}>
                                 <SelectTrigger className="h-10"><SelectValue placeholder="শাখা নির্বাচন করুন (ঐচ্ছিক)"/></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">সাধারণ (কোনো নির্দিষ্ট শাখা নয়)</SelectItem>
+                                    <SelectItem value="none">সাধারণ (কোনো নির্দিষ্ট শাখা নয়)</SelectItem>
                                     {branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
@@ -389,11 +458,16 @@ export default function DonationCollection() {
                                 <Select value={formData.payment_method} onValueChange={(v) => setFormData({...formData, payment_method: v})}>
                                     <SelectTrigger className="h-10"><SelectValue/></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="cash">নগদ</SelectItem>
+                                        <SelectItem value="cash">নগদ অর্থ</SelectItem>
                                         <SelectItem value="bkash">বিকাশ</SelectItem>
-                                        <SelectItem value="nagad">নগদ</SelectItem>
+                                        <SelectItem value="nagad">নগদ (Mobile Banking)</SelectItem>
                                         <SelectItem value="rocket">রকেট</SelectItem>
-                                        <SelectItem value="bank">ব্যাংক</SelectItem>
+                                        <SelectItem value="upay">উপায়</SelectItem>
+                                        <SelectItem value="ucash">ইউক্যাশ</SelectItem>
+                                        <SelectItem value="dbbl">ডাচ-বাংলা ব্যাংক</SelectItem>
+                                        <SelectItem value="bank_asia">ব্যাংক এশিয়া</SelectItem>
+                                        <SelectItem value="agrani_bank">অগ্রণী ব্যাংক</SelectItem>
+                                        <SelectItem value="bank">অন্যান্য ব্যাংক</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -412,74 +486,184 @@ export default function DonationCollection() {
 
             {/* Receipt Modal */}
             <Dialog open={!!receiptData} onOpenChange={(open) => !open && setReceiptData(null)}>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>অনুদান রসিদ</DialogTitle>
                     </DialogHeader>
                     {receiptData && (
                         <>
                             <div className="flex justify-end gap-2 mb-2">
+                                <Button onClick={handleSaveImage} disabled={savingImage} variant="outline" size="sm" className="text-emerald-700 border-emerald-200 hover:bg-emerald-50">
+                                    {savingImage ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                                    সেভ করুন (JPG)
+                                </Button>
                                 <Button onClick={() => handlePrint()} variant="outline" size="sm" className="text-blue-600 border-blue-200">
                                     <Printer className="w-4 h-4 mr-2" /> প্রিন্ট করুন
                                 </Button>
                             </div>
                             
-                            <div ref={printRef} className="bg-white p-6 border-2 border-gray-800 print:border-none print:p-0">
-                                <div className="text-center border-b-2 border-gray-800 pb-4 mb-4">
-                                    <div className="text-xs font-bold mb-1">বিসমিল্লাহির রাহমানির রাহীম</div>
-                                    <h2 className="text-2xl font-bold text-green-900">রাহিমা জান্নাত মহিলা মাদ্রাসা</h2>
-                                    <p className="text-xs mt-1">হোল্ডিং নং-৫২/১, রোড-৩, ব্লক-ডি, দক্ষিণ বনশ্রী, খিলগাঁও, ঢাকা</p>
-                                    <div className="mt-2 inline-block bg-gray-900 text-white px-4 py-1 text-xs font-bold rounded-full">মানি রসিদ (অনুদান)</div>
-                                </div>
-
-                                <div className="space-y-2 text-sm mb-6">
-                                    <div className="flex justify-between"><span className="font-bold">রসিদ নং:</span> <span className="font-mono">DON-{receiptData.id?.slice(0,6).toUpperCase()}</span></div>
-                                    <div className="flex justify-between"><span className="font-bold">তারিখ:</span> <span>{format(new Date(receiptData.transaction_date), "dd/MM/yyyy")}</span></div>
-                                </div>
-
-                                <div className="space-y-3 text-sm">
-                                    <div className="flex border-b border-dashed pb-2">
-                                        <span className="w-32 font-bold">দাতার নাম:</span> 
-                                        <span className="flex-1 font-bold">{receiptData.donor_name}</span>
+                            <div ref={previewRef} className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm text-black font-hind">
+                                {/* Header Section */}
+                                <div className="flex flex-col items-center border-b-2 border-emerald-700 pb-4 mb-6">
+                                    <div className="mb-2">
+                                        <img src="/images/bismillah.svg" alt="Bismillah" className="h-4 object-contain" />
                                     </div>
-                                    {receiptData.donor_mobile && (
-                                        <div className="flex border-b border-dashed pb-2">
-                                            <span className="w-32 font-bold">মোবাইল:</span> 
-                                            <span className="flex-1 font-mono">{receiptData.donor_mobile}</span>
+                                    <img src="/images/long_logo.svg" alt="Rahima Jannat Madrasa" className="h-12 object-contain mb-2" />
+                                    <p className="text-xs text-gray-700 font-medium mb-4 text-center">
+                                        {receiptData.branch_id 
+                                            ? (branches.find(b => b.id === receiptData.branch_id)?.address || "হলিধানী বাজার, ঝিনাইদহ")
+                                            : (branches.find(b => b.name?.includes("হলিধানী"))?.address || "হলিধানী বাজার, ঝিনাইদহ")}
+                                    </p>
+                                    
+                                    <div className="w-full flex justify-between items-end mt-2">
+                                        <div className="text-xs text-gray-700 space-y-1">
+                                            <p><span className="font-bold text-gray-500">রসিদ নং:</span> <span className="font-mono font-bold">DON-{String(receiptData.id || '').padStart(4, '0')}</span></p>
+                                            <p><span className="font-bold text-gray-500">তারিখ:</span> <span className="font-bold">{format(new Date(receiptData.transaction_date), "dd/MM/yyyy")}</span></p>
                                         </div>
-                                    )}
-                                    <div className="flex border-b border-dashed pb-2">
-                                        <span className="w-32 font-bold">খাত/উদ্দেশ্য:</span> 
-                                        <span className="flex-1">{purposeLabels[receiptData.purpose] || receiptData.purpose}</span>
-                                    </div>
-                                    <div className="flex border-b border-dashed pb-2">
-                                        <span className="w-32 font-bold">পেমেন্ট মাধ্যম:</span> 
-                                        <span className="flex-1">{methodLabels[receiptData.payment_method] || receiptData.payment_method}</span>
+                                        <div className="bg-emerald-100 text-emerald-800 px-4 py-1.5 rounded-lg font-bold text-sm tracking-widest border border-emerald-200">মানি রসিদ (অনুদান)</div>
                                     </div>
                                 </div>
 
-                                <div className="mt-6 flex justify-end">
-                                    <div className="border-2 border-gray-800 px-4 py-2 bg-gray-50 rounded">
-                                        <span className="font-bold">মোট টাকা: </span>
-                                        <span className="font-bold text-lg font-mono">৳ {toBengaliNumber(receiptData.amount)}/-</span>
+                                {/* Donor Details Section */}
+                                <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 mb-6 relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
+                                    
+                                    <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
+                                        <div className="col-span-2 flex items-baseline">
+                                            <span className="w-32 font-bold text-gray-500 shrink-0">দাতার নাম:</span> 
+                                            <span className="flex-1 font-bold text-gray-900 border-b border-dashed border-gray-300 pb-1">{receiptData.donor_name}</span>
+                                        </div>
+                                        
+                                        {receiptData.donor_mobile && (
+                                            <div className="flex items-baseline">
+                                                <span className="w-32 font-bold text-gray-500 shrink-0">মোবাইল:</span> 
+                                                <span className="flex-1 font-mono font-bold text-gray-800 border-b border-dashed border-gray-300 pb-1">{receiptData.donor_mobile}</span>
+                                            </div>
+                                        )}
+                                        
+                                        {receiptData.donor_address && (
+                                            <div className="flex items-baseline col-span-2">
+                                                <span className="w-32 font-bold text-gray-500 shrink-0">ঠিকানা:</span> 
+                                                <span className="flex-1 text-gray-800 border-b border-dashed border-gray-300 pb-1">{receiptData.donor_address}</span>
+                                            </div>
+                                        )}
+                                        
+                                        <div className="col-span-2 flex items-baseline">
+                                            <span className="w-32 font-bold text-gray-500 shrink-0 whitespace-nowrap">খাত/উদ্দেশ্য:</span> 
+                                            <span className="flex-1 font-bold text-emerald-700 border-b border-dashed border-gray-300 pb-1">{purposeLabels[receiptData.purpose] || receiptData.purpose}</span>
+                                        </div>
+                                        <div className="col-span-2 flex items-baseline">
+                                            <span className="w-32 font-bold text-gray-500 shrink-0 whitespace-nowrap">পেমেন্ট মাধ্যম:</span> 
+                                            <span className="flex-1 text-gray-800 border-b border-dashed border-gray-300 pb-1">{methodLabels[receiptData.payment_method] || receiptData.payment_method}</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="mt-16 flex justify-between text-xs">
-                                    <div className="text-center">
-                                        <div className="border-t-2 border-black w-32 mb-1"></div>
-                                        <p className="font-bold">দাতার স্বাক্ষর</p>
+                                {/* Amount Section */}
+                                <div className="flex flex-col sm:flex-row items-center justify-between bg-emerald-50 rounded-lg border border-emerald-100 p-4 gap-4 mb-8">
+                                    <div className="flex-1 text-center sm:text-left">
+                                        <p className="text-sm text-gray-600">
+                                            <span className="font-bold text-emerald-700 block sm:inline mb-1 sm:mb-0 sm:mr-2">কথায়:</span> 
+                                            <span>{numberToBengaliWords(receiptData.amount)} টাকা মাত্র।</span>
+                                        </p>
                                     </div>
-                                    <div className="text-center">
-                                        <div className="border-t-2 border-black w-32 mb-1"></div>
-                                        <p className="font-bold">কর্তৃপক্ষের স্বাক্ষর</p>
+                                    <div className="flex items-center gap-3 shrink-0 px-5 py-2.5 bg-emerald-600 text-white rounded-md shadow-sm">
+                                        <span className="text-xs font-medium opacity-90">সর্বমোট</span>
+                                        <span className="font-mono text-lg font-bold">৳ {toBengaliNumber(receiptData.amount)}/-</span>
                                     </div>
+                                </div>
+
+                                {/* Footer / Disclaimer */}
+                                <div className="pt-4 text-center border-t border-dashed border-gray-200">
+                                    <p className="text-[11px] text-gray-500 font-medium">এই অনুদান রসিদটি ইলেকট্রনিকভাবে তৈরি করা হয়েছে। কোনো স্বাক্ষরের প্রয়োজন নেই।</p>
                                 </div>
                             </div>
                         </>
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* Hidden Receipt for Printing */}
+            <div className="hidden">
+                {receiptData && (
+                    <div id="printable-area" ref={printRef} className="bg-white p-[10mm] text-black w-[210mm] min-h-[297mm] mx-auto flex flex-col justify-start font-hind print:p-8">
+                        {/* Header Section */}
+                        <div className="flex flex-col items-center border-b-2 border-emerald-700 pb-4 mb-8">
+                            <div className="mb-3">
+                                <img src="/images/bismillah.svg" alt="Bismillah" className="h-5 object-contain" />
+                            </div>
+                            <img src="/images/long_logo.svg" alt="Rahima Jannat Madrasa" className="h-16 object-contain mb-2" />
+                            <p className="text-sm text-gray-700 font-medium mb-6">
+                                {receiptData.branch_id 
+                                    ? (branches.find(b => b.id === receiptData.branch_id)?.address || "হলিধানী বাজার, ঝিনাইদহ")
+                                    : (branches.find(b => b.name?.includes("হলিধানী"))?.address || "হলিধানী বাজার, ঝিনাইদহ")}
+                            </p>
+                            
+                            <div className="w-full flex justify-between items-end mt-2">
+                                <div className="text-sm text-gray-700 space-y-1">
+                                    <p><span className="font-bold text-gray-500">রসিদ নং:</span> <span className="font-mono font-bold">DON-{String(receiptData.id || '').padStart(4, '0')}</span></p>
+                                    <p><span className="font-bold text-gray-500">তারিখ:</span> <span className="font-bold">{format(new Date(receiptData.transaction_date), "dd/MM/yyyy")}</span></p>
+                                </div>
+                                <div className="bg-emerald-100 text-emerald-800 px-6 py-2 rounded-lg font-bold text-lg tracking-widest border border-emerald-200 shadow-sm">মানি রসিদ (অনুদান)</div>
+                            </div>
+                        </div>
+
+                        {/* Donor Details Section */}
+                        <div className="bg-gray-50 rounded-xl p-6 border border-gray-100 shadow-sm mb-8 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
+                            
+                            <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-sm">
+                                <div className="col-span-2 flex items-baseline">
+                                    <span className="w-32 font-bold text-gray-500 shrink-0">দাতার নাম:</span> 
+                                    <span className="flex-1 font-bold text-lg text-gray-900 border-b border-dashed border-gray-300 pb-1">{receiptData.donor_name}</span>
+                                </div>
+                                
+                                {receiptData.donor_mobile && (
+                                    <div className="flex items-baseline">
+                                        <span className="w-32 font-bold text-gray-500 shrink-0">মোবাইল:</span> 
+                                        <span className="flex-1 font-mono font-bold text-gray-800 border-b border-dashed border-gray-300 pb-1">{receiptData.donor_mobile}</span>
+                                    </div>
+                                )}
+                                
+                                {receiptData.donor_address && (
+                                    <div className="flex items-baseline col-span-2">
+                                        <span className="w-32 font-bold text-gray-500 shrink-0">ঠিকানা:</span> 
+                                        <span className="flex-1 text-gray-800 border-b border-dashed border-gray-300 pb-1">{receiptData.donor_address}</span>
+                                    </div>
+                                )}
+                                
+                                <div className="col-span-2 flex items-baseline">
+                                    <span className="w-32 font-bold text-gray-500 shrink-0 whitespace-nowrap">খাত/উদ্দেশ্য:</span> 
+                                    <span className="flex-1 font-bold text-emerald-700 border-b border-dashed border-gray-300 pb-1">{purposeLabels[receiptData.purpose] || receiptData.purpose}</span>
+                                </div>
+                                <div className="col-span-2 flex items-baseline">
+                                    <span className="w-32 font-bold text-gray-500 shrink-0 whitespace-nowrap">পেমেন্ট মাধ্যম:</span> 
+                                    <span className="flex-1 text-gray-800 border-b border-dashed border-gray-300 pb-1">{methodLabels[receiptData.payment_method] || receiptData.payment_method}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Amount Section */}
+                        <div className="flex items-center justify-between bg-emerald-50 rounded-lg border border-emerald-100 p-4 mb-16">
+                            <div className="flex-1 pr-4">
+                                <p className="text-sm text-gray-600 flex items-center gap-2">
+                                    <span className="font-bold text-emerald-700">কথায়:</span> 
+                                    <span>{numberToBengaliWords(receiptData.amount)} টাকা মাত্র।</span>
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-4 shrink-0 px-6 py-3 bg-emerald-600 text-white rounded-md shadow-sm">
+                                <span className="text-sm font-medium opacity-90">সর্বমোট</span>
+                                <span className="font-mono text-xl font-bold">৳ {toBengaliNumber(receiptData.amount)}/-</span>
+                            </div>
+                        </div>
+
+                        {/* Footer / Disclaimer */}
+                        <div className="mt-auto pt-6 text-center border-t border-dashed border-gray-200">
+                            <p className="text-[11px] text-gray-500 font-medium">এই অনুদান রসিদটি ইলেকট্রনিকভাবে তৈরি করা হয়েছে। কোনো স্বাক্ষরের প্রয়োজন নেই।</p>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

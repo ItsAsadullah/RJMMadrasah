@@ -10,9 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle, DialogHeader } from "@/components/ui/dialog";
-import { Loader2, Search, Printer, DollarSign, UserRound, GraduationCap, X, Receipt, Eye, CreditCard, CheckCircle2 } from "lucide-react";
+import { Loader2, Search, Printer, DollarSign, UserRound, GraduationCap, X, Receipt, Eye, CreditCard, CheckCircle2, Download } from "lucide-react";
 import { format } from "date-fns";
 import { useReactToPrint } from "react-to-print";
+import { toJpeg } from "html-to-image";
 import PaymentSlip from "@/components/dashboard/accounts/PaymentSlip";
 import { getClassOrder, sortClassNames } from "@/lib/classOrder";
 
@@ -187,24 +188,42 @@ export default function FeeCollection() {
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [receivedAmount, setReceivedAmount] = useState<string>("");
 
+    const [savingImage, setSavingImage] = useState(false);
+
     const handlePrint = useReactToPrint({
         contentRef: printRef,
         documentTitle: `Receipt_${receiptData?.invoiceNo || 'doc'}`,
         suppressErrors: true,
         onAfterPrint: () => {
             console.log("Printed");
-            setReceiptData(null);
         }
     });
 
-    useEffect(() => {
-        if (receiptData) {
-            const timer = setTimeout(() => {
-                handlePrint();
-            }, 300);
-            return () => clearTimeout(timer);
+    const handleSaveImage = async () => {
+        const studentCopyNode = document.getElementById("student-copy-area");
+        if (!studentCopyNode) {
+            alert("রসিদ খুজে পাওয়া যায়নি!");
+            return;
         }
-    }, [receiptData, handlePrint]);
+        
+        try {
+            setSavingImage(true);
+            const dataUrl = await toJpeg(studentCopyNode, { 
+                quality: 1.0, 
+                pixelRatio: 2,
+                backgroundColor: '#ffffff'
+            });
+            const link = document.createElement("a");
+            link.download = `Receipt_${receiptData?.invoiceNo || 'doc'}.jpg`;
+            link.href = dataUrl;
+            link.click();
+        } catch (error) {
+            console.error("Error saving image:", error);
+            alert("ছবি সেভ করতে সমস্যা হয়েছে।");
+        } finally {
+            setSavingImage(false);
+        }
+    };
 
     const getBranchInfo = (branchId: string | number) => {
         return branches.find(b => String(b.id) === String(branchId));
@@ -918,19 +937,35 @@ export default function FeeCollection() {
                 </DialogContent>
             </Dialog>
 
-            {/* Hidden Receipt for Printing */}
-            <div style={{ display: "none" }}>
-                {receiptData && (
-                    <PaymentSlip 
-                        ref={printRef}
-                        student={receiptData.student}
-                        fees={receiptData.fees}
-                        total={receiptData.total}
-                        invoiceNo={receiptData.invoiceNo}
-                        date={receiptData.date}
-                    />
-                )}
-            </div>
+            {/* Receipt Modal */}
+            <Dialog open={!!receiptData} onOpenChange={(open) => !open && setReceiptData(null)}>
+                <DialogContent className="max-w-[900px] w-[95vw] max-h-[90vh] flex flex-col overflow-hidden p-0 bg-gray-100">
+                    <div className="bg-white border-b p-4 flex justify-between items-center print:hidden shrink-0 z-10 shadow-sm">
+                        <DialogTitle className="font-bold text-lg">বেতন স্লিপ প্রিভিউ</DialogTitle>
+                        <div className="flex gap-2">
+                            <Button onClick={handleSaveImage} disabled={savingImage} variant="outline" className="text-emerald-700 border-emerald-200">
+                                {savingImage ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Download className="w-4 h-4 mr-2"/>}
+                                সেভ করুন (JPG)
+                            </Button>
+                            <Button onClick={() => handlePrint()} className="bg-blue-600 hover:bg-blue-700">
+                                <Printer className="w-4 h-4 mr-2"/> প্রিন্ট করুন
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="p-4 sm:p-8 print:p-0 flex justify-center overflow-auto flex-1 bg-gray-100/50 custom-scrollbar">
+                            {receiptData && (
+                                <PaymentSlip 
+                                    ref={printRef}
+                                student={receiptData.student}
+                                fees={receiptData.fees}
+                                total={receiptData.total}
+                                invoiceNo={receiptData.invoiceNo}
+                                date={receiptData.date}
+                            />
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

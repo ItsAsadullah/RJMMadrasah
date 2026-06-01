@@ -6,10 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Loader2, Printer, Download, FileText } from "lucide-react";
 import { format } from "date-fns";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import PaymentSlip from "@/components/dashboard/accounts/PaymentSlip";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import { toJpeg } from "html-to-image";
 import { useReactToPrint } from "react-to-print";
 
 const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
@@ -51,21 +50,31 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
       fetchData();
     }, [studentId]);
 
-    const handleDownloadPDF = async () => {
-        const element = document.getElementById("payment-slip");
-        if(!element) return;
+    const [savingImage, setSavingImage] = useState(false);
+
+    const handleSaveImage = async () => {
+        const studentCopyNode = document.getElementById("student-copy-area");
+        if (!studentCopyNode) {
+            alert("রসিদ খুজে পাওয়া যায়নি!");
+            return;
+        }
         
         try {
-            const canvas = await html2canvas(element, { scale: 2, useCORS: true } as any);
-            const imgData = canvas.toDataURL("image/png");
-            const pdf = new jsPDF("p", "mm", "a4");
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            
-            pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`Receipt_${selectedTxId ? selectedTxId.slice(0, 6) : "doc"}.pdf`);
+            setSavingImage(true);
+            const dataUrl = await toJpeg(studentCopyNode, { 
+                quality: 1.0, 
+                pixelRatio: 2,
+                backgroundColor: '#ffffff'
+            });
+            const link = document.createElement("a");
+            link.download = `Receipt_${selectedTxId ? selectedTxId.slice(0, 6) : "doc"}.jpg`;
+            link.href = dataUrl;
+            link.click();
         } catch (error) {
-            console.error("PDF Gen Error", error);
+            console.error("Error saving image:", error);
+            alert("ছবি সেভ করতে সমস্যা হয়েছে।");
+        } finally {
+            setSavingImage(false);
         }
     };
 
@@ -118,25 +127,30 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
                                              <Printer className="w-3 h-3"/> রসিদ
                                          </Button>
                                      </DialogTrigger>
-                                     <DialogContent className="max-w-[220mm] w-full max-h-[95vh] overflow-y-auto p-0 bg-gray-100">
-                                         <div className="sticky top-0 z-50 bg-white border-b p-4 flex justify-between items-center print:hidden">
-                                             <h3 className="font-bold">মানি রসিদ প্রিভিউ</h3>
+                                     <DialogContent className="max-w-[900px] w-[95vw] max-h-[90vh] flex flex-col overflow-hidden p-0 bg-gray-100">
+                                         <div className="bg-white border-b p-4 flex justify-between items-center print:hidden shrink-0 z-10 shadow-sm">
+                                             <DialogTitle className="font-bold text-lg">মানি রসিদ প্রিভিউ</DialogTitle>
                                              <div className="flex gap-2">
-                                                 <Button variant="outline" onClick={handleDownloadPDF}><Download className="w-4 h-4 mr-2"/> Download PDF</Button>
-                                                 <Button onClick={() => handlePrint()}><Printer className="w-4 h-4 mr-2"/> Print</Button>
+                                                 <Button variant="outline" onClick={handleSaveImage} disabled={savingImage} className="text-emerald-700 border-emerald-200">
+                                                     {savingImage ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Download className="w-4 h-4 mr-2"/>}
+                                                     সেভ করুন (JPG)
+                                                 </Button>
+                                                 <Button onClick={() => handlePrint()} className="bg-blue-600 hover:bg-blue-700">
+                                                     <Printer className="w-4 h-4 mr-2"/> Print
+                                                 </Button>
                                              </div>
                                          </div>
-                                         <div className="p-8 print:p-0 flex justify-center">
-                                              {student && selectedPayment && (
-                                                  <PaymentSlip 
-                                                      ref={printRef}
-                                                      student={student} 
-                                                      fees={[{ title: selectedPayment.description, amount: selectedPayment.amount }]} 
-                                                      total={selectedPayment.amount} 
-                                                      invoiceNo={`INV-${selectedTxId ? selectedTxId.slice(0, 6).toUpperCase() : "DOC"}`} 
-                                                      date={selectedPayment.created_at} 
-                                                  />
-                                              )}
+                                         <div className="p-4 sm:p-8 print:p-0 flex justify-center overflow-auto flex-1 bg-gray-100/50 custom-scrollbar">
+                                                 {student && selectedPayment && (
+                                                     <PaymentSlip 
+                                                         ref={printRef}
+                                                         student={student} 
+                                                         fees={[{ title: selectedPayment.description, amount: selectedPayment.amount }]} 
+                                                         total={selectedPayment.amount} 
+                                                         invoiceNo={`INV-${selectedTxId ? selectedTxId.slice(0, 6).toUpperCase() : "DOC"}`} 
+                                                         date={selectedPayment.created_at} 
+                                                     />
+                                                 )}
                                          </div>
                                      </DialogContent>
                                  </Dialog>
