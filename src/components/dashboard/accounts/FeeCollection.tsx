@@ -950,6 +950,9 @@ export default function FeeCollection() {
                             <Button onClick={() => handlePrint()} className="bg-blue-600 hover:bg-blue-700">
                                 <Printer className="w-4 h-4 mr-2"/> প্রিন্ট করুন
                             </Button>
+                            <Button variant="ghost" size="icon" onClick={() => setReceiptData(null)} className="text-gray-500 hover:bg-red-50 hover:text-red-600 rounded-full ml-1">
+                                <X className="w-5 h-5"/>
+                            </Button>
                         </div>
                     </div>
                     <div className="p-4 sm:p-8 print:p-0 flex justify-center overflow-auto flex-1 bg-gray-100/50 custom-scrollbar">

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Loader2, Printer, Download, FileText } from "lucide-react";
+import { Loader2, Printer, Download, FileText, X } from "lucide-react";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import PaymentSlip from "@/components/dashboard/accounts/PaymentSlip";
@@ -136,7 +136,10 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
                                                      সেভ করুন (JPG)
                                                  </Button>
                                                  <Button onClick={() => handlePrint()} className="bg-blue-600 hover:bg-blue-700">
-                                                     <Printer className="w-4 h-4 mr-2"/> Print
+                                                     <Printer className="w-4 h-4 mr-2"/> প্রিন্ট করুন
+                                                 </Button>
+                                                 <Button variant="ghost" size="icon" onClick={() => setSelectedPayment(null)} className="text-gray-500 hover:bg-red-50 hover:text-red-600 rounded-full ml-1">
+                                                     <X className="w-5 h-5"/>
                                                  </Button>
                                              </div>
                                          </div>
