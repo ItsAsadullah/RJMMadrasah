@@ -19,6 +19,7 @@ import Image from "next/image";
 import StudentPrintProfile from "@/components/dashboard/StudentPrintProfile";
 import PaymentHistory from "@/components/dashboard/students/PaymentHistory";
 import TranscriptPreviewModal from "@/components/academic/TranscriptPreviewModal";
+import { CopyableId } from "@/components/ui/copyable-id";
 import { divisions, districts, upazilas } from "@/data/bangladesh-data";
 import { differenceInYears, differenceInMonths, differenceInDays } from "date-fns";
 
@@ -484,7 +485,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
               </Button>
               <div>
                   <h1 className="text-xl font-bold text-gray-800">{student.name_bn}</h1>
-                  <p className="text-sm text-gray-500 font-mono">ID: {student.student_id}</p>
+                  <div className="text-sm text-gray-500 font-mono flex items-center gap-1">ID: <CopyableId id={student.student_id} /></div>
               </div>
           </div>
           

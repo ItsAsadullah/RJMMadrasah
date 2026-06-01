@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
+import { CopyableId } from "@/components/ui/copyable-id";
 import { getClassOrder } from "@/lib/classOrder";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -508,7 +509,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
                       />
                     </TableCell>
 
-                    <TableCell className="font-mono text-xs text-gray-500 whitespace-nowrap">{student.student_id}</TableCell>
+                    <TableCell className="font-mono text-xs text-gray-500 whitespace-nowrap"><CopyableId id={student.student_id} /></TableCell>
 
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -632,7 +633,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
                       <Link href={`/dashboard/students/${student.id}`} className="font-semibold text-sm text-gray-800 block truncate hover:text-green-700">
                         {student.name_bn || "—"}
                       </Link>
-                      <p className="text-[11px] text-gray-500">ID: {student.student_id || "—"}</p>
+                      <div className="text-[11px] text-gray-500 flex items-center gap-1">ID: {student.student_id ? <CopyableId id={student.student_id} /> : "—"}</div>
                     </div>
                   </div>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 whitespace-nowrap ${

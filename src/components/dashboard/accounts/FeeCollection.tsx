@@ -16,6 +16,7 @@ import { useReactToPrint } from "react-to-print";
 import { toJpeg } from "html-to-image";
 import PaymentSlip from "@/components/dashboard/accounts/PaymentSlip";
 import StudentPaymentReport from "@/components/dashboard/accounts/StudentPaymentReport";
+import { CopyableId } from "@/components/ui/copyable-id";
 import { getClassOrder, sortClassNames } from "@/lib/classOrder";
 
 const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
@@ -744,9 +745,16 @@ export default function FeeCollection() {
                                     <TableBody>
                                         {students.map(s => (
                                             <TableRow key={s.id} className="hover:bg-green-50/50 cursor-pointer" onClick={() => handleSelectStudent(s)}>
-                                                <TableCell className="font-mono text-sm">{s.student_id}</TableCell>
+                                                <TableCell className="font-mono text-sm"><CopyableId id={s.student_id} /></TableCell>
                                                 <TableCell className="text-sm text-gray-600">{toBengaliNumber(s.roll_number ?? s.roll_no ?? "") || "-"}</TableCell>
-                                                <TableCell className="font-bold text-gray-800">{s.name_bn}</TableCell>
+                                                <TableCell className="font-bold text-gray-800">
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{s.name_bn}</span>
+                                                        {activeWaivers.some(w => String(w.student_id) === String(s.student_id) && w.waiver_type === 'full') && (
+                                                            <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 px-1 py-0 h-4">মওকুফ</Badge>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
                                                 <TableCell className="text-sm min-w-35">{getBranchName(s.branch_id)}</TableCell>
                                                 <TableCell className="text-sm text-gray-600">{s.department || "-"}</TableCell>
                                                 <TableCell className="text-sm">{s.class_name}</TableCell>
@@ -814,9 +822,14 @@ export default function FeeCollection() {
                                 )}
                             </div>
                             <div className="text-center sm:text-left flex-1 min-w-0">
-                                <h2 className="text-xl font-bold text-gray-800">{selectedStudent.name_bn}</h2>
+                                <div className="flex items-center justify-center sm:justify-start gap-2">
+                                    <h2 className="text-xl font-bold text-gray-800">{selectedStudent.name_bn}</h2>
+                                    {activeWaivers.some(w => String(w.student_id) === String(selectedStudent.student_id) && w.waiver_type === 'full') && (
+                                        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">সম্পূর্ণ মওকুফ</Badge>
+                                    )}
+                                </div>
                                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 mt-2 text-sm text-gray-600">
-                                    <p><span className="font-semibold text-gray-500">আইডি:</span> <span className="font-mono">{selectedStudent.student_id}</span></p>
+                                    <p><span className="font-semibold text-gray-500">আইডি:</span> <CopyableId id={selectedStudent.student_id} className="font-mono" /></p>
                                     <p><span className="font-semibold text-gray-500">রোল:</span> {toBengaliNumber(selectedStudent.roll_number ?? selectedStudent.roll_no ?? "") || '-'}</p>
                                     <p><span className="font-semibold text-gray-500">শাখা:</span> {selectedStudent.branch_name}</p>
                                     <p><span className="font-semibold text-gray-500">বিভাগ:</span> {selectedStudent.department || "-"}</p>

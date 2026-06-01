@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     LayoutDashboard, DollarSign, GraduationCap, Users,
-    Wallet, Heart, ShieldOff, BarChart3
+    Wallet, Heart, ShieldOff, BarChart3, Trash2
 } from "lucide-react";
 
 import AccountsDashboard from "@/components/dashboard/accounts/AccountsDashboard";
@@ -15,6 +15,7 @@ import ExpenseManagement from "@/components/dashboard/accounts/ExpenseManagement
 import DonationCollection from "@/components/dashboard/accounts/DonationCollection";
 import WaiverManagement from "@/components/dashboard/accounts/WaiverManagement";
 import Reports from "@/components/dashboard/accounts/Reports";
+import DataReset from "@/components/dashboard/accounts/DataReset";
 
 const tabs = [
     { value: "dashboard", label: "ড্যাশবোর্ড", icon: LayoutDashboard },
@@ -25,6 +26,7 @@ const tabs = [
     { value: "donation", label: "দান-অনুদান", icon: Heart },
     { value: "waiver", label: "ছাড়/মওকুফ", icon: ShieldOff },
     { value: "reports", label: "রিপোর্ট", icon: BarChart3 },
+    { value: "reset", label: "রিসেট", icon: Trash2 },
 ];
 
 export default function AccountsPage() {
@@ -86,6 +88,10 @@ export default function AccountsPage() {
 
                 <TabsContent value="reports">
                     <Reports />
+                </TabsContent>
+
+                <TabsContent value="reset">
+                    <DataReset />
                 </TabsContent>
             </Tabs>
         </div>

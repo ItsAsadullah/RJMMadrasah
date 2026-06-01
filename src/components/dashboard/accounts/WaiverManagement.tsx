@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CopyableId } from "@/components/ui/copyable-id";
 import {
     Select, SelectContent, SelectItem,
     SelectTrigger, SelectValue,
@@ -615,7 +616,7 @@ export default function WaiverManagement() {
                                 <CardContent className="p-2.5 space-y-1.5">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="font-bold text-gray-800 text-sm">{w.student_id}</p>
+                                            <CopyableId id={w.student_id} className="font-bold text-gray-800 text-sm" />
                                             <p className="text-[11px] text-gray-500">{w.fee_types?.name_bn}</p>
                                         </div>
                                         <div className="flex flex-col items-end gap-1">
@@ -665,7 +666,7 @@ export default function WaiverManagement() {
                                                 <TableRow key={w.id} className="hover:bg-purple-50/30">
                                                     <TableCell>
                                                         <div className="font-bold text-gray-900">{studentInfo?.name_bn || "-"}</div>
-                                                        <div className="font-mono text-xs text-purple-600 font-semibold">{w.student_id}</div>
+                                                        <div className="font-mono text-xs text-purple-600 font-semibold"><CopyableId id={w.student_id} /></div>
                                                         <div className="text-xs text-gray-500">রোল: {roll && roll !== "-" ? toBengaliNumber(String(roll)) : "-"}</div>
                                                     </TableCell>
                                                     <TableCell>
@@ -831,7 +832,7 @@ export default function WaiverManagement() {
                                                     return (
                                                         <TableRow key={sid} className={isSelected ? "bg-purple-50" : "hover:bg-purple-50/30"}>
                                                             <TableCell className="whitespace-nowrap py-2">
-                                                                <div className="font-mono text-sm font-semibold">{sid}</div>
+                                                                <div className="font-mono text-sm font-semibold"><CopyableId id={sid} /></div>
                                                                 <div className="text-xs text-gray-500">রোল: {roll === "-" ? "-" : toBengaliNumber(roll)}</div>
                                                             </TableCell>
                                                             <TableCell className="py-2 min-w-[160px]">
@@ -880,7 +881,7 @@ export default function WaiverManagement() {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="font-bold text-base text-gray-900 truncate">{form.student_name}</p>
-                                            <p className="text-sm text-gray-400">ID: <span className="font-mono">{form.student_id}</span></p>
+                                            <div className="text-sm text-gray-400 flex items-center gap-1">ID: <CopyableId id={form.student_id} className="font-mono" /></div>
                                         </div>
                                         <Button size="sm" variant="outline" className="h-8 text-sm px-3 shrink-0"
                                             onClick={() => { setForm((p) => ({ ...p, student_id: "", student_name: "" })); setSelectedStudent(null); }}>
