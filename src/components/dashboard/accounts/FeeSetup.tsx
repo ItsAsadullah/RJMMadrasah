@@ -56,6 +56,8 @@ type GenerationHistoryRow = {
     net: number;
     paid: number;
     pending: number;
+    dueIds: number[];
+    baseAmount: number;
 };
 
 const getCalculatedNetAmount = (due: any) => {
@@ -132,6 +134,12 @@ export default function FeeSetup() {
     const [generationStats, setGenerationStats] = useState<BranchGenerationStat[]>([]);
     const [generationHistory, setGenerationHistory] = useState<GenerationHistoryRow[]>([]);
 
+    // Batch Edit
+    const [editBatchModal, setEditBatchModal] = useState(false);
+    const [editingBatch, setEditingBatch] = useState<GenerationHistoryRow | null>(null);
+    const [editBatchAmount, setEditBatchAmount] = useState("");
+    const [savingBatch, setSavingBatch] = useState(false);
+
 
 
     // ---------- DATA FETCHING ----------
@@ -193,7 +201,9 @@ export default function FeeSetup() {
                     waiver: 0,
                     net: 0,
                     paid: 0,
-                    pending: 0
+                    pending: 0,
+                    dueIds: [],
+                    baseAmount: gross
                 });
             }
 
@@ -203,6 +213,7 @@ export default function FeeSetup() {
             row.waiver += waiver;
             row.net += net;
             row.paid += paid;
+            row.dueIds.push(due.id);
             if (due.status !== "paid" && due.status !== "waived") row.pending += net - (Number(due.paid_amount) || 0);
         });
 
@@ -501,6 +512,59 @@ export default function FeeSetup() {
             setGenResult(`ত্রুটি: ${err.message}`);
         }
         setGenerating(false);
+    };
+
+    // ---------- BATCH CRUD ----------
+
+    const handleEditBatchClick = (row: GenerationHistoryRow) => {
+        setEditingBatch(row);
+        setEditBatchAmount(String(row.baseAmount || ""));
+        setEditBatchModal(true);
+    };
+
+    const handleSaveBatchEdit = async () => {
+        if (!editingBatch || !editBatchAmount) return;
+        setSavingBatch(true);
+        const newAmount = parseFloat(editBatchAmount);
+
+        try {
+            const { data: duesToUpdate } = await supabase
+                .from("student_dues")
+                .select("id, waiver")
+                .in("id", editingBatch.dueIds)
+                .not("status", "eq", "paid");
+            
+            if (duesToUpdate && duesToUpdate.length > 0) {
+                // Update sequentially to correctly calculate net_amount for each
+                for (const due of duesToUpdate) {
+                    const newNet = Math.max(newAmount - (Number(due.waiver) || 0), 0);
+                    await supabase.from("student_dues")
+                        .update({ amount: newAmount, net_amount: newNet })
+                        .eq("id", due.id);
+                }
+            }
+            setEditBatchModal(false);
+            setEditingBatch(null);
+            fetchAll();
+        } catch (error: any) {
+            alert("ত্রুটি: " + error.message);
+        }
+        setSavingBatch(false);
+    };
+
+    const handleDeleteBatch = async (row: GenerationHistoryRow) => {
+        if (!confirm("আপনি কি এই ফি ব্যাচ মুছে ফেলতে চান? শুধুমাত্র বকেয়া (Unpaid) ফি মুছে যাবে, পরিশোধিত (Paid) ফি থেকে যাবে।")) return;
+        
+        try {
+            await supabase.from("student_dues")
+                .delete()
+                .in("id", row.dueIds)
+                .not("status", "eq", "paid");
+            
+            fetchAll();
+        } catch (error: any) {
+            alert("ত্রুটি: " + error.message);
+        }
     };
 
 
@@ -834,6 +898,7 @@ export default function FeeSetup() {
                                                 <TableHead className="text-center font-bold">শিক্ষার্থী</TableHead>
                                                 <TableHead className="text-right font-bold">জেনারেটেড টাকা</TableHead>
                                                 <TableHead className="text-right font-bold">বকেয়া</TableHead>
+                                                <TableHead className="text-right font-bold">অ্যাকশন</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -849,6 +914,16 @@ export default function FeeSetup() {
                                                     <TableCell className="text-center">{toBengaliNumber(row.count)} জন</TableCell>
                                                     <TableCell className="text-right font-bold text-green-700">৳ {toBengaliNumber(row.net)}</TableCell>
                                                     <TableCell className="text-right font-bold text-red-600">৳ {toBengaliNumber(row.pending)}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex justify-end gap-1">
+                                                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50" onClick={() => handleEditBatchClick(row)} title="এডিট">
+                                                                <Edit3 className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-500 hover:bg-red-50" onClick={() => handleDeleteBatch(row)} title="ডিলিট">
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -868,10 +943,45 @@ export default function FeeSetup() {
                                     <li>একই মাস/বছরে একই ফি স্ট্রাকচারের জন্য ডুপ্লিকেট ফি জেনারেট হবে না।</li>
                                     <li>যে শিক্ষার্থীর ওয়েভার আছে, তার ফি থেকে স্বয়ংক্রিয়ভাবে ছাড় কেটে নেওয়া হবে।</li>
                                     <li>পূর্ণ মওকুফ প্রাপ্ত শিক্ষার্থীদের নেট টাকা ০ হিসেবে হিসাব হবে।</li>
+                                    <li>কোনো ফি ব্যাচ এডিট বা ডিলিট করলে শুধুমাত্র বকেয়া (Unpaid) ফি পরিবর্তিত হবে।</li>
                                 </ul>
                             </div>
                         </CardContent>
                     </Card>
+
+                    {/* Batch Edit Modal */}
+                    <Dialog open={editBatchModal} onOpenChange={setEditBatchModal}>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2"><Edit3 className="w-5 h-5 text-blue-600" /> ফি ব্যাচ সম্পাদনা</DialogTitle>
+                                <DialogDescription>
+                                    এই ব্যাচের সমস্ত বকেয়া (Unpaid) ফির পরিমাণ পরিবর্তন করুন। 
+                                    <br/><span className="text-red-600 font-bold text-xs mt-1 block">বি.দ্র: যারা ইতিমধ্যে ফি পরিশোধ করেছে তাদের রেকর্ড পরিবর্তন হবে না।</span>
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 mt-2">
+                                {editingBatch && (
+                                    <div className="text-sm text-gray-600 mb-3 bg-gray-50 p-3 rounded border">
+                                        <p><strong>শাখা:</strong> {editingBatch.branchName}</p>
+                                        <p><strong>শ্রেণি:</strong> {editingBatch.className}</p>
+                                        <p><strong>ফি:</strong> {editingBatch.feeName}</p>
+                                        <p><strong>মাস:</strong> {editingBatch.monthYear}</p>
+                                    </div>
+                                )}
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-bold text-gray-700">নতুন পরিমাণ (৳)</label>
+                                    <Input type="number" placeholder="0" value={editBatchAmount} onChange={e => setEditBatchAmount(e.target.value)} />
+                                </div>
+                            </div>
+                            <DialogFooter className="mt-4">
+                                <Button variant="outline" onClick={() => setEditBatchModal(false)}>বাতিল</Button>
+                                <Button onClick={handleSaveBatchEdit} disabled={savingBatch} className="bg-blue-600 hover:bg-blue-700">
+                                    {savingBatch ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                                    আপডেট করুন
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </TabsContent>
 
 
