@@ -548,6 +548,32 @@ export default function FeeCollection() {
         .filter(d => selectedDues.includes(d.id))
         .reduce((sum, d) => sum + getOutstandingAmount(d, activeWaivers, selectedStudent?.student_id), 0);
 
+    const groupedPaidHistory = Object.values(paidHistory.reduce((acc: any, h: any) => {
+        const receiptMatch = (h.description || "").match(/রসিদ:\s*(INV-\d+)/);
+        const receiptNo = receiptMatch ? receiptMatch[1] : `REC-${String(h.id).padStart(6, '0')}`;
+        
+        if (!acc[receiptNo]) {
+            acc[receiptNo] = {
+                id: receiptNo,
+                receiptNo,
+                date: h.transaction_date || h.created_at,
+                payment_method: h.payment_method,
+                items: [],
+                total: 0
+            };
+        }
+        
+        let desc = (h.description || "ফি পেমেন্ট").split(" | রসিদ:")[0];
+        acc[receiptNo].items.push({
+            id: h.id,
+            description: desc,
+            amount: h.amount
+        });
+        acc[receiptNo].total += Number(h.amount || 0);
+        
+        return acc;
+    }, {})).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
     const totalDueAmount = students.reduce((sum, student) => sum + (Number(student.totalDue) || 0), 0);
     const dueStudentCount = students.filter(student => (Number(student.totalDue) || 0) > 0).length;
     const paidStudentCount = students.filter(student => (Number(student.totalDue) || 0) === 0 && student.student_dues && student.student_dues.length > 0).length;
@@ -919,37 +945,46 @@ export default function FeeCollection() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {paidHistory.map(h => {
-                                                const receiptMatch = (h.description || "").match(/রসিদ:\s*(INV-\d+)/);
-                                                const receiptNo = receiptMatch ? receiptMatch[1] : `REC-${String(h.id).padStart(6, '0')}`;
-                                                
-                                                let desc = (h.description || "ফি পেমেন্ট").split(" | রসিদ:")[0];
-                                                let titlePart = desc;
-                                                let subPart = "";
-                                                if (desc.includes("|||")) {
-                                                    const parts = desc.split("|||");
-                                                    titlePart = parts[0].trim();
-                                                    subPart = parts[1].trim();
-                                                }
-
-                                                return (
-                                                <TableRow key={h.id}>
-                                                    <TableCell className="text-sm">{h.transaction_date ? format(new Date(h.transaction_date), 'dd/MM/yyyy') : '-'}</TableCell>
+                                            {groupedPaidHistory.map((group: any) => (
+                                                <TableRow key={group.receiptNo}>
+                                                    <TableCell className="text-sm">{group.date ? format(new Date(group.date), 'dd/MM/yyyy') : '-'}</TableCell>
                                                     <TableCell className="font-medium text-gray-800">
-                                                        <div className="font-bold">{titlePart}</div>
-                                                        {subPart && <div className="text-xs text-gray-500 font-normal mt-0.5">{subPart}</div>}
+                                                        {group.items.map((item: any, idx: number) => {
+                                                            let titlePart = item.description;
+                                                            let subPart = "";
+                                                            if (item.description.includes("|||")) {
+                                                                const parts = item.description.split("|||");
+                                                                titlePart = parts[0].trim();
+                                                                subPart = parts[1].trim();
+                                                            }
+                                                            return (
+                                                                <div key={idx} className={idx > 0 ? "mt-2 pt-2 border-t border-gray-100" : ""}>
+                                                                    <div className="font-bold">{titlePart}</div>
+                                                                    {subPart && <div className="text-xs text-gray-500 font-normal mt-0.5">{subPart}</div>}
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </TableCell>
-                                                    <TableCell className="font-mono text-xs">{receiptNo}</TableCell>
+                                                    <TableCell className="font-mono text-xs">{group.receiptNo}</TableCell>
                                                     <TableCell className="text-right font-bold text-green-700">
-                                                        ৳ {toBengaliNumber(h.amount || 0)}
+                                                        ৳ {toBengaliNumber(group.total || 0)}
                                                     </TableCell>
                                                     <TableCell className="text-center">
-                                                        <Button size="icon" variant="ghost" className="text-blue-600 h-8 w-8" onClick={() => handleShowReceipt(h)}>
+                                                        <Button size="icon" variant="ghost" className="text-blue-600 h-8 w-8" onClick={() => {
+                                                            setReceiptData({
+                                                                student: selectedStudent,
+                                                                fees: group.items.map((i: any) => ({ description: i.description, amount: i.amount })),
+                                                                total: group.total,
+                                                                invoiceNo: group.receiptNo,
+                                                                paymentMethod: group.payment_method || "cash",
+                                                                date: new Date(group.date)
+                                                            });
+                                                        }}>
                                                             <Printer className="w-4 h-4" />
                                                         </Button>
                                                     </TableCell>
                                                 </TableRow>
-                                            )})}
+                                            ))}
                                         </TableBody>
                                     </Table>
                                     </div>

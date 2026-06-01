@@ -90,6 +90,35 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
     if (loading) return <div className="text-center py-10"><Loader2 className="animate-spin mx-auto text-green-600"/></div>;
     if (payments.length === 0) return <div className="text-center py-10 text-gray-400 border rounded-xl p-10 bg-gray-50">কোনো পেমেন্ট ইতিহাস পাওয়া যায়নি</div>;
 
+    const groupedPayments = Object.values(payments.reduce((acc: any, payment) => {
+        const txId = getTxId(payment);
+        const txIdShort = txId ? txId.slice(0, 8).toUpperCase() : "-";
+        
+        let desc = payment.description || "ফি পেমেন্ট";
+        const receiptMatch = desc.match(/রসিদ:\s*(INV-\d+)/);
+        let receiptNo = receiptMatch ? receiptMatch[1] : txIdShort;
+        
+        if (!acc[receiptNo]) {
+            acc[receiptNo] = {
+                receiptNo,
+                date: payment.created_at,
+                payment_method: payment.payment_method,
+                txId: txId,
+                items: [],
+                total: 0
+            };
+        }
+        
+        desc = desc.split(" | রসিদ:")[0];
+        acc[receiptNo].items.push({
+            description: desc,
+            amount: payment.amount
+        });
+        acc[receiptNo].total += Number(payment.amount || 0);
+        
+        return acc;
+    }, {})).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
     return (
       <div className="space-y-6 relative">
          {/* Action Buttons */}
@@ -128,37 +157,34 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
                      </TableRow>
                  </TableHeader>
                 <TableBody>
-                    {payments.map((payment, idx) => {
-                        const txId = getTxId(payment);
-                        const txIdShort = txId ? txId.slice(0, 8).toUpperCase() : "-";
-                        
-                        let desc = payment.description || "ফি পেমেন্ট";
-                        const receiptMatch = desc.match(/রসিদ:\s*(INV-\d+)/);
-                        let receiptNo = receiptMatch ? receiptMatch[1] : txIdShort;
-                        desc = desc.split(" | রসিদ:")[0];
-
-                        let titlePart = desc;
-                        let subPart = "";
-                        if (desc.includes("|||")) {
-                            const parts = desc.split("|||");
-                            titlePart = parts[0].trim();
-                            subPart = parts[1].trim();
-                        }
-
+                    {groupedPayments.map((group: any, idx) => {
                         return (
-                        <TableRow key={txId || String(idx)}>
-                             <TableCell className="font-mono text-gray-600">{format(new Date(payment.created_at), 'dd/MM/yyyy')}</TableCell>
+                        <TableRow key={group.receiptNo || String(idx)}>
+                             <TableCell className="text-sm font-mono text-gray-600">{group.date ? format(new Date(group.date), 'dd/MM/yyyy') : '-'}</TableCell>
                              <TableCell className="font-medium text-gray-800">
-                                 <div className="font-bold">{titlePart}</div>
-                                 {subPart && <div className="text-xs text-gray-500 font-normal mt-0.5">{subPart}</div>}
+                                 {group.items.map((item: any, i: number) => {
+                                     let titlePart = item.description;
+                                     let subPart = "";
+                                     if (item.description.includes("|||")) {
+                                         const parts = item.description.split("|||");
+                                         titlePart = parts[0].trim();
+                                         subPart = parts[1].trim();
+                                     }
+                                     return (
+                                         <div key={i} className={i > 0 ? "mt-2 pt-2 border-t border-gray-100" : ""}>
+                                             <div className="font-bold">{titlePart}</div>
+                                             {subPart && <div className="text-xs text-gray-500 font-normal mt-0.5">{subPart}</div>}
+                                         </div>
+                                     );
+                                 })}
                              </TableCell>
-                             <TableCell><span className="capitalize px-2 py-1 bg-gray-100 rounded text-xs">{payment.payment_method || 'cash'}</span></TableCell>
-                            <TableCell className="font-mono text-xs text-gray-500">{receiptNo}</TableCell>
-                             <TableCell className="text-right font-bold text-green-600">৳ {toBengaliNumber(payment.amount)}</TableCell>
+                             <TableCell><span className="capitalize px-2 py-1 bg-gray-100 rounded text-xs">{group.payment_method || 'cash'}</span></TableCell>
+                            <TableCell className="font-mono text-xs text-gray-500">{group.receiptNo}</TableCell>
+                             <TableCell className="text-right font-bold text-green-600">৳ {toBengaliNumber(group.total)}</TableCell>
                              <TableCell className="text-right">
                                  <Dialog>
                                      <DialogTrigger asChild>
-                                         <Button size="sm" variant="outline" className="h-8 gap-2" onClick={() => setSelectedPayment(payment)}>
+                                         <Button size="sm" variant="outline" className="h-8 gap-2" onClick={() => setSelectedPayment(group)}>
                                              <Printer className="w-3 h-3"/> রসিদ
                                          </Button>
                                      </DialogTrigger>
@@ -183,16 +209,10 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
                                                      <PaymentSlip 
                                                          ref={printRef}
                                                          student={student} 
-                                                         fees={[{ 
-                                                             description: (selectedPayment.description || "").split(" | রসিদ:")[0], 
-                                                             amount: selectedPayment.amount 
-                                                         }]} 
-                                                         total={selectedPayment.amount} 
-                                                         invoiceNo={(() => {
-                                                             const match = (selectedPayment.description || "").match(/রসিদ:\s*(INV-\d+)/);
-                                                             return match ? match[1] : `INV-${selectedTxId ? selectedTxId.slice(0, 6).toUpperCase() : "DOC"}`;
-                                                         })()}
-                                                         date={selectedPayment.created_at}
+                                                         fees={selectedPayment.items.map((i: any) => ({ description: i.description, amount: i.amount }))} 
+                                                         total={selectedPayment.total} 
+                                                         invoiceNo={selectedPayment.receiptNo}
+                                                         date={selectedPayment.date}
                                                          paymentMethod={selectedPayment.payment_method || "cash"}
                                                      />
                                                  )}
