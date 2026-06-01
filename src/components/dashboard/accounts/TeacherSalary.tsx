@@ -138,7 +138,8 @@ export default function TeacherSalary() {
                     salary_year: selectedYear,
                     payment_date: new Date().toISOString().split("T")[0],
                     payment_method: payForm.payment_method,
-                    remarks: payForm.note
+                    remarks: payForm.note,
+                    created_by: user?.id
                 });
 
             if (salError) throw salError;
@@ -189,7 +190,8 @@ export default function TeacherSalary() {
                         salary_month: selectedMonth,
                         salary_year: selectedYear,
                         payment_date: new Date().toISOString().split("T")[0],
-                        payment_method: "cash"
+                        payment_method: "cash",
+                        created_by: user?.id
                     });
             }
 
