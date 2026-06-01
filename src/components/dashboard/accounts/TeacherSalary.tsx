@@ -128,10 +128,10 @@ export default function TeacherSalary() {
 
             if (txError) throw txError;
 
-            // 2. Upsert salary record
+            // 2. Insert salary record
             const { error: salError } = await supabase
                 .from("teacher_salaries")
-                .upsert({
+                .insert({
                     teacher_id: payForm.teacher_id,
                     net_amount: amount,
                     salary_month: selectedMonth,
@@ -139,7 +139,7 @@ export default function TeacherSalary() {
                     payment_date: new Date().toISOString().split("T")[0],
                     payment_method: payForm.payment_method,
                     remarks: payForm.note
-                }, { onConflict: "teacher_id,salary_month,salary_year" });
+                });
 
             if (salError) throw salError;
 
@@ -183,14 +183,14 @@ export default function TeacherSalary() {
 
                 await supabase
                     .from("teacher_salaries")
-                    .upsert({
+                    .insert({
                         teacher_id: teacherId,
                         net_amount: amount,
                         salary_month: selectedMonth,
                         salary_year: selectedYear,
                         payment_date: new Date().toISOString().split("T")[0],
                         payment_method: "cash"
-                    }, { onConflict: "teacher_id,salary_month,salary_year" });
+                    });
             }
 
             setSelectedTeachers([]);
