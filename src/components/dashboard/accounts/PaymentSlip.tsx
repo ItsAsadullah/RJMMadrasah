@@ -59,7 +59,7 @@ const getBranchName = (student: any) => (
 const getAddress = (student: any) =>
     student?.branch_address || student?.branches?.address || "হলিধানী বাজার, ঝিনাইদহ";
 
-const ReceiptCopy = ({ id, title, student, fees, total, invoiceNo, date }: any) => (
+const ReceiptCopy = ({ id, title, student, fees, total, invoiceNo, date, paymentMethod }: any) => (
     <div id={id} className="h-[135mm] relative bg-white rounded-xl border border-gray-200 p-6 flex flex-col shadow-sm print:shadow-none print:border-gray-300 print:rounded-none overflow-hidden">
 
         {/* Top Accent Color Bar */}
@@ -102,6 +102,7 @@ const ReceiptCopy = ({ id, title, student, fees, total, invoiceNo, date }: any) 
                 <div className="flex text-[13px]"><span className="w-16 text-gray-500">নাম</span> <span className="mr-2 text-gray-400">:</span> <span className="font-semibold text-gray-900">{student.name_bn}</span></div>
                 <div className="flex text-[13px]"><span className="w-16 text-gray-500">আইডি</span> <span className="mr-2 text-gray-400">:</span> <span className="font-mono font-medium text-gray-900">{student.student_id}</span></div>
                 <div className="flex text-[13px]"><span className="w-16 text-gray-500">শ্রেণি</span> <span className="mr-2 text-gray-400">:</span> <span className="font-medium text-gray-900">{student.class_name}</span></div>
+                {paymentMethod && <div className="flex text-[13px]"><span className="w-16 text-gray-500">মাধ্যম</span> <span className="mr-2 text-gray-400">:</span> <span className="font-medium text-gray-900 capitalize">{paymentMethod}</span></div>}
             </div>
             <div className="col-span-5 space-y-2">
                 <div className="flex text-[13px]"><span className="w-16 text-gray-500">রসিদ নং</span> <span className="mr-2 text-gray-400">:</span> <span className="font-mono font-medium text-gray-900">{invoiceNo}</span></div>
@@ -121,13 +122,37 @@ const ReceiptCopy = ({ id, title, student, fees, total, invoiceNo, date }: any) 
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                    {fees.map((f: any, i: number) => (
+                    {fees.map((f: any, i: number) => {
+                        const rawDesc = f.description || f.title || "";
+                        let titlePart = rawDesc;
+                        let subPart = "";
+                        
+                        if (rawDesc.includes("|||")) {
+                            const parts = rawDesc.split("|||");
+                            titlePart = parts[0].trim();
+                            subPart = parts[1].trim();
+                        }
+                        
+                        return (
                         <tr key={i} className="hover:bg-gray-50/50">
-                            <td className="py-2 px-3 text-left font-mono text-gray-600">{toBengaliNumber(i + 1)}</td>
-                            <td className="py-2 px-3 text-left text-gray-800">{f.description || f.title}</td>
-                            <td className="py-2 px-3 text-right font-mono font-semibold text-gray-900">{toBengaliNumber(f.amount)}/-</td>
+                            <td className="py-2 px-3 text-left font-mono text-gray-600 align-top pt-3">{toBengaliNumber(i + 1)}</td>
+                            <td className="py-2 px-3 text-left text-gray-800 align-top pt-3">
+                                <div className="font-bold">{titlePart}</div>
+                            </td>
+                            <td className="py-2 px-3 text-right align-top pt-3">
+                                {subPart ? (
+                                    <div className="text-[12px] font-semibold text-gray-800 flex flex-col gap-0.5 items-end">
+                                        {subPart.split("•").map((part: string, idx: number) => (
+                                            <div key={idx}>{part.trim()}</div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="font-mono font-semibold text-gray-900 text-[14px]">৳ {toBengaliNumber(f.amount)}/-</div>
+                                )}
+                            </td>
                         </tr>
-                    ))}
+                        );
+                    })}
                 </tbody>
             </table>
         </div>

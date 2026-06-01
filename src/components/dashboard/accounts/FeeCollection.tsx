@@ -10,16 +10,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle, DialogHeader } from "@/components/ui/dialog";
-import { Loader2, Search, Printer, DollarSign, UserRound, GraduationCap, X, Receipt, Eye, CreditCard, CheckCircle2, Download } from "lucide-react";
+import { Loader2, Search, Printer, DollarSign, UserRound, GraduationCap, X, Receipt, Eye, CreditCard, CheckCircle2, Download, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { useReactToPrint } from "react-to-print";
 import { toJpeg } from "html-to-image";
 import PaymentSlip from "@/components/dashboard/accounts/PaymentSlip";
+import StudentPaymentReport from "@/components/dashboard/accounts/StudentPaymentReport";
 import { getClassOrder, sortClassNames } from "@/lib/classOrder";
 
 const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
 
-const bengaliMonths = ["জানু", "ফেব্রু", "মার্চ", "এপ্রি", "মে", "জুন", "জুলা", "আগ", "সেপ্টে", "অক্টো", "নভে", "ডিসে"];
+const bengaliMonths = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
 
 const getNetAmount = (due: any, activeWaivers?: any[], studentId?: string) => {
     if ((due?.status === "paid" || due?.status === "waived") && due?.net_amount != null) {
@@ -182,11 +183,14 @@ export default function FeeCollection() {
     
     // Receipt Modal state
     const [receiptData, setReceiptData] = useState<any>(null);
+    const [reportModalOpen, setReportModalOpen] = useState(false);
     const printRef = useRef<HTMLDivElement>(null);
+    const reportRef = useRef<HTMLDivElement>(null);
     
     // Partial Payment state
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [receivedAmount, setReceivedAmount] = useState<string>("");
+    const [paymentMethod, setPaymentMethod] = useState("cash");
 
     const [savingImage, setSavingImage] = useState(false);
 
@@ -197,6 +201,12 @@ export default function FeeCollection() {
         onAfterPrint: () => {
             console.log("Printed");
         }
+    });
+
+    const handlePrintReport = useReactToPrint({
+        contentRef: reportRef,
+        documentTitle: `Payment_Report_${selectedStudent?.student_id || 'Print'}`,
+        suppressErrors: true
     });
 
     const handleSaveImage = async () => {
@@ -337,11 +347,11 @@ export default function FeeCollection() {
                 .not("status", "in", '("paid","waived")')
                 .order("created_at"),
             supabase
-                .from("student_dues")
-                .select("id, title, amount, waiver, fine, paid_amount, status, due_date, fee_month, fee_year, net_amount, fee_type_id, fee_structure_id, fee_types(name_bn), fee_structures(branch_id, class_name, frequency, fee_types(name_bn)), payment_date, receipt_no, updated_at")
-                .eq("student_id", student.id)
-                .eq("status", "paid")
-                .order("updated_at", { ascending: false })
+                .from("transactions")
+                .select("*")
+                .eq("student_id", student.student_id)
+                .eq("type", "income")
+                .order("created_at", { ascending: false })
         ]);
         
         if (dueRes.error) {
@@ -409,21 +419,45 @@ export default function FeeCollection() {
             
             let remainingAmount = amountToPay;
             const receiptFees = [];
+            const transactionsToInsert = [];
             
             // 1. Update Dues Status Sequentially
             for (const fee of feesToPay) {
                 if (remainingAmount <= 0) break;
 
-                const outstanding = getOutstandingAmount(fee, activeWaivers, selectedStudent.student_id);
+                const totalFeeAmount = getNetAmount(fee, activeWaivers, selectedStudent.student_id);
+                const previousPaid = Number(fee.paid_amount) || 0;
+                const outstanding = totalFeeAmount - previousPaid;
+                
                 if (outstanding <= 0) continue;
 
                 const payForThisDue = Math.min(outstanding, remainingAmount);
-                const currentPaid = Number(fee.paid_amount) || 0;
-                const newPaidAmount = currentPaid + payForThisDue;
+                const remainingDue = outstanding - payForThisDue;
+                const newPaidAmount = previousPaid + payForThisDue;
 
-                const finalNetAmount = getNetAmount(fee, activeWaivers, selectedStudent.student_id);
+                const finalNetAmount = totalFeeAmount;
                 const finalWaiver = fee.dynamic_waiver ?? fee.waiver;
                 const newStatus = newPaidAmount >= finalNetAmount ? "paid" : "partial";
+
+                let paymentType = "full";
+                if (previousPaid === 0 && remainingDue > 0) paymentType = "partial_first";
+                else if (previousPaid > 0 && remainingDue > 0) paymentType = "partial_ongoing";
+                else if (previousPaid > 0 && remainingDue === 0) paymentType = "partial_last";
+
+                const baseFeeName = `${getFeeName(fee)} - ${getMonthYearLabel(fee)}`;
+                let displayTitle = baseFeeName;
+                if (paymentType === "partial_first" || paymentType === "partial_ongoing" || paymentType === "partial_last") {
+                    displayTitle = `${baseFeeName}, ৳${toBengaliNumber(totalFeeAmount)}`;
+                }
+
+                let extendedDesc = "";
+                if (paymentType === "partial_first" || paymentType === "partial_ongoing") {
+                    extendedDesc = `পেমেন্ট = ৳${toBengaliNumber(payForThisDue)} • বকেয়া = ৳${toBengaliNumber(remainingDue)}`;
+                } else if (paymentType === "partial_last") {
+                    extendedDesc = `পূর্বের জমা = ৳${toBengaliNumber(previousPaid)} • বর্তমান জমা = ৳${toBengaliNumber(payForThisDue)} • মোট পরিশোধিত = ৳${toBengaliNumber(totalFeeAmount)}`;
+                }
+
+                const feeDescription = extendedDesc ? `${displayTitle} ||| ${extendedDesc}` : displayTitle;
 
                 const { error } = await supabase.from("student_dues")
                     .update({
@@ -439,8 +473,22 @@ export default function FeeCollection() {
                 if (error) throw error;
 
                 receiptFees.push({ 
-                    description: `${getFeeName(fee)} - ${getMonthYearLabel(fee)}${payForThisDue < outstanding ? ' (আংশিক)' : ''}`, 
+                    description: feeDescription, 
                     amount: payForThisDue 
+                });
+
+                // Prepare individual transaction for this due
+                transactionsToInsert.push({
+                    amount: payForThisDue,
+                    type: "income",
+                    fund_type: "general",
+                    description: `${feeDescription} | রসিদ: ${receiptNo}`,
+                    transaction_date: new Date().toISOString().split("T")[0],
+                    created_by: user?.id,
+                    student_id: selectedStudent.student_id,
+                    branch_id: selectedStudent.branch_id,
+                    payment_method: paymentMethod,
+                    due_id: fee.id
                 });
 
                 remainingAmount -= payForThisDue;
@@ -448,19 +496,11 @@ export default function FeeCollection() {
 
             const actualTotalPaid = amountToPay - remainingAmount;
 
-            // 2. Create Transaction
-            const { error: txError } = await supabase.from("transactions").insert({
-                amount: actualTotalPaid,
-                type: "income",
-                fund_type: "general",
-                description: `বেতন আদায় - ${selectedStudent.name_bn} (${selectedStudent.student_id}) - রসিদ ${receiptNo} - ${receiptFees.length} টি ফি`,
-                transaction_date: new Date().toISOString().split("T")[0],
-                created_by: user?.id,
-                student_id: selectedStudent.student_id,
-                branch_id: selectedStudent.branch_id,
-                payment_method: "cash"
-            });
-            if (txError) throw txError;
+            // 2. Create Transactions (Bulk Insert)
+            if (transactionsToInsert.length > 0) {
+                const { error: txError } = await supabase.from("transactions").insert(transactionsToInsert);
+                if (txError) throw txError;
+            }
 
             // Refresh data
             await handleSelectStudent(selectedStudent);
@@ -472,6 +512,7 @@ export default function FeeCollection() {
                 fees: receiptFees,
                 total: actualTotalPaid,
                 invoiceNo: receiptNo,
+                paymentMethod: paymentMethod,
                 date: new Date()
             });
 
@@ -484,13 +525,22 @@ export default function FeeCollection() {
     };
 
     const handleShowReceipt = (item: any) => {
-        const amt = item.paid_amount || getNetAmount(item, activeWaivers, selectedStudent?.student_id);
+        let receiptNo = `REC-${String(item.id).padStart(6, '0')}`;
+        let description = item.description || "ফি পেমেন্ট";
+        
+        const receiptMatch = description.match(/রসিদ:\s*(INV-\d+)/);
+        if (receiptMatch) {
+            receiptNo = receiptMatch[1];
+            description = description.split(" | রসিদ:")[0];
+        }
+
         setReceiptData({
             student: selectedStudent,
-            fees: [{ description: `${getFeeName(item)} - ${getMonthYearLabel(item)}`, amount: amt }],
-            total: amt,
-            invoiceNo: item.receipt_no || `REC-${item.id.slice(0,6).toUpperCase()}`,
-            date: new Date(item.payment_date || item.updated_at)
+            fees: [{ description, amount: item.amount }],
+            total: item.amount,
+            invoiceNo: receiptNo,
+            paymentMethod: item.payment_method || "cash",
+            date: new Date(item.transaction_date || item.created_at)
         });
     };
 
@@ -842,6 +892,14 @@ export default function FeeCollection() {
                         </Card>
                     ) : (
                         <Card className="rounded-2xl shadow-sm">
+                            <CardHeader className="flex flex-row items-center justify-between pb-2 border-b">
+                                <CardTitle className="text-lg">পেমেন্ট হিস্টোরি</CardTitle>
+                                {paidHistory.length > 0 && (
+                                    <Button size="sm" onClick={() => setReportModalOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+                                        <FileText className="w-4 h-4 mr-2" /> পেমেন্ট রিপোর্ট
+                                    </Button>
+                                )}
+                            </CardHeader>
                             <CardContent className="p-0">
                                 {paidHistory.length === 0 ? (
                                     <div className="text-center py-16 text-gray-400">
@@ -855,28 +913,35 @@ export default function FeeCollection() {
                                             <TableRow>
                                                 <TableHead>তারিখ</TableHead>
                                                 <TableHead>বিবরণ</TableHead>
-                                                <TableHead>মাস/বছর</TableHead>
                                                 <TableHead>রসিদ নং</TableHead>
-                                                <TableHead className="text-right">মূল টাকা</TableHead>
-                                                <TableHead className="text-right">ছাড়</TableHead>
-                                                <TableHead className="text-right">পরিমাণ</TableHead>
+                                                <TableHead className="text-right">পরিশোধিত পরিমাণ</TableHead>
                                                 <TableHead className="text-center">রসিদ</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {paidHistory.map(h => (
+                                            {paidHistory.map(h => {
+                                                const receiptMatch = (h.description || "").match(/রসিদ:\s*(INV-\d+)/);
+                                                const receiptNo = receiptMatch ? receiptMatch[1] : `REC-${String(h.id).padStart(6, '0')}`;
+                                                
+                                                let desc = (h.description || "ফি পেমেন্ট").split(" | রসিদ:")[0];
+                                                let titlePart = desc;
+                                                let subPart = "";
+                                                if (desc.includes("|||")) {
+                                                    const parts = desc.split("|||");
+                                                    titlePart = parts[0].trim();
+                                                    subPart = parts[1].trim();
+                                                }
+
+                                                return (
                                                 <TableRow key={h.id}>
-                                                    <TableCell className="text-sm">{h.payment_date ? format(new Date(h.payment_date), 'dd/MM/yyyy') : '-'}</TableCell>
-                                                    <TableCell className="font-medium">
-                                                        {getFeeName(h)}
-                                                        {h.title && <span className="block text-xs text-gray-500">{h.title}</span>}
+                                                    <TableCell className="text-sm">{h.transaction_date ? format(new Date(h.transaction_date), 'dd/MM/yyyy') : '-'}</TableCell>
+                                                    <TableCell className="font-medium text-gray-800">
+                                                        <div className="font-bold">{titlePart}</div>
+                                                        {subPart && <div className="text-xs text-gray-500 font-normal mt-0.5">{subPart}</div>}
                                                     </TableCell>
-                                                    <TableCell>{getMonthYearLabel(h)}</TableCell>
-                                                    <TableCell className="font-mono text-xs">{h.receipt_no || '-'}</TableCell>
-                                                    <TableCell className="text-right">৳ {toBengaliNumber(h.amount || 0)}</TableCell>
-                                                    <TableCell className="text-right text-purple-700">৳ {toBengaliNumber(h.waiver || 0)}</TableCell>
+                                                    <TableCell className="font-mono text-xs">{receiptNo}</TableCell>
                                                     <TableCell className="text-right font-bold text-green-700">
-                                                        ৳ {toBengaliNumber(h.paid_amount || getNetAmount(h, activeWaivers, selectedStudent?.student_id))}
+                                                        ৳ {toBengaliNumber(h.amount || 0)}
                                                     </TableCell>
                                                     <TableCell className="text-center">
                                                         <Button size="icon" variant="ghost" className="text-blue-600 h-8 w-8" onClick={() => handleShowReceipt(h)}>
@@ -884,7 +949,7 @@ export default function FeeCollection() {
                                                         </Button>
                                                     </TableCell>
                                                 </TableRow>
-                                            ))}
+                                            )})}
                                         </TableBody>
                                     </Table>
                                     </div>
@@ -924,6 +989,21 @@ export default function FeeCollection() {
                             />
                             <p className="text-xs text-gray-500 font-medium">আংশিক পেমেন্ট করতে চাইলে পরিমাণ পরিবর্তন করুন</p>
                         </div>
+                        
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-gray-700">পেমেন্ট মাধ্যম</label>
+                            <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                                <SelectTrigger className="h-12 text-base">
+                                    <SelectValue placeholder="মাধ্যম নির্বাচন করুন" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="cash">Cash (নগদ)</SelectItem>
+                                    <SelectItem value="bkash">bKash (বিকাশ)</SelectItem>
+                                    <SelectItem value="nagad">Nagad (নগদ মোবাইল ব্যাংকিং)</SelectItem>
+                                    <SelectItem value="bank">Bank (ব্যাংক)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
 
                         <Button 
                             onClick={processPayment} 
@@ -959,11 +1039,38 @@ export default function FeeCollection() {
                             {receiptData && (
                                 <PaymentSlip 
                                     ref={printRef}
-                                student={receiptData.student}
-                                fees={receiptData.fees}
-                                total={receiptData.total}
-                                invoiceNo={receiptData.invoiceNo}
-                                date={receiptData.date}
+                                    student={receiptData.student}
+                                    fees={receiptData.fees}
+                                    total={receiptData.total}
+                                    invoiceNo={receiptData.invoiceNo}
+                                    date={receiptData.date}
+                                    paymentMethod={receiptData.paymentMethod}
+                                />
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Payment Report Modal */}
+            <Dialog open={reportModalOpen} onOpenChange={setReportModalOpen}>
+                <DialogContent className="max-w-[900px] w-[95vw] max-h-[90vh] flex flex-col overflow-hidden p-0 bg-gray-100">
+                    <div className="bg-white border-b p-4 flex justify-between items-center print:hidden shrink-0 z-10 shadow-sm">
+                        <DialogTitle className="font-bold text-lg">পেমেন্ট রিপোর্ট প্রিভিউ</DialogTitle>
+                        <div className="flex gap-2">
+                            <Button onClick={() => handlePrintReport()} className="bg-blue-600 hover:bg-blue-700">
+                                <Printer className="w-4 h-4 mr-2"/> প্রিন্ট করুন
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => setReportModalOpen(false)} className="text-gray-500 hover:bg-red-50 hover:text-red-600 rounded-full ml-1">
+                                <X className="w-5 h-5"/>
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="p-4 sm:p-8 print:p-0 flex justify-center overflow-auto flex-1 bg-gray-100/50 custom-scrollbar">
+                        {selectedStudent && (
+                            <StudentPaymentReport 
+                                ref={reportRef}
+                                student={selectedStudent}
+                                transactions={paidHistory}
                             />
                         )}
                     </div>

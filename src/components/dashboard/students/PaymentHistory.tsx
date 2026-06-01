@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/
 import PaymentSlip from "@/components/dashboard/accounts/PaymentSlip";
 import { toJpeg } from "html-to-image";
 import { useReactToPrint } from "react-to-print";
+import StudentPaymentReport from "@/components/dashboard/accounts/StudentPaymentReport";
 
 const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
 
@@ -18,7 +19,9 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
     const [payments, setPayments] = useState<any[]>([]);
     const [student, setStudent] = useState<any>(null);
     const [selectedPayment, setSelectedPayment] = useState<any>(null);
+    const [reportModalOpen, setReportModalOpen] = useState(false);
     const printRef = useRef<HTMLDivElement>(null);
+    const reportRef = useRef<HTMLDivElement>(null);
 
     const getTxId = (p: any) => String(p?.transaction_id ?? p?.tx_id ?? p?.reference ?? p?.id ?? "");
     const selectedTxId = getTxId(selectedPayment);
@@ -27,6 +30,12 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
         contentRef: printRef,
         documentTitle: `Receipt_${selectedTxId || "doc"}`,
         onAfterPrint: () => console.log("Printed")
+    });
+
+    const handlePrintReport = useReactToPrint({
+        contentRef: reportRef,
+        documentTitle: `Payment_Report_${student?.student_id || 'Print'}`,
+        suppressErrors: true
     });
 
     async function fetchData() {
@@ -82,7 +91,16 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
     if (payments.length === 0) return <div className="text-center py-10 text-gray-400 border rounded-xl p-10 bg-gray-50">কোনো পেমেন্ট ইতিহাস পাওয়া যায়নি</div>;
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 relative">
+         {/* Action Buttons */}
+         <div className="flex justify-end absolute -top-14 right-0">
+             {payments.length > 0 && (
+                 <Button onClick={() => setReportModalOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+                     <FileText className="w-4 h-4 mr-2" /> পেমেন্ট রিপোর্ট
+                 </Button>
+             )}
+         </div>
+
          {/* Summary Cards */}
          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
              <div className="bg-green-50 p-4 rounded-xl border border-green-100">
@@ -113,12 +131,29 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
                     {payments.map((payment, idx) => {
                         const txId = getTxId(payment);
                         const txIdShort = txId ? txId.slice(0, 8).toUpperCase() : "-";
+                        
+                        let desc = payment.description || "ফি পেমেন্ট";
+                        const receiptMatch = desc.match(/রসিদ:\s*(INV-\d+)/);
+                        let receiptNo = receiptMatch ? receiptMatch[1] : txIdShort;
+                        desc = desc.split(" | রসিদ:")[0];
+
+                        let titlePart = desc;
+                        let subPart = "";
+                        if (desc.includes("|||")) {
+                            const parts = desc.split("|||");
+                            titlePart = parts[0].trim();
+                            subPart = parts[1].trim();
+                        }
+
                         return (
                         <TableRow key={txId || String(idx)}>
                              <TableCell className="font-mono text-gray-600">{format(new Date(payment.created_at), 'dd/MM/yyyy')}</TableCell>
-                             <TableCell className="font-medium text-gray-800">{payment.description}</TableCell>
-                             <TableCell><span className="capitalize px-2 py-1 bg-gray-100 rounded text-xs">{payment.payment_method || 'Cash'}</span></TableCell>
-                            <TableCell className="font-mono text-xs text-gray-500">{txIdShort}</TableCell>
+                             <TableCell className="font-medium text-gray-800">
+                                 <div className="font-bold">{titlePart}</div>
+                                 {subPart && <div className="text-xs text-gray-500 font-normal mt-0.5">{subPart}</div>}
+                             </TableCell>
+                             <TableCell><span className="capitalize px-2 py-1 bg-gray-100 rounded text-xs">{payment.payment_method || 'cash'}</span></TableCell>
+                            <TableCell className="font-mono text-xs text-gray-500">{receiptNo}</TableCell>
                              <TableCell className="text-right font-bold text-green-600">৳ {toBengaliNumber(payment.amount)}</TableCell>
                              <TableCell className="text-right">
                                  <Dialog>
@@ -148,10 +183,17 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
                                                      <PaymentSlip 
                                                          ref={printRef}
                                                          student={student} 
-                                                         fees={[{ title: selectedPayment.description, amount: selectedPayment.amount }]} 
+                                                         fees={[{ 
+                                                             description: (selectedPayment.description || "").split(" | রসিদ:")[0], 
+                                                             amount: selectedPayment.amount 
+                                                         }]} 
                                                          total={selectedPayment.amount} 
-                                                         invoiceNo={`INV-${selectedTxId ? selectedTxId.slice(0, 6).toUpperCase() : "DOC"}`} 
-                                                         date={selectedPayment.created_at} 
+                                                         invoiceNo={(() => {
+                                                             const match = (selectedPayment.description || "").match(/রসিদ:\s*(INV-\d+)/);
+                                                             return match ? match[1] : `INV-${selectedTxId ? selectedTxId.slice(0, 6).toUpperCase() : "DOC"}`;
+                                                         })()}
+                                                         date={selectedPayment.created_at}
+                                                         paymentMethod={selectedPayment.payment_method || "cash"}
                                                      />
                                                  )}
                                          </div>
@@ -164,6 +206,33 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
                  </TableBody>
              </Table>
          </div>
+         </div>
+
+            {/* Payment Report Modal */}
+            <Dialog open={reportModalOpen} onOpenChange={setReportModalOpen}>
+                <DialogContent className="max-w-[900px] w-[95vw] max-h-[90vh] flex flex-col overflow-hidden p-0 bg-gray-100">
+                    <div className="bg-white border-b p-4 flex justify-between items-center print:hidden shrink-0 z-10 shadow-sm">
+                        <DialogTitle className="font-bold text-lg">পেমেন্ট রিপোর্ট প্রিভিউ</DialogTitle>
+                        <div className="flex gap-2">
+                            <Button onClick={() => handlePrintReport()} className="bg-blue-600 hover:bg-blue-700">
+                                <Printer className="w-4 h-4 mr-2"/> প্রিন্ট করুন
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => setReportModalOpen(false)} className="text-gray-500 hover:bg-red-50 hover:text-red-600 rounded-full ml-1">
+                                <X className="w-5 h-5"/>
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="p-4 sm:p-8 print:p-0 flex justify-center overflow-auto flex-1 bg-gray-100/50 custom-scrollbar">
+                        {student && (
+                            <StudentPaymentReport 
+                                ref={reportRef}
+                                student={student}
+                                transactions={payments}
+                            />
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
       </div>
     );
 }
