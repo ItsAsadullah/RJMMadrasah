@@ -609,26 +609,31 @@ export default function WaiverManagement() {
             ) : (
                 <>
                     {/* Mobile */}
-                    <div className="md:hidden space-y-3">
+                    <div className="md:hidden space-y-2.5">
                         {filteredWaivers.map((w) => (
-                            <Card key={w.id} className="border-l-3 border-l-purple-400 shadow-sm rounded-2xl">
-                                <CardContent className="p-3 space-y-2">
+                            <Card key={w.id} className="border-l-[3px] border-l-purple-400 shadow-sm rounded-xl">
+                                <CardContent className="p-2.5 space-y-1.5">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="font-bold text-gray-800">ID: {w.student_id}</p>
-                                            <p className="text-xs text-gray-500">{w.fee_types?.name_bn}</p>
+                                            <p className="font-bold text-gray-800 text-sm">{w.student_id}</p>
+                                            <p className="text-[11px] text-gray-500">{w.fee_types?.name_bn}</p>
                                         </div>
-                                        <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-[10px]">
-                                            {WAIVER_TYPE_LABELS[w.waiver_type]}
-                                        </Badge>
+                                        <div className="flex flex-col items-end gap-1">
+                                            <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-[9px] px-1.5 py-0.5 font-semibold">
+                                                {WAIVER_TYPE_LABELS[w.waiver_type]}
+                                            </Badge>
+                                            <span className="text-[11px] font-bold text-gray-700">
+                                                {w.waiver_type === "full" ? "১০০%" : w.waiver_type === "percentage" ? `${toBengaliNumber(w.waiver_value)}%` : `৳ ${toBengaliNumber(w.waiver_value)}`}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between items-center pt-1 border-t">
-                                        <div className="text-sm">
+                                    <div className="flex justify-between items-center pt-1.5 border-t mt-1">
+                                        <div className="text-[11px]">
                                             <span className="text-gray-500">কারণ: </span>
                                             <span className="font-medium">{w.reason || "-"}</span>
                                         </div>
-                                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-500" onClick={() => handleDelete(w.id)}>
-                                            <Trash2 className="w-4 h-4" />
+                                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500" onClick={() => handleDelete(w.id)}>
+                                            <Trash2 className="w-3.5 h-3.5" />
                                         </Button>
                                     </div>
                                 </CardContent>
@@ -724,10 +729,10 @@ export default function WaiverManagement() {
                     </DialogHeader>
 
                     {/* Body */}
-                    <div className="flex flex-1 overflow-hidden">
+                    <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden">
 
                         {/* ═══ LEFT: filter bar + student table ═══ */}
-                        <div className="flex flex-col flex-1 overflow-hidden border-r p-3 gap-2">
+                        <div className="flex flex-col lg:flex-1 lg:overflow-hidden border-b lg:border-b-0 lg:border-r p-2.5 sm:p-3 gap-2 min-h-[400px] lg:min-h-0 shrink-0">
 
                             {/* Filter bar */}
                             <div className="shrink-0 bg-gray-50 rounded-lg border border-gray-200 p-3 space-y-2.5">
@@ -859,7 +864,7 @@ export default function WaiverManagement() {
                         </div>
 
                         {/* ═══ RIGHT: student info + waiver form ═══ */}
-                        <div className="w-[600px] shrink-0 overflow-y-auto bg-gray-50/60 p-3 space-y-2.5">
+                        <div className="w-full lg:w-[450px] xl:w-[600px] shrink-0 overflow-y-auto bg-gray-50/60 p-2.5 sm:p-3 space-y-2.5">
                             {!form.student_id ? (
                                 <div className="flex flex-col items-center justify-center h-full text-gray-400 py-16 text-center">
                                     <GraduationCap className="w-12 h-12 mb-3 opacity-30" />
