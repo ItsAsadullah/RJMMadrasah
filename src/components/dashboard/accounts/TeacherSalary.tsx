@@ -15,6 +15,7 @@ import {
     Users, Calendar, CreditCard, Printer, Download, Banknote, Trash2, Edit
 } from "lucide-react";
 import { format } from "date-fns";
+import TeacherSalaryProfile from "./TeacherSalaryProfile";
 
 const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
 
@@ -56,6 +57,9 @@ export default function TeacherSalary() {
     // History
     const [showHistory, setShowHistory] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
+
+    // Profile Modal
+    const [profileTeacher, setProfileTeacher] = useState<any>(null);
 
     useEffect(() => { fetchAll(); }, []);
     useEffect(() => { fetchSalaryStatus(); }, [selectedMonth, selectedYear, filterBranch]);
@@ -454,11 +458,16 @@ export default function TeacherSalary() {
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                {!agg.isPaid && (
-                                                    <Button size="sm" onClick={() => handleOpenPay(t)} className="bg-teal-600 hover:bg-teal-700 text-xs h-8">
-                                                        <CreditCard className="w-3 h-3 mr-1" /> পে করুন
+                                                <div className="flex justify-end gap-2">
+                                                    <Button size="sm" variant="outline" onClick={() => setProfileTeacher(t)} className="h-8">
+                                                        প্রোফাইল
                                                     </Button>
-                                                )}
+                                                    {!agg.isPaid && (
+                                                        <Button size="sm" onClick={() => handleOpenPay(t)} className="bg-teal-600 hover:bg-teal-700 text-xs h-8">
+                                                            <CreditCard className="w-3 h-3 mr-1" /> পে করুন
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     );
@@ -506,13 +515,16 @@ export default function TeacherSalary() {
                                             </div>
                                         </div>
                                         
-                                        {!agg.isPaid && (
-                                            <div className="pt-1 flex justify-end">
+                                        <div className="pt-1 flex justify-end gap-2">
+                                            <Button size="sm" variant="outline" onClick={() => setProfileTeacher(t)} className="h-8 text-xs">
+                                                প্রোফাইল
+                                            </Button>
+                                            {!agg.isPaid && (
                                                 <Button size="sm" onClick={() => handleOpenPay(t)} className="bg-teal-600 hover:bg-teal-700 text-xs h-8">
                                                     <CreditCard className="w-3 h-3 mr-1" /> পে করুন (৳ {toBengaliNumber(agg.due_amount)})
                                                 </Button>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
                                     </CardContent>
                                 </Card>
                             );
@@ -643,6 +655,14 @@ export default function TeacherSalary() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Profile / Report Modal */}
+            <TeacherSalaryProfile
+                teacher={profileTeacher}
+                year={selectedYear}
+                open={!!profileTeacher}
+                onClose={() => setProfileTeacher(null)}
+            />
         </div>
     );
 }
