@@ -8,7 +8,7 @@ import { Loader2, Printer, Download, FileText, X } from "lucide-react";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 import PaymentSlip from "@/components/dashboard/accounts/PaymentSlip";
-import { toJpeg } from "html-to-image";
+import html2canvas from "html2canvas";
 import { useReactToPrint } from "react-to-print";
 import StudentPaymentReport from "@/components/dashboard/accounts/StudentPaymentReport";
 
@@ -70,11 +70,11 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
         
         try {
             setSavingImage(true);
-            const dataUrl = await toJpeg(studentCopyNode, { 
-                quality: 1.0, 
-                pixelRatio: 2,
+            const canvas = await html2canvas(studentCopyNode, { 
+                useCORS: true, 
                 backgroundColor: '#ffffff'
             });
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
             const link = document.createElement("a");
             link.download = `Receipt_${selectedTxId ? selectedTxId.slice(0, 6) : "doc"}.jpg`;
             link.href = dataUrl;

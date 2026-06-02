@@ -171,8 +171,11 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
     const handleDelete = async (id: string) => {
         if (!confirm("আপনি কি নিশ্চিত এই পেমেন্ট রেকর্ডটি মুছে ফেলতে চান?")) return;
         try {
-            await supabase.from("teacher_salaries").delete().eq("id", id);
+            const { data, error } = await supabase.from("teacher_salaries").delete().eq("id", id).select();
+            if (error) throw error;
+            if (!data || data.length === 0) throw new Error("ডাটা ডিলিট হয়নি। ডাটাবেজে Delete পারমিশন (RLS) চেক করুন।");
             await fetchTeacherAndData();
+            alert("সফলভাবে ডিলিট হয়েছে।");
         } catch (err: any) {
             alert("ত্রুটি: " + err.message);
         }

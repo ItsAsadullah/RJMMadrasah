@@ -79,8 +79,8 @@ export default function DataReset() {
                     if (internalIds.length > 0) {
                         duesUpdateQuery = duesUpdateQuery.in("student_id", internalIds);
                     } else {
-                        // Dummy condition that fails if no students found
-                        duesUpdateQuery = duesUpdateQuery.eq("id", -1);
+                        // Dummy condition that fails safely
+                        duesUpdateQuery = duesUpdateQuery.is("id", null);
                     }
                 } else {
                     duesUpdateQuery = duesUpdateQuery.not("id", "is", null); // update all
@@ -96,7 +96,7 @@ export default function DataReset() {
                     if (internalIds.length > 0) {
                         duesDeleteQuery = duesDeleteQuery.in("student_id", internalIds);
                     } else {
-                        duesDeleteQuery = duesDeleteQuery.eq("id", -1);
+                        duesDeleteQuery = duesDeleteQuery.is("id", null);
                     }
                 } else {
                     duesDeleteQuery = duesDeleteQuery.not("id", "is", null);
@@ -125,11 +125,11 @@ export default function DataReset() {
                     if (teacherIds.length > 0) {
                         salQuery = salQuery.in("teacher_id", teacherIds);
                     } else {
-                        salQuery = salQuery.eq("id", -1);
+                        salQuery = salQuery.is("id", null);
                     }
                     txSalQuery = txSalQuery.eq("branch_id", parseInt(selectedBranch));
                 } else {
-                    salQuery = salQuery.neq("id", -1);
+                    salQuery = salQuery.not("id", "is", null);
                 }
                 await salQuery;
                 await txSalQuery;

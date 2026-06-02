@@ -244,8 +244,9 @@ export default function TeacherSalary() {
     const handleDeleteSalary = async (id: string) => {
         if (!confirm("আপনি কি নিশ্চিত যে এই পেমেন্ট রেকর্ডটি মুছে ফেলতে চান? ট্রানজেকশন অটোমেটিক মুছবে না।")) return;
         try {
-            const { error } = await supabase.from("teacher_salaries").delete().eq("id", id);
+            const { data, error } = await supabase.from("teacher_salaries").delete().eq("id", id).select();
             if (error) throw error;
+            if (!data || data.length === 0) throw new Error("ডাটা ডিলিট হয়নি। ডাটাবেজে Delete পারমিশন (RLS) চেক করুন।");
             
             setHistory(history.filter(h => h.id !== id));
             await fetchSalaryStatus();
