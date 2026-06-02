@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Loader2, Printer, ArrowLeft, PlusCircle, CheckCircle2, AlertCircle, Edit, Trash2 } from "lucide-react";
@@ -21,7 +21,10 @@ const bengaliMonths = [
     "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"
 ];
 
-export default function TeacherProfilePage({ params }: { params: { id: string } }) {
+export default function TeacherProfilePage({ params }: { params: Promise<{ id: string }> }) {
+    const resolvedParams = use(params);
+    const teacherId = resolvedParams.id;
+    
     const [loading, setLoading] = useState(true);
     const [teacher, setTeacher] = useState<any>(null);
     const [year, setYear] = useState<number>(new Date().getFullYear());
@@ -41,10 +44,10 @@ export default function TeacherProfilePage({ params }: { params: { id: string } 
     });
 
     useEffect(() => {
-        if (params.id) {
+        if (teacherId) {
             fetchTeacherAndData();
         }
-    }, [params.id, year]);
+    }, [teacherId, year]);
 
     async function fetchTeacherAndData() {
         setLoading(true);
@@ -53,7 +56,7 @@ export default function TeacherProfilePage({ params }: { params: { id: string } 
         const { data: tData } = await supabase
             .from("teachers")
             .select("*, branches(name)")
-            .eq("id", params.id)
+            .eq("id", teacherId)
             .single();
             
         if (tData) setTeacher(tData);
@@ -62,7 +65,7 @@ export default function TeacherProfilePage({ params }: { params: { id: string } 
         const { data: sData } = await supabase
             .from("teacher_salaries")
             .select("*")
-            .eq("teacher_id", params.id)
+            .eq("teacher_id", teacherId)
             .eq("salary_year", year)
             .order("created_at", { ascending: false });
 
