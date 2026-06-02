@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import {
     Loader2, Search, DollarSign, CheckCircle2, AlertCircle,
-    Users, Calendar, CreditCard, Printer, Download, Banknote
+    Users, Calendar, CreditCard, Printer, Download, Banknote, Trash2, Edit
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -40,6 +40,13 @@ export default function TeacherSalary() {
     const [payForm, setPayForm] = useState({
         teacher_id: "", teacher_name: "", branch_id: "", amount: "",
         payment_method: "cash", note: ""
+    });
+
+    // Edit Modal
+    const [editModal, setEditModal] = useState(false);
+    const [editingPayment, setEditingPayment] = useState(false);
+    const [editForm, setEditForm] = useState({
+        id: "", teacher_name: "", amount: "", payment_method: "cash", note: ""
     });
 
     // Bulk Pay
@@ -86,17 +93,30 @@ export default function TeacherSalary() {
         return filtered;
     };
 
-    const getSalaryStatus = (teacherId: string) => {
-        return salaries.find(s => s.teacher_id === teacherId);
+    const getAggregatedSalary = (teacherId: string) => {
+        const records = salaries.filter(s => s.teacher_id === teacherId);
+        const teacher = teachers.find(t => t.id === teacherId);
+        const base_amount = records.length > 0 ? (records[0].base_amount || teacher?.salary_amount || 0) : (teacher?.salary_amount || 0);
+        const paid_amount = records.reduce((sum, s) => sum + (s.net_amount || 0), 0);
+        const due_amount = Math.max(0, base_amount - paid_amount);
+        return { 
+            base_amount, 
+            paid_amount, 
+            due_amount, 
+            records, 
+            isPaid: paid_amount >= base_amount && base_amount > 0, 
+            isPartial: paid_amount > 0 && paid_amount < base_amount 
+        };
     };
 
     const handleOpenPay = (t: any) => {
-        const existing = getSalaryStatus(t.id);
+        const agg = getAggregatedSalary(t.id);
+        const amountToPay = agg.due_amount > 0 ? agg.due_amount : agg.base_amount;
         setPayForm({
             teacher_id: t.id,
             teacher_name: t.name,
             branch_id: t.branch_id || "",
-            amount: existing?.net_amount ? String(existing.net_amount) : "",
+            amount: amountToPay > 0 ? String(amountToPay) : "",
             payment_method: "cash",
             note: ""
         });
@@ -130,7 +150,8 @@ export default function TeacherSalary() {
 
             // 2. Insert salary record
             const teacher = teachers.find(t => t.id === payForm.teacher_id);
-            const baseAmount = teacher?.salary_amount || amount;
+            const agg = getAggregatedSalary(payForm.teacher_id);
+            const baseAmount = agg.base_amount > 0 ? agg.base_amount : amount;
 
             const { error: salError } = await supabase
                 .from("teacher_salaries")
@@ -166,10 +187,11 @@ export default function TeacherSalary() {
 
             for (const teacherId of selectedTeachers) {
                 const teacher = teachers.find(t => t.id === teacherId);
-                const existing = getSalaryStatus(teacherId);
-                if (existing) continue;
+                const agg = getAggregatedSalary(teacherId);
+                
+                if (agg.isPaid) continue;
 
-                const amount = teacher?.salary_amount || 0;
+                const amount = agg.due_amount > 0 ? agg.due_amount : (teacher?.salary_amount || 0);
                 if (amount <= 0) continue;
 
                 const { data: txData } = await supabase
@@ -190,7 +212,7 @@ export default function TeacherSalary() {
                     .from("teacher_salaries")
                     .insert({
                         teacher_id: teacherId,
-                        base_amount: amount, // amount here is teacher?.salary_amount
+                        base_amount: agg.base_amount > 0 ? agg.base_amount : amount,
                         net_amount: amount,
                         salary_month: selectedMonth,
                         salary_year: selectedYear,
@@ -218,8 +240,65 @@ export default function TeacherSalary() {
         setShowHistory(true);
     };
 
+    const handleDeleteSalary = async (id: string) => {
+        if (!confirm("আপনি কি নিশ্চিত যে এই পেমেন্ট রেকর্ডটি মুছে ফেলতে চান? ট্রানজেকশন অটোমেটিক মুছবে না।")) return;
+        try {
+            const { error } = await supabase.from("teacher_salaries").delete().eq("id", id);
+            if (error) throw error;
+            
+            setHistory(history.filter(h => h.id !== id));
+            await fetchSalaryStatus();
+        } catch (err: any) {
+            alert("ত্রুটি: " + err.message);
+        }
+    };
+
+    const handleOpenEdit = (h: any) => {
+        setEditForm({
+            id: h.id,
+            teacher_name: h.teachers?.name || "অজানা",
+            amount: String(h.net_amount || 0),
+            payment_method: h.payment_method || "cash",
+            note: h.remarks || ""
+        });
+        setEditModal(true);
+    };
+
+    const handleEditSalary = async () => {
+        if (!editForm.amount || parseFloat(editForm.amount) <= 0) return alert("বেতনের পরিমাণ দিন");
+        setEditingPayment(true);
+        try {
+            const { error } = await supabase
+                .from("teacher_salaries")
+                .update({
+                    net_amount: parseFloat(editForm.amount),
+                    payment_method: editForm.payment_method,
+                    remarks: editForm.note
+                })
+                .eq("id", editForm.id);
+
+            if (error) throw error;
+
+            setEditModal(false);
+            await fetchSalaryStatus();
+            
+            // update local history state for immediate feedback
+            setHistory(history.map(h => h.id === editForm.id ? { 
+                ...h, 
+                net_amount: parseFloat(editForm.amount),
+                payment_method: editForm.payment_method,
+                remarks: editForm.note
+            } : h));
+
+            alert("পেমেন্ট আপডেট সফল হয়েছে! (সংশ্লিষ্ট ট্রানজেকশন আপডেট করতে হবে)");
+        } catch (err: any) {
+            alert("ত্রুটি: " + err.message);
+        }
+        setEditingPayment(false);
+    };
+
     const filteredTeachers = getFilteredTeachers();
-    const paidCount = filteredTeachers.filter(t => !!getSalaryStatus(t.id)).length;
+    const fullyPaidCount = filteredTeachers.filter(t => getAggregatedSalary(t.id).isPaid).length;
     const totalSalary = salaries.reduce((sum, s) => sum + (s.net_amount || 0), 0);
 
     if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin w-8 h-8 text-green-600" /></div>;
@@ -236,8 +315,8 @@ export default function TeacherSalary() {
                 </Card>
                 <Card className="border-l-[3px] border-l-green-500 py-0 gap-0 rounded-2xl shadow-sm">
                     <CardContent className="p-2.5 sm:p-3">
-                        <p className="text-[9px] sm:text-[11px] font-bold text-gray-500">বেতন দেওয়া হয়েছে</p>
-                        <h3 className="text-sm sm:text-2xl font-bold text-green-700">{toBengaliNumber(paidCount)}/{toBengaliNumber(filteredTeachers.length)}</h3>
+                        <p className="text-[9px] sm:text-[11px] font-bold text-gray-500">সম্পূর্ণ বেতন দেওয়া হয়েছে</p>
+                        <h3 className="text-sm sm:text-2xl font-bold text-green-700">{toBengaliNumber(fullyPaidCount)}/{toBengaliNumber(filteredTeachers.length)}</h3>
                     </CardContent>
                 </Card>
                 <Card className="border-l-[3px] border-l-blue-500 py-0 gap-0 rounded-2xl shadow-sm col-span-2 sm:col-span-1">
@@ -311,45 +390,62 @@ export default function TeacherSalary() {
                                 <TableRow>
                                     <TableHead className="w-12">
                                         <Checkbox
-                                            checked={selectedTeachers.length === filteredTeachers.filter(t => !getSalaryStatus(t.id)).length && filteredTeachers.filter(t => !getSalaryStatus(t.id)).length > 0}
-                                            onCheckedChange={(c) => setSelectedTeachers(c ? filteredTeachers.filter(t => !getSalaryStatus(t.id)).map(t => t.id) : [])}
+                                            checked={selectedTeachers.length === filteredTeachers.filter(t => !getAggregatedSalary(t.id).isPaid).length && filteredTeachers.filter(t => !getAggregatedSalary(t.id).isPaid).length > 0}
+                                            onCheckedChange={(c) => setSelectedTeachers(c ? filteredTeachers.filter(t => !getAggregatedSalary(t.id).isPaid).map(t => t.id) : [])}
                                         />
                                     </TableHead>
                                     <TableHead>শিক্ষকের নাম</TableHead>
-                                    <TableHead>পদবী</TableHead>
                                     <TableHead>শাখা</TableHead>
-                                    <TableHead className="text-right">বেতন</TableHead>
+                                    <TableHead className="text-right">নির্ধারিত বেতন</TableHead>
+                                    <TableHead className="text-right">পরিশোধিত</TableHead>
+                                    <TableHead className="text-right">বকেয়া</TableHead>
                                     <TableHead className="text-center">স্ট্যাটাস</TableHead>
                                     <TableHead className="text-right">অ্যাকশন</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredTeachers.length === 0 ? (
-                                    <TableRow><TableCell colSpan={7} className="text-center py-10 text-gray-400">কোনো শিক্ষক পাওয়া যায়নি</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={8} className="text-center py-10 text-gray-400">কোনো শিক্ষক পাওয়া যায়নি</TableCell></TableRow>
                                 ) : filteredTeachers.map(t => {
-                                    const salaryRecord = getSalaryStatus(t.id);
-                                    const isPaid = !!salaryRecord;
+                                    const agg = getAggregatedSalary(t.id);
+                                    
                                     return (
-                                        <TableRow key={t.id} className={isPaid ? "bg-green-50/40" : ""}>
+                                        <TableRow key={t.id} className={agg.isPaid ? "bg-green-50/40" : agg.isPartial ? "bg-blue-50/40" : ""}>
                                             <TableCell>
                                                 <Checkbox
-                                                    disabled={isPaid}
+                                                    disabled={agg.isPaid}
                                                     checked={selectedTeachers.includes(t.id)}
                                                     onCheckedChange={() => setSelectedTeachers(p => p.includes(t.id) ? p.filter(x => x !== t.id) : [...p, t.id])}
                                                 />
                                             </TableCell>
-                                            <TableCell className="font-bold text-gray-800">{t.name}</TableCell>
-                                            <TableCell className="text-sm text-gray-600">{t.designation || '-'}</TableCell>
+                                            <TableCell>
+                                                <p className="font-bold text-gray-800">{t.name}</p>
+                                                <p className="text-xs text-gray-500">{t.designation || '-'}</p>
+                                            </TableCell>
                                             <TableCell className="text-sm">{t.branches?.name || '-'}</TableCell>
                                             <TableCell className="text-right">
                                                 <div className="font-bold text-gray-800">
-                                                    {salaryRecord?.net_amount ? `৳ ${toBengaliNumber(salaryRecord.net_amount)}` : <span className="text-gray-300">—</span>}
+                                                    {agg.base_amount > 0 ? `৳ ${toBengaliNumber(agg.base_amount)}` : <span className="text-gray-300">—</span>}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className={`font-bold ${agg.paid_amount > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                                                    ৳ {toBengaliNumber(agg.paid_amount)}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className={`font-bold ${agg.due_amount > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                    ৳ {toBengaliNumber(agg.due_amount)}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-center">
-                                                {isPaid ? (
+                                                {agg.isPaid ? (
                                                     <Badge className="bg-green-100 text-green-700 border-green-200">
                                                         <CheckCircle2 className="w-3 h-3 mr-1" /> পরিশোধিত
+                                                    </Badge>
+                                                ) : agg.isPartial ? (
+                                                    <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                                                        <AlertCircle className="w-3 h-3 mr-1" /> আংশিক
                                                     </Badge>
                                                 ) : (
                                                     <Badge className="bg-amber-100 text-amber-700 border-amber-200">
@@ -358,12 +454,7 @@ export default function TeacherSalary() {
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                {isPaid ? (
-                                                    <div className="flex flex-col text-right">
-                                                        <span className="text-xs text-gray-400">{salaryRecord.payment_date ? format(new Date(salaryRecord.payment_date), 'dd/MM/yy') : ''}</span>
-                                                        <span className="text-[10px] text-gray-400 capitalize">{salaryRecord.payment_method}</span>
-                                                    </div>
-                                                ) : (
+                                                {!agg.isPaid && (
                                                     <Button size="sm" onClick={() => handleOpenPay(t)} className="bg-teal-600 hover:bg-teal-700 text-xs h-8">
                                                         <CreditCard className="w-3 h-3 mr-1" /> পে করুন
                                                     </Button>
@@ -381,32 +472,47 @@ export default function TeacherSalary() {
                         {filteredTeachers.length === 0 ? (
                             <div className="text-center py-10 text-gray-400 border rounded-lg">কোনো শিক্ষক পাওয়া যায়নি</div>
                         ) : filteredTeachers.map(t => {
-                            const salaryRecord = getSalaryStatus(t.id);
-                            const isPaid = !!salaryRecord;
+                            const agg = getAggregatedSalary(t.id);
+                            
                             return (
-                                <Card key={t.id} className={`${isPaid ? 'border-green-200 bg-green-50/40' : ''} shadow-sm`}>
+                                <Card key={t.id} className={`${agg.isPaid ? 'border-green-200 bg-green-50/40' : agg.isPartial ? 'border-blue-200 bg-blue-50/40' : ''} shadow-sm`}>
                                     <CardContent className="p-3 space-y-2">
                                         <div className="flex justify-between items-start">
                                             <div>
                                                 <p className="font-bold text-gray-800">{t.name}</p>
                                                 <p className="text-xs text-gray-500">{t.designation || '-'} | {t.branches?.name || '-'}</p>
                                             </div>
-                                            {isPaid ? (
+                                            {agg.isPaid ? (
                                                 <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px]">পরিশোধিত</Badge>
+                                            ) : agg.isPartial ? (
+                                                <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-[10px]">আংশিক</Badge>
                                             ) : (
                                                 <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">বকেয়া</Badge>
                                             )}
                                         </div>
-                                        <div className="flex justify-between items-center pt-1 border-t">
-                                            <span className="font-bold text-gray-800">
-                                                {salaryRecord?.net_amount ? `৳ ${toBengaliNumber(salaryRecord.net_amount)}` : '—'}
-                                            </span>
-                                            {!isPaid && (
-                                                <Button size="sm" onClick={() => handleOpenPay(t)} className="bg-teal-600 hover:bg-teal-700 text-xs h-8">
-                                                    <CreditCard className="w-3 h-3 mr-1" /> পে করুন
-                                                </Button>
-                                            )}
+                                        
+                                        <div className="grid grid-cols-3 gap-2 py-2 border-y text-center text-xs">
+                                            <div>
+                                                <p className="text-gray-500">বেতন</p>
+                                                <p className="font-bold">৳ {toBengaliNumber(agg.base_amount)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500">প্রদান</p>
+                                                <p className="font-bold text-green-600">৳ {toBengaliNumber(agg.paid_amount)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-500">বকেয়া</p>
+                                                <p className="font-bold text-red-500">৳ {toBengaliNumber(agg.due_amount)}</p>
+                                            </div>
                                         </div>
+                                        
+                                        {!agg.isPaid && (
+                                            <div className="pt-1 flex justify-end">
+                                                <Button size="sm" onClick={() => handleOpenPay(t)} className="bg-teal-600 hover:bg-teal-700 text-xs h-8">
+                                                    <CreditCard className="w-3 h-3 mr-1" /> পে করুন (৳ {toBengaliNumber(agg.due_amount)})
+                                                </Button>
+                                            </div>
+                                        )}
                                     </CardContent>
                                 </Card>
                             );
@@ -458,6 +564,48 @@ export default function TeacherSalary() {
                 </DialogContent>
             </Dialog>
 
+            {/* Edit Modal */}
+            <Dialog open={editModal} onOpenChange={setEditModal}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Edit className="w-5 h-5 text-blue-600" /> পেমেন্ট এডিট
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                            <p className="font-bold text-blue-800">{editForm.teacher_name}</p>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-gray-600">প্রদানকৃত পরিমাণ (৳) *</label>
+                            <Input type="number" value={editForm.amount} onChange={e => setEditForm({ ...editForm, amount: e.target.value })} placeholder="0" className="h-10" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-gray-600">পেমেন্ট মেথড</label>
+                            <Select value={editForm.payment_method} onValueChange={v => setEditForm({ ...editForm, payment_method: v })}>
+                                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="cash">নগদ</SelectItem>
+                                    <SelectItem value="bkash">বিকাশ</SelectItem>
+                                    <SelectItem value="bank">ব্যাংক</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-gray-600">নোট</label>
+                            <Input value={editForm.note} onChange={e => setEditForm({ ...editForm, note: e.target.value })} placeholder="বিবরণ..." className="h-10" />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditModal(false)}>বাতিল</Button>
+                        <Button onClick={handleEditSalary} disabled={editingPayment} className="bg-blue-600 hover:bg-blue-700">
+                            {editingPayment ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                            আপডেট করুন
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* History Modal */}
             <Dialog open={showHistory} onOpenChange={setShowHistory}>
                 <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -468,17 +616,26 @@ export default function TeacherSalary() {
                         {history.length === 0 ? (
                             <p className="text-center py-8 text-gray-400">কোনো হিস্টোরি নেই</p>
                         ) : history.map(h => (
-                            <div key={h.id} className="flex items-center justify-between py-2 px-3 rounded-lg border hover:bg-gray-50">
+                            <div key={h.id} className="flex items-center justify-between py-3 px-4 rounded-lg border hover:bg-gray-50 bg-white">
                                 <div>
                                     <p className="font-bold text-sm text-gray-800">{h.teachers?.name}</p>
-                                    <p className="text-xs text-gray-500">
-                                        {bengaliMonths[h.salary_month]} {toBengaliNumber(h.salary_year)} | {h.payment_method}
-                                        {h.remarks && ` | ${h.remarks}`}
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        <Badge variant="outline" className="text-[10px] bg-gray-100">{bengaliMonths[h.salary_month]} {toBengaliNumber(h.salary_year)}</Badge>
+                                        <span className="mx-2">|</span> {h.payment_method === 'cash' ? 'নগদ' : h.payment_method === 'bkash' ? 'বিকাশ' : 'ব্যাংক'}
+                                        {h.remarks && <span className="ml-2 text-gray-400">({h.remarks})</span>}
                                     </p>
                                 </div>
-                                <div className="text-right">
-                                    <p className="font-bold text-teal-700">৳ {toBengaliNumber(h.net_amount)}</p>
-                                    <p className="text-[10px] text-gray-400">{h.payment_date ? format(new Date(h.payment_date), 'dd/MM/yyyy') : ''}</p>
+                                <div className="flex flex-col items-end gap-2">
+                                    <p className="font-bold text-teal-700 text-lg">৳ {toBengaliNumber(h.net_amount)}</p>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[10px] text-gray-400 mr-2">{h.payment_date ? format(new Date(h.payment_date), 'dd/MM/yyyy') : ''}</span>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-blue-500 hover:bg-blue-50" onClick={() => handleOpenEdit(h)}>
+                                            <Edit className="w-3 h-3" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-50" onClick={() => handleDeleteSalary(h.id)}>
+                                            <Trash2 className="w-3 h-3" />
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         ))}
