@@ -271,6 +271,7 @@ export default function TeacherManagement() {
                     <TableHead>শাখা</TableHead>
                     <TableHead>মোবাইল</TableHead>
                     <TableHead>বিষয় দক্ষতা</TableHead>
+                    <TableHead className="text-right">নির্ধারিত বেতন</TableHead>
                     <TableHead className="text-right">অ্যাকশন</TableHead>
                 </TableRow>
             </TableHeader>
@@ -295,6 +296,7 @@ export default function TeacherManagement() {
                             </TableCell>
                             <TableCell className="font-mono">{t.phone}</TableCell>
                             <TableCell><span className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs">{t.subject_specialty}</span></TableCell>
+                            <TableCell className="text-right font-bold text-teal-700">{t.salary_amount ? `৳ ${t.salary_amount}` : "-"}</TableCell>
                             <TableCell className="text-right">
                                 <Button variant="ghost" size="icon" onClick={() => openEdit(t)}><Edit className="w-4 h-4 text-gray-500"/></Button>
                                 <Button variant="ghost" size="icon" onClick={() => handleDelete(t.id)}><Trash2 className="w-4 h-4 text-red-400"/></Button>
@@ -320,6 +322,7 @@ export default function TeacherManagement() {
                 <div className="min-w-0">
                   <h3 className="font-bold text-gray-800 text-sm truncate">{t.name || "-"}</h3>
                   <p className="text-xs text-gray-500">{t.designation || "পদবী নেই"}</p>
+                  <p className="text-[10px] font-bold text-teal-600 mt-1">বেতন: ৳ {t.salary_amount || "0"}</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(t)}><Edit className="w-3.5 h-3.5 text-gray-500"/></Button>
