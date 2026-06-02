@@ -619,11 +619,12 @@ export default function TeacherSalary() {
                             <div key={h.id} className="flex items-center justify-between py-3 px-4 rounded-lg border hover:bg-gray-50 bg-white">
                                 <div>
                                     <p className="font-bold text-sm text-gray-800">{h.teachers?.name}</p>
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <div className="text-xs text-gray-500 mt-1 flex items-center flex-wrap gap-1">
                                         <Badge variant="outline" className="text-[10px] bg-gray-100">{bengaliMonths[h.salary_month]} {toBengaliNumber(h.salary_year)}</Badge>
-                                        <span className="mx-2">|</span> {h.payment_method === 'cash' ? 'নগদ' : h.payment_method === 'bkash' ? 'বিকাশ' : 'ব্যাংক'}
-                                        {h.remarks && <span className="ml-2 text-gray-400">({h.remarks})</span>}
-                                    </p>
+                                        <span className="text-gray-300">|</span> 
+                                        <span>{h.payment_method === 'cash' ? 'নগদ' : h.payment_method === 'bkash' ? 'বিকাশ' : 'ব্যাংক'}</span>
+                                        {h.remarks && <span className="text-gray-400">({h.remarks})</span>}
+                                    </div>
                                 </div>
                                 <div className="flex flex-col items-end gap-2">
                                     <p className="font-bold text-teal-700 text-lg">৳ {toBengaliNumber(h.net_amount)}</p>
