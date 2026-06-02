@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useReactToPrint } from "react-to-print";
 import TeacherSalaryReport from "@/components/dashboard/accounts/TeacherSalaryReport";
+import TeacherPaymentSlip from "@/components/dashboard/accounts/TeacherPaymentSlip";
 import Link from "next/link";
 import { format } from "date-fns";
 
@@ -37,9 +38,19 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
     const [bonusForm, setBonusForm] = useState({ type: "bonus", amount: "", method: "cash", note: "" });
     const [submitting, setSubmitting] = useState(false);
 
+    // Slip Modal
+    const [selectedSlip, setSelectedSlip] = useState<any>(null);
+    const slipRef = useRef<HTMLDivElement>(null);
+
     const handlePrint = useReactToPrint({
         contentRef: reportRef,
         documentTitle: `Teacher_Report_${teacher?.name || 'Salary'}`,
+        suppressErrors: true
+    });
+
+    const handlePrintSlip = useReactToPrint({
+        contentRef: slipRef,
+        documentTitle: `Payment_Slip_${teacher?.name}`,
         suppressErrors: true
     });
 
@@ -295,9 +306,14 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
                                             <p className={`font-bold text-lg ${h.payment_type === 'bonus' || h.payment_type === 'allowance' ? 'text-purple-600' : 'text-teal-700'}`}>
                                                 ৳ {toBengaliNumber(h.net_amount)}
                                             </p>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDelete(h.id)}>
-                                                <Trash2 className="w-3.5 h-3.5"/>
-                                            </Button>
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-500 hover:text-teal-600" onClick={() => setSelectedSlip(h)}>
+                                                    <Printer className="w-3.5 h-3.5"/>
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:bg-red-50" onClick={() => handleDelete(h.id)}>
+                                                    <Trash2 className="w-3.5 h-3.5"/>
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -307,8 +323,8 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
                 </div>
             </div>
 
-            {/* Hidden Print Report */}
-            <div className="hidden">
+            {/* Off-screen Print Report to fix blank page issue */}
+            <div style={{ position: "absolute", top: "-10000px", left: "-10000px" }}>
                 <TeacherSalaryReport 
                     ref={reportRef}
                     teacher={teacher}
@@ -361,6 +377,29 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
                             {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : <CheckCircle2 className="w-4 h-4 mr-2"/>} প্রদান করুন
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Slip Print Modal */}
+            <Dialog open={!!selectedSlip} onOpenChange={(open) => !open && setSelectedSlip(null)}>
+                <DialogContent className="max-w-md bg-gray-100 border-none p-0 overflow-hidden">
+                    <div className="bg-white p-4 border-b flex justify-between items-center print:hidden shadow-sm">
+                        <DialogTitle className="text-lg">পেমেন্ট স্লিপ</DialogTitle>
+                        <Button onClick={() => handlePrintSlip()} className="bg-teal-600 hover:bg-teal-700">
+                            <Printer className="w-4 h-4 mr-2" /> প্রিন্ট করুন
+                        </Button>
+                    </div>
+                    <div className="p-6 flex justify-center custom-scrollbar overflow-auto max-h-[80vh]">
+                        {selectedSlip && (
+                            <div className="shadow-lg">
+                                <TeacherPaymentSlip 
+                                    ref={slipRef}
+                                    teacher={teacher}
+                                    salaryRecord={selectedSlip}
+                                />
+                            </div>
+                        )}
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
