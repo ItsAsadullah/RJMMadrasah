@@ -72,7 +72,7 @@ export default function PaymentHistory({ studentId }: { studentId: string }) {
             setSavingImage(true);
             const canvas = await html2canvas(studentCopyNode, { 
                 useCORS: true, 
-                backgroundColor: '#ffffff'
+                backgroundColor: '#ffffff' as any
             });
             const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
             const link = document.createElement("a");
