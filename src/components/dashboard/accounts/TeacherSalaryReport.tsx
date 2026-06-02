@@ -7,11 +7,13 @@ interface TeacherSalaryReportProps {
     teacher: any;
     year: number;
     monthlyData: any[];
+    bonuses: any[];
 }
 
-export default React.forwardRef<HTMLDivElement, TeacherSalaryReportProps>(function TeacherSalaryReport({ teacher, year, monthlyData }, ref) {
+export default React.forwardRef<HTMLDivElement, TeacherSalaryReportProps>(function TeacherSalaryReport({ teacher, year, monthlyData, bonuses }, ref) {
     const totalPaid = monthlyData.reduce((sum, m) => sum + m.paidAmount, 0);
     const totalDue = monthlyData.reduce((sum, m) => sum + m.dueAmount, 0);
+    const totalBonuses = (bonuses || []).reduce((sum, b) => sum + (b.net_amount || 0), 0);
 
     return (
         <div
@@ -98,13 +100,17 @@ export default React.forwardRef<HTMLDivElement, TeacherSalaryReportProps>(functi
 
                 {/* Footer Totals */}
                 <div className="mt-8 pt-4 border-t-2 border-gray-800 flex justify-end">
-                    <div className="w-64 space-y-2">
+                    <div className="w-72 space-y-2">
                         <div className="flex justify-between items-center text-sm font-bold text-gray-600">
-                            <span>মোট বকেয়া:</span>
+                            <span>মোট বকেয়া (বেতন):</span>
                             <span className="text-red-600">৳ {toBengaliNumber(totalDue)}</span>
                         </div>
+                        <div className="flex justify-between items-center text-sm font-bold text-gray-600">
+                            <span>মোট বোনাস/ভাতা প্রদান:</span>
+                            <span className="text-blue-600">৳ {toBengaliNumber(totalBonuses)}</span>
+                        </div>
                         <div className="flex justify-between items-center text-lg font-bold text-teal-700 pt-2 border-t">
-                            <span>সর্বমোট প্রদান:</span>
+                            <span>সর্বমোট প্রদান (বেতন):</span>
                             <span>৳ {toBengaliNumber(totalPaid)}</span>
                         </div>
                     </div>
