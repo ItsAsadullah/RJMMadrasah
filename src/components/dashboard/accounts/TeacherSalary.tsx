@@ -129,10 +129,14 @@ export default function TeacherSalary() {
             if (txError) throw txError;
 
             // 2. Insert salary record
+            const teacher = teachers.find(t => t.id === payForm.teacher_id);
+            const baseAmount = teacher?.salary_amount || amount;
+
             const { error: salError } = await supabase
                 .from("teacher_salaries")
                 .insert({
                     teacher_id: payForm.teacher_id,
+                    base_amount: baseAmount,
                     net_amount: amount,
                     salary_month: selectedMonth,
                     salary_year: selectedYear,
@@ -186,6 +190,7 @@ export default function TeacherSalary() {
                     .from("teacher_salaries")
                     .insert({
                         teacher_id: teacherId,
+                        base_amount: amount, // amount here is teacher?.salary_amount
                         net_amount: amount,
                         salary_month: selectedMonth,
                         salary_year: selectedYear,
