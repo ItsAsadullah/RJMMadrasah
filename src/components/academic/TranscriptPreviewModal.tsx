@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Printer, X } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import TranscriptSheet from "@/components/academic/TranscriptSheet";
+import { getBranchAddress } from "@/lib/branchUtils";
 
 // Helper functions (same as in public result page)
 const getGradePoint = (marks: number) => {
@@ -251,7 +252,7 @@ export default function TranscriptPreviewModal({
                                         academicYear: resultData.exam.academic_year?.toString()
                                     }}
                                     branch={{
-                                        address: resultData.branch?.address || ""
+                                        address: getBranchAddress(resultData.student.branch_id, resultData.branch)
                                     }}
                                     marks={resultData.marks.map((m: any) => {
                                         const mk = m.marks_obtained ? parseInt(m.marks_obtained) : 0;

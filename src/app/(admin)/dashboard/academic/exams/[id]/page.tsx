@@ -12,6 +12,7 @@ import { format, differenceInMinutes } from "date-fns";
 import * as XLSX from 'xlsx';
 import Image from "next/image";
 import TranscriptSheet from "@/components/academic/TranscriptSheet";
+import { getBranchAddress } from "@/lib/branchUtils";
 import { sortClassNames } from "@/lib/classOrder";
 
 // --- বাংলা কনভার্সন হেল্পার ---
@@ -563,7 +564,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                         academicYear: exam?.academic_year || ""
                     }}
                     branch={{
-                        address: "হলিধানী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ"
+                        address: getBranchAddress(student.branch_id, student.branches) || "হলিধানী বাজার শাখা, ঝিনাইদহ সদর"
                     }}
                     marks={subjects.map(sub => {
                         const markStr = tabulationData[student.student_id]?.[sub.id];
@@ -951,7 +952,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                               <Image src="/images/long_logo.svg" alt="Madrasa Logo" fill className="object-contain" priority />
                                           </div>
                                           <div className="text-center mt-1">
-                                              <p className="text-sm font-bold text-gray-700">হলিধানী বাজার, ঝিনাইদহ সদর, ঝিনাইদহ</p>
+                                              <p className="text-sm font-bold text-gray-700">{getBranchAddress(student?.branch_id, student?.branches)}</p>
                                           </div>
                                       </div>
                                       <div className="border-b-2 border-green-800 w-full my-1"></div>

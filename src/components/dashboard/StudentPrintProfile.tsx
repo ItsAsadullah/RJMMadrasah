@@ -1,5 +1,8 @@
 import Image from "next/image";
 import { format } from "date-fns";
+import { getBranchAddress, getBranchPhone } from "@/lib/branchUtils";
+
+const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
 
 export default function StudentPrintProfile({ student }: { student: any }) {
   if (!student) return null;
@@ -53,11 +56,11 @@ export default function StudentPrintProfile({ student }: { student: any }) {
                                 <span className="bg-green-800 text-white px-3 py-0.5 rounded-full text-[11px] tracking-wide font-medium mb-1">
                                     স্থাপিত: ২০২১ ইং
                                 </span>
-                                {/* শাখার নাম আলাদা করে দেখানো (শাখা: শব্দটি বাদ) */}
+                                {/* Branch Info */}
                                 <p className="text-sm font-bold text-gray-800">
-                                    {student.branch_id === 1 ? 'হলিধানী বাজার শাখা' : 'চাঁন্দুয়ালী বাজার শাখা'}, ঝিনাইদহ সদর
+                                    {getBranchAddress(student.branch_id, student.branches)}
                                 </p>
-                                <p className="text-xs font-bold text-green-900 mt-0.5">মোবাইল: ০১৯৮৮২১৪৫৫৪</p>
+                                <p className="text-xs font-bold text-green-900 mt-0.5">মোবাইল: {toBengaliNumber(getBranchPhone(student.branch_id, student.branches))}</p>
                             </div>
                             
                             <div className="mt-2">

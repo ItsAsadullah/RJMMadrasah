@@ -1,5 +1,6 @@
 import React from 'react';
 import { format } from "date-fns";
+import { getBranchAddress, getBranchPhone } from "@/lib/branchUtils";
 
 interface PaymentSlipProps {
     student: any;
@@ -57,9 +58,6 @@ const getBranchName = (student: any) => (
     "-"
 );
 
-const getAddress = (student: any) =>
-    student?.branch_address || student?.branches?.address || "হলিধানী বাজার, ঝিনাইদহ";
-
 const getPaymentMethodBengali = (method: string) => {
     const map: Record<string, string> = {
         'cash': 'নগদ অর্থ',
@@ -100,13 +98,11 @@ const ReceiptCopy = ({ id, title, student, fees, total, invoiceNo, date, payment
             </div>
             <img src="/images/long_logo.svg" alt="Rahima Jannat Madrasa" className="h-10 object-contain mb-1" />
             
-            <p className="text-[11px] text-gray-700 font-medium">{getAddress(student)}</p>
-            {student?.branch_phone && (
-                <p className="text-[10px] font-medium text-gray-500 flex items-center gap-1 mt-0.5">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
-                    মোবাইল: {toBengaliNumber(student.branch_phone)}
-                </p>
-            )}
+            <p className="text-[11px] text-gray-700 font-medium">{getBranchAddress(student?.branch_id, student?.branches)}</p>
+            <p className="text-[10px] font-medium text-gray-500 flex items-center gap-1 mt-0.5">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+                মোবাইল: {toBengaliNumber(getBranchPhone(student?.branch_id, student?.branches))}
+            </p>
         </div>
 
         {/* Modern Info Grid */}

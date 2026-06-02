@@ -1,5 +1,6 @@
 import React from 'react';
 import { format } from "date-fns";
+import { getBranchAddress, getBranchPhone } from "@/lib/branchUtils";
 
 interface TeacherPaymentSlipProps {
     teacher: any;
@@ -69,9 +70,9 @@ export default React.forwardRef<HTMLDivElement, TeacherPaymentSlipProps>(functio
             {/* Header Section */}
             <div className="text-center border-b pb-2 mb-3">
                 <img src="/images/bismillah.svg" alt="Bismillah" className="h-4 mx-auto mb-1 opacity-80" />
-                <h1 className="text-lg font-bold text-gray-900 leading-tight">রাহিমা জান্নাত মডেল মাদ্রাসা</h1>
-                <p className="text-[9px] text-gray-700">হলিধানী বাজার শাখা, ঝিনাইদহ</p>
-                <p className="text-[9px] text-gray-600">মোবাইল: ০১৭১২-৩৪৫৬৭৮</p>
+                <img src="/images/long_logo.svg" alt="Rahima Jannat Madrasa" className="h-8 mx-auto mb-1 object-contain" />
+                <p className="text-[9px] text-gray-700">{getBranchAddress(teacher?.branch_id, teacher?.branches)}</p>
+                <p className="text-[9px] text-gray-600">মোবাইল: {toBengaliNumber(getBranchPhone(teacher?.branch_id, teacher?.branches))}</p>
                 <div className="mt-2 inline-block px-3 py-0.5 border border-gray-400 font-bold rounded text-[10px]">
                     পেমেন্ট ভাউচার (শিক্ষক/স্টাফ)
                 </div>

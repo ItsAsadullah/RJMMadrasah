@@ -1,5 +1,6 @@
 import React from "react";
 import { format } from "date-fns";
+import { getBranchAddress, getBranchPhone } from "@/lib/branchUtils";
 
 const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
 
@@ -26,8 +27,8 @@ export default React.forwardRef<HTMLDivElement, TeacherSalaryReportProps>(functi
                 <div className="text-center pb-4 border-b-2 border-teal-700 mb-6">
                     <img src="/images/bismillah.svg" alt="Bismillah" className="h-6 mx-auto mb-2 opacity-80" />
                     <img src="/images/long_logo.svg" alt="Logo" className="h-10 mx-auto mb-2" />
-                    <p className="text-[12px] text-gray-700 font-medium">হলিধানী বাজার শাখা, ঝিনাইদহ</p>
-                    <p className="text-[10px] text-gray-500 mt-1">মোবাইল: ০১৭১২-৩৪৫৬৭৮</p>
+                    <p className="text-[12px] text-gray-700 font-medium">{getBranchAddress(teacher?.branch_id, teacher?.branches)}</p>
+                    <p className="text-[10px] text-gray-500 mt-1">মোবাইল: {toBengaliNumber(getBranchPhone(teacher?.branch_id, teacher?.branches))}</p>
                     <h2 className="text-xl font-bold mt-4 bg-teal-100 text-teal-800 inline-block px-6 py-1.5 rounded-full border border-teal-200">
                         শিক্ষক বেতন রিপোর্ট ({toBengaliNumber(year)})
                     </h2>
