@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     LayoutDashboard, DollarSign, GraduationCap, Users,
@@ -30,7 +31,30 @@ const tabs = [
 ];
 
 export default function AccountsPage() {
-    const [activeTab, setActiveTab] = useState("dashboard");
+    return (
+        <Suspense fallback={<div className="p-8 text-center text-gray-500">লোডিং...</div>}>
+            <AccountsPageContent />
+        </Suspense>
+    );
+}
+
+function AccountsPageContent() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const tabFromUrl = searchParams.get("tab") || "dashboard";
+    
+    const [activeTab, setActiveTab] = useState(tabFromUrl);
+
+    useEffect(() => {
+        if (tabFromUrl !== activeTab) {
+            setActiveTab(tabFromUrl);
+        }
+    }, [tabFromUrl]);
+
+    const handleTabChange = (value: string) => {
+        setActiveTab(value);
+        router.push(`?tab=${value}`, { scroll: false });
+    };
 
     return (
         <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-8 bg-gray-50 min-h-screen font-[Kalpurush]">
@@ -39,7 +63,7 @@ export default function AccountsPage() {
                 <p className="text-xs sm:text-sm text-gray-500">ফি, বেতন, দান, ব্যয় ও আর্থিক রিপোর্ট এক জায়গায়</p>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full print:hidden">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full print:hidden">
                 <div className="overflow-x-auto -mx-3 sm:-mx-4 md:mx-0 px-3 sm:px-4 md:px-0">
                     <TabsList className="flex w-max min-w-full bg-white border h-auto mb-4 sm:mb-6 p-0.5 sm:p-1 rounded-xl shadow-sm">
                         {tabs.map(tab => {
