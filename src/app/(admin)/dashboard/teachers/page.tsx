@@ -56,7 +56,8 @@ export default function TeacherManagement() {
     user_id: "", 
     password: "",
     branch_id: "",
-    image_url: ""
+    image_url: "",
+    salary_amount: ""
   });
   const [isEdit, setIsEdit] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -153,7 +154,8 @@ export default function TeacherManagement() {
                 user_id: formData.user_id,
                 password: formData.password,
                 branch_id: formData.branch_id ? parseInt(formData.branch_id) : null,
-                image_url: formData.image_url
+                image_url: formData.image_url,
+                salary_amount: formData.salary_amount ? parseFloat(formData.salary_amount) : 0
             };
         
             let error;
@@ -187,7 +189,8 @@ export default function TeacherManagement() {
       user_id: "", 
       password: "",
       branch_id: "",
-      image_url: ""
+      image_url: "",
+      salary_amount: ""
     });
   };
 
@@ -216,7 +219,8 @@ export default function TeacherManagement() {
         user_id: teacher.user_id || "",
         password: teacher.password || "",
         branch_id: teacher.branch_id ? String(teacher.branch_id) : "",
-        image_url: teacher.image_url || ""
+        image_url: teacher.image_url || "",
+        salary_amount: teacher.salary_amount ? String(teacher.salary_amount) : ""
       });
       setIsEdit(true);
       setIsOpen(true);
@@ -364,6 +368,7 @@ export default function TeacherManagement() {
                   <div className="space-y-1"><label className="text-sm font-bold text-gray-600">নাম</label><Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required placeholder="শিক্ষকের নাম" /></div>
                   <div className="space-y-1"><label className="text-sm font-bold text-gray-600">পদবী</label><Input value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} placeholder="উদাঃ সহকারী শিক্ষক" /></div>
                   <div className="space-y-1"><label className="text-sm font-bold text-gray-600">মোবাইল</label><Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="01XXXXXXXXX" /></div>
+                  <div className="space-y-1"><label className="text-sm font-bold text-gray-600">নির্ধারিত মাসিক বেতন (৳)</label><Input type="number" value={formData.salary_amount} onChange={e => setFormData({...formData, salary_amount: e.target.value})} placeholder="উদাঃ 10000" /></div>
                   <div className="space-y-1"><label className="text-sm font-bold text-gray-600">বিষয় দক্ষতা</label><Input value={formData.subject_specialty} onChange={e => setFormData({...formData, subject_specialty: e.target.value})} placeholder="উদাঃ আরবি, বাংলা" /></div>
                   
                   <div className="space-y-1">
