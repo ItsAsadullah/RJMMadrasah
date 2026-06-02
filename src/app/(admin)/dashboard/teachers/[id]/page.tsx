@@ -178,7 +178,7 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Link href="/dashboard/accounts">
+                    <Link href="/dashboard/accounts?tab=teacher">
                         <Button variant="outline" size="icon" className="h-9 w-9 rounded-full"><ArrowLeft className="w-4 h-4" /></Button>
                     </Link>
                     <div>
