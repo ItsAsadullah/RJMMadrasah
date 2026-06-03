@@ -945,7 +945,7 @@ export default function FeeCollection() {
                                 </div>
                                 </>
                                 );
-                            })}
+                            })()}
                         </CardContent>
                     </Card>
                 </div>
