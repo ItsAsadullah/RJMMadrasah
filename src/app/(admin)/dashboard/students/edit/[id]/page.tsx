@@ -293,8 +293,10 @@ export default function AdminStudentEdit() {
     const { name, value } = e.target;
     if ((name.includes("mobile") || name.includes("nid") || name.includes("reg_no")) && isNaN(Number(value))) return;
     setFormData(prev => {
-      const updated = { ...prev, [name]: value };
-      if (sameAddress && name.startsWith("present_")) updated[`perm_${name.replace("present_", "")}` as keyof typeof formData] = value;
+      const updated = { ...prev, [name]: value } as any;
+      if (sameAddress && name.startsWith("present_")) {
+        updated[`perm_${name.replace("present_", "")}`] = value;
+      }
       return updated;
     });
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));

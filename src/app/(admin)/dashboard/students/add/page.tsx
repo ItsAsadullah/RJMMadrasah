@@ -339,8 +339,10 @@ export default function AdminStudentAdd() {
     const normalizedValue = normalizeDigits(value);
     if ((name.includes("mobile") || name.includes("nid") || name.includes("reg_no")) && isNaN(Number(normalizedValue))) return;
     setFormData(prev => {
-      const updated = { ...prev, [name]: normalizedValue };
-      if (sameAddress && name.startsWith("present_")) updated[`perm_${name.replace("present_", "")}` as keyof typeof formData] = normalizedValue;
+      const updated = { ...prev, [name]: normalizedValue } as any;
+      if (sameAddress && name.startsWith("present_")) {
+        updated[`perm_${name.replace("present_", "")}`] = normalizedValue;
+      }
       return updated;
     });
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
