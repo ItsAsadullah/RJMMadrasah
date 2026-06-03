@@ -383,20 +383,30 @@ export default function TeacherProfilePage({ params }: { params: Promise<{ id: s
                 </DialogContent>
             </Dialog>
 
+            {/* Off-screen Print Slip to fix blank page issue on mobile */}
+            <div style={{ position: "absolute", top: "-10000px", left: "-10000px" }}>
+                {selectedSlip && (
+                    <TeacherPaymentSlip 
+                        ref={slipRef}
+                        teacher={teacher}
+                        salaryRecord={selectedSlip}
+                    />
+                )}
+            </div>
+
             {/* Slip Print Modal */}
             <Dialog open={!!selectedSlip} onOpenChange={(open) => !open && setSelectedSlip(null)}>
-                <DialogContent className="max-w-md bg-gray-100 border-none p-0 overflow-hidden">
+                <DialogContent className="max-w-md bg-gray-100 border-none p-0 overflow-hidden w-[95vw] sm:w-full">
                     <div className="bg-white p-4 border-b flex justify-between items-center print:hidden shadow-sm">
                         <DialogTitle className="text-lg">পেমেন্ট স্লিপ</DialogTitle>
                         <Button onClick={() => handlePrintSlip()} className="bg-teal-600 hover:bg-teal-700">
                             <Printer className="w-4 h-4 mr-2" /> প্রিন্ট করুন
                         </Button>
                     </div>
-                    <div className="p-6 flex justify-center custom-scrollbar overflow-auto max-h-[80vh]">
+                    <div className="p-4 sm:p-6 overflow-auto max-h-[80vh] custom-scrollbar w-full">
                         {selectedSlip && (
-                            <div className="shadow-lg">
+                            <div className="shadow-lg mx-auto w-max bg-white">
                                 <TeacherPaymentSlip 
-                                    ref={slipRef}
                                     teacher={teacher}
                                     salaryRecord={selectedSlip}
                                 />

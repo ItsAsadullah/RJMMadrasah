@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/lib/supabase/client";
 import { Loader2, Save } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type StudentFormProps = {
   open: boolean;
@@ -49,6 +50,8 @@ export default function StudentForm({
     father_mobile: "",
     status: "active",
     branch_id: "",
+    residential_status: "non_residential",
+    extra_care_enabled: false,
   });
 
   useEffect(() => {
@@ -61,6 +64,8 @@ export default function StudentForm({
         father_mobile: student.father_mobile || "",
         status: student.status || "active",
         branch_id: student.branch_id?.toString() || "",
+        residential_status: student.residential_status || "non_residential",
+        extra_care_enabled: student.extra_care_enabled || false,
       });
     } else {
       setFormData({
@@ -71,6 +76,8 @@ export default function StudentForm({
         father_mobile: "",
         status: "active",
         branch_id: "",
+        residential_status: "non_residential",
+        extra_care_enabled: false,
       });
     }
   }, [student, open]);
@@ -241,6 +248,46 @@ export default function StudentForm({
                 </SelectContent>
               </Select>
             </div>
+
+           <div className="grid grid-cols-2 gap-4">
+             <div className="space-y-2">
+               <Label htmlFor="residential_status">আবাসন</Label>
+               <Select
+                 value={formData.residential_status}
+                 onValueChange={(val) => {
+                   handleChange("residential_status", val);
+                   if (val === "residential") {
+                     setFormData(prev => ({ ...prev, residential_status: val, extra_care_enabled: false }));
+                   } else {
+                     handleChange("residential_status", val);
+                   }
+                 }}
+               >
+                 <SelectTrigger>
+                   <SelectValue placeholder="আবাসন নির্বাচন" />
+                 </SelectTrigger>
+                 <SelectContent>
+                   <SelectItem value="non_residential">অনাবাসিক</SelectItem>
+                   <SelectItem value="residential">আবাসিক</SelectItem>
+                 </SelectContent>
+               </Select>
+             </div>
+             {formData.residential_status === "non_residential" && (
+               <div className="space-y-2">
+                 <Label htmlFor="extra_care">এক্সট্রা কেয়ার</Label>
+                 <div className="flex items-center gap-3 h-10">
+                   <Checkbox
+                     id="extra_care"
+                     checked={formData.extra_care_enabled}
+                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, extra_care_enabled: !!checked }))}
+                   />
+                   <span className="text-sm text-gray-600">
+                     {formData.extra_care_enabled ? "সক্রিয়" : "নিষ্ক্রিয়"}
+                   </span>
+                 </div>
+               </div>
+             )}
+           </div>
 
           <DialogFooter>
              {!student && (

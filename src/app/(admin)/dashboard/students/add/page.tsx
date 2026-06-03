@@ -187,7 +187,7 @@ export default function AdminStudentAdd() {
 
   const [formData, setFormData] = useState({
       branch_id: "", department: "", class_name: "", roll_number: "", academic_year: new Date().getFullYear().toString(),
-    residential_status: "residential", status: "active", guardian_type: "", 
+    residential_status: "residential", status: "active", guardian_type: "", extra_care_enabled: false,
     name_bn: "", name_en: "", dob: "", age_info: "", birth_reg_no: "", blood_group: "", photo_url: "", birth_cert_url: "",
     father_alive: "yes", father_name_bn: "", father_name_en: "", father_nid: "", father_occupation: "", father_mobile: "", father_nid_url: "", father_photo_url: "",
     mother_alive: "yes", mother_name_bn: "", mother_name_en: "", mother_nid: "", mother_occupation: "", mother_mobile: "", mother_nid_url: "", mother_photo_url: "",
@@ -606,6 +606,23 @@ export default function AdminStudentAdd() {
                      })()}
                   </select>
                </div>
+               {formData.residential_status === "non_residential" && (
+                 <div className="space-y-1.5">
+                   <label className="text-sm font-semibold text-slate-700">এক্সট্রা কেয়ার</label>
+                   <div className="flex items-center gap-3 h-11">
+                     <input
+                       type="checkbox"
+                       name="extra_care_enabled"
+                       checked={formData.extra_care_enabled}
+                       onChange={(e) => setFormData(prev => ({ ...prev, extra_care_enabled: e.target.checked }))}
+                       className="w-5 h-5 rounded border-slate-300 text-green-600 focus:ring-green-500 cursor-pointer"
+                     />
+                     <span className="text-sm text-slate-600">
+                       {formData.extra_care_enabled ? "এক্সট্রা কেয়ার সেবা সক্রিয়" : "এক্সট্রা কেয়ার সেবা নিষ্ক্রিয়"}
+                     </span>
+                   </div>
+                 </div>
+               )}
                <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-slate-700">শিক্ষাবর্ষ <span className="text-red-500">*</span></label>
                   <select

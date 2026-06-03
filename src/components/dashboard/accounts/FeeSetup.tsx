@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,18 @@ const frequencyLabels: Record<string, string> = {
     yearly: "বাৎসরিক",
     one_time: "এককালীন",
     exam_based: "পরীক্ষা ভিত্তিক"
+};
+
+const feeCategoryLabels: Record<string, string> = {
+    common: "সাধারণ",
+    residential: "আবাসিক",
+    optional: "ঐচ্ছিক"
+};
+
+const feeCategoryColors: Record<string, string> = {
+    common: "bg-green-50 text-green-700 border-green-200",
+    residential: "bg-blue-50 text-blue-700 border-blue-200",
+    optional: "bg-orange-50 text-orange-700 border-orange-200"
 };
 
 
@@ -113,7 +125,7 @@ export default function FeeSetup() {
 
     // Fee Type Modal
     const [feeTypeModal, setFeeTypeModal] = useState(false);
-    const [feeTypeForm, setFeeTypeForm] = useState({ name_bn: "", description: "" });
+    const [feeTypeForm, setFeeTypeForm] = useState({ name_bn: "", description: "", fee_category: "common" });
     const [savingFeeType, setSavingFeeType] = useState(false);
     const [editingFeeType, setEditingFeeType] = useState<any>(null);
 
@@ -229,7 +241,7 @@ export default function FeeSetup() {
         const [ftRes, brRes, stRes] = await Promise.all([
             supabase.from("fee_types").select("*").eq("is_active", true).order("is_default", { ascending: false }),
             supabase.from("branches").select("id, name"),
-            supabase.from("fee_structures").select("*, branches(name), fee_types(name_bn)").eq("is_active", true).order("created_at", { ascending: false })
+            supabase.from("fee_structures").select("*, branches(name), fee_types(name_bn, fee_category)").eq("is_active", true).order("created_at", { ascending: false })
         ]);
 
         if (ftRes.data) setFeeTypes(ftRes.data);
@@ -266,7 +278,8 @@ export default function FeeSetup() {
 
         const payload = {
             name_bn: feeTypeForm.name_bn.trim(),
-            description: feeTypeForm.description
+            description: feeTypeForm.description,
+            fee_category: feeTypeForm.fee_category || "common"
         };
 
         let error;
@@ -279,7 +292,7 @@ export default function FeeSetup() {
         if (error) alert("ত্রুটি: " + error.message);
         else {
             setFeeTypeModal(false);
-            setFeeTypeForm({ name_bn: "", description: "" });
+            setFeeTypeForm({ name_bn: "", description: "", fee_category: "common" });
             setEditingFeeType(null);
             fetchAll();
         }
@@ -288,7 +301,7 @@ export default function FeeSetup() {
 
     const handleEditFeeType = (ft: any) => {
         setEditingFeeType(ft);
-        setFeeTypeForm({ name_bn: ft.name_bn, description: ft.description || "" });
+        setFeeTypeForm({ name_bn: ft.name_bn, description: ft.description || "", fee_category: ft.fee_category || "common" });
         setFeeTypeModal(true);
     };
 
@@ -351,19 +364,53 @@ export default function FeeSetup() {
 
     // ---------- FEE GENERATION ----------
 
+    // Filtered fee types based on selected class in generation form
+    const filteredGenFeeTypes = useMemo(() => {
+        if (genForm.class_name === "all") return feeTypes;
+        const classStructures = structures.filter(s =>
+            s.class_name === genForm.class_name || s.class_name === "all"
+        );
+        const feeTypeIds = new Set(classStructures.map((s: any) => s.fee_type_id));
+        return feeTypes.filter(ft => feeTypeIds.has(ft.id));
+    }, [genForm.class_name, structures, feeTypes]);
+
+    // Reset fee_type_id when class changes and current selection is not in filtered list
+    useEffect(() => {
+        if (genForm.fee_type_id !== "all" && genForm.class_name !== "all") {
+            const isValid = filteredGenFeeTypes.some(ft => ft.id === genForm.fee_type_id);
+            if (!isValid) setGenForm(prev => ({ ...prev, fee_type_id: "all" }));
+        }
+    }, [genForm.class_name, filteredGenFeeTypes]);
+
     const handleGenerate = async () => {
         setGenerating(true);
         setGenResult(null);
         setGenerationStats([]);
 
         try {
-            // Get matching structures
-            let structureQuery = supabase.from("fee_structures").select("*, fee_types(name_bn)").eq("is_active", true);
+            // Get matching structures — ✅ FIX: class_name filter যুক্ত
+            let structureQuery = supabase.from("fee_structures").select("*, fee_types(name_bn, fee_category)").eq("is_active", true);
             if (genForm.branch_id !== "all") structureQuery = structureQuery.eq("branch_id", parseInt(genForm.branch_id));
+            if (genForm.class_name !== "all") structureQuery = structureQuery.eq("class_name", genForm.class_name);
             if (genForm.fee_type_id !== "all") structureQuery = structureQuery.eq("fee_type_id", genForm.fee_type_id);
 
             const { data: matchedStructures } = await structureQuery;
-            if (!matchedStructures || matchedStructures.length === 0) {
+
+            // If specific class selected, also get "all" class structures
+            let allClassStructures: any[] = [];
+            if (genForm.class_name !== "all") {
+                let allClassQuery = supabase.from("fee_structures").select("*, fee_types(name_bn, fee_category)").eq("is_active", true).eq("class_name", "all");
+                if (genForm.branch_id !== "all") allClassQuery = allClassQuery.eq("branch_id", parseInt(genForm.branch_id));
+                if (genForm.fee_type_id !== "all") allClassQuery = allClassQuery.eq("fee_type_id", genForm.fee_type_id);
+                const { data: allData } = await allClassQuery;
+                if (allData) allClassStructures = allData;
+            }
+
+            const combinedStructures = [...(matchedStructures || []), ...allClassStructures];
+            // Deduplicate by id
+            const uniqueStructures = Array.from(new Map(combinedStructures.map(s => [s.id, s])).values());
+
+            if (uniqueStructures.length === 0) {
                 setGenResult("কোনো ম্যাচিং ফি স্ট্রাকচার পাওয়া যায়নি।");
                 setGenerating(false);
                 return;
@@ -392,18 +439,41 @@ export default function FeeSetup() {
                 return statMap.get(key)!;
             };
 
-            for (const structure of matchedStructures) {
-                // Get eligible students
-                let studentQuery = supabase.from("students").select("id, student_id, branch_id").eq("status", "active");
-                if (structure.branch_id) studentQuery = studentQuery.eq("branch_id", structure.branch_id);
-                if (structure.class_name && structure.class_name !== "all") {
-                    if (genForm.class_name !== "all") {
-                        studentQuery = studentQuery.eq("class_name", genForm.class_name);
-                    } else {
-                        studentQuery = studentQuery.eq("class_name", structure.class_name);
+            // ✅ Batch fetch all active waivers once (performance optimization)
+            const { data: allActiveWaivers } = await supabase.from("student_waivers")
+                .select("*")
+                .eq("is_active", true);
+            const allWaiversByFeeType = new Map<string, Map<string, any>>();
+            if (allActiveWaivers) {
+                allActiveWaivers.forEach(w => {
+                    if (!allWaiversByFeeType.has(w.fee_type_id)) {
+                        allWaiversByFeeType.set(w.fee_type_id, new Map());
                     }
+                    allWaiversByFeeType.get(w.fee_type_id)!.set(w.student_id, w);
+                });
+            }
+
+            for (const structure of uniqueStructures) {
+                const feeCategory = structure.fee_types?.fee_category || "common";
+
+                // ✅ Get eligible students with residential_status and extra_care_enabled
+                let studentQuery = supabase.from("students")
+                    .select("id, student_id, branch_id, residential_status, extra_care_enabled")
+                    .eq("status", "active");
+                if (structure.branch_id) studentQuery = studentQuery.eq("branch_id", structure.branch_id);
+
+                // Class filtering: use genForm.class_name for "all" structures
+                if (structure.class_name && structure.class_name !== "all") {
+                    studentQuery = studentQuery.eq("class_name", structure.class_name);
                 } else if (genForm.class_name !== "all") {
                     studentQuery = studentQuery.eq("class_name", genForm.class_name);
+                }
+
+                // ✅ Residential/Optional fee category filter at DB level
+                if (feeCategory === "residential") {
+                    studentQuery = studentQuery.eq("residential_status", "residential");
+                } else if (feeCategory === "optional") {
+                    studentQuery = studentQuery.eq("extra_care_enabled", true);
                 }
 
                 const { data: students } = await studentQuery;
@@ -415,41 +485,32 @@ export default function FeeSetup() {
                 const monthName = bengaliMonths[genForm.month];
                 const title = `${feeTypeName} - ${monthName} ${genForm.year}`;
 
-                // Get active waivers for this fee type
-                const { data: activeWaivers } = await supabase.from("student_waivers")
-                    .select("*")
-                    .eq("fee_type_id", structure.fee_type_id)
-                    .eq("is_active", true);
+                // Get waivers for this fee type from pre-fetched data
+                const waiverMap = allWaiversByFeeType.get(structure.fee_type_id) || new Map();
 
-                const waiverMap = new Map();
-                if (activeWaivers) {
-                    activeWaivers.forEach(w => waiverMap.set(w.student_id, w));
+                // ✅ Batch duplicate check: fetch all existing dues for these students at once
+                const studentIds = students.map(s => s.id);
+                const { data: existingDues } = await supabase.from("student_dues")
+                    .select("student_id, fee_structure_id, fee_month, fee_year, title")
+                    .in("student_id", studentIds)
+                    .eq("fee_structure_id", structure.id);
+
+                const existingSet = new Set<string>();
+                if (existingDues) {
+                    existingDues.forEach(d => {
+                        if (d.fee_month === genMonth && d.fee_year === genForm.year) {
+                            existingSet.add(d.student_id);
+                        } else if (d.title === title) {
+                            existingSet.add(d.student_id);
+                        }
+                    });
                 }
 
                 const newDues: any[] = [];
 
                 for (const student of students) {
-                    // Check if already generated for this structure and title
-                    const { data: existingByMonth } = await supabase.from("student_dues")
-                        .select("id")
-                        .eq("student_id", student.id)
-                        .eq("fee_structure_id", structure.id)
-                        .eq("fee_month", genMonth)
-                        .eq("fee_year", genForm.year)
-                        .limit(1);
-
-                    let existing = existingByMonth;
-                    if (!existingByMonth || existingByMonth.length === 0) {
-                        const { data: existingByTitle } = await supabase.from("student_dues")
-                            .select("id")
-                            .eq("student_id", student.id)
-                            .eq("fee_structure_id", structure.id)
-                            .eq("title", title)
-                            .limit(1);
-                        existing = existingByTitle;
-                    }
-
-                    if (existing && existing.length > 0) {
+                    // Check if already generated (from batch result)
+                    if (existingSet.has(student.id)) {
                         totalSkipped++;
                         getBranchStat(student.branch_id || structure.branch_id).skipped += 1;
                         continue;
@@ -789,7 +850,7 @@ export default function FeeSetup() {
                                         <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">সকল ফি টাইপ</SelectItem>
-                                            {feeTypes.map(ft => <SelectItem key={ft.id} value={ft.id}>{ft.name_bn}</SelectItem>)}
+                                            {filteredGenFeeTypes.map(ft => <SelectItem key={ft.id} value={ft.id}>{ft.name_bn} {ft.fee_category && ft.fee_category !== "common" ? `(${feeCategoryLabels[ft.fee_category] || ft.fee_category})` : ""}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -995,7 +1056,7 @@ export default function FeeSetup() {
                             </h2>
                             <p className="text-xs sm:text-sm text-gray-500">মাদ্রাসায় প্রযোজ্য সকল ধরনের ফি এখানে পরিচালনা করুন</p>
                         </div>
-                        <Button onClick={() => { setEditingFeeType(null); setFeeTypeForm({ name_bn: "", description: "" }); setFeeTypeModal(true); }} className="bg-amber-600 hover:bg-amber-700 shadow-md">
+                        <Button onClick={() => { setEditingFeeType(null); setFeeTypeForm({ name_bn: "", description: "", fee_category: "common" }); setFeeTypeModal(true); }} className="bg-amber-600 hover:bg-amber-700 shadow-md">
                             <Plus className="w-4 h-4 mr-2" /> নতুন ফি টাইপ
                         </Button>
                     </div>
@@ -1005,9 +1066,10 @@ export default function FeeSetup() {
                             <Card key={ft.id} className={`shadow-sm hover:shadow-md transition-shadow ${ft.is_default ? "border-l-3 border-l-amber-400" : "border-l-3 border-l-gray-300"}`}>
                                 <CardContent className="p-4 flex items-start justify-between">
                                     <div className="min-w-0">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             <p className="font-bold text-gray-800">{ft.name_bn}</p>
                                             {ft.is_default && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">ডিফল্ট</Badge>}
+                                            {ft.fee_category && <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${feeCategoryColors[ft.fee_category] || ""}`}>{feeCategoryLabels[ft.fee_category] || ft.fee_category}</Badge>}
                                         </div>
                                         {ft.description && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{ft.description}</p>}
                                     </div>
@@ -1035,6 +1097,22 @@ export default function FeeSetup() {
                                 <div className="space-y-1.5">
                                     <label className="text-sm font-bold text-gray-700">ফি টাইপের নাম (বাংলায়)</label>
                                     <Input placeholder="যেমন: ল্যাব ফি" value={feeTypeForm.name_bn} onChange={e => setFeeTypeForm({ ...feeTypeForm, name_bn: e.target.value })} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-bold text-gray-700">ফি ক্যাটেগরি</label>
+                                    <Select value={feeTypeForm.fee_category} onValueChange={v => setFeeTypeForm({ ...feeTypeForm, fee_category: v })}>
+                                        <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="common">সাধারণ (সবার জন্য)</SelectItem>
+                                            <SelectItem value="residential">আবাসিক (শুধু আবাসিক শিক্ষার্থী)</SelectItem>
+                                            <SelectItem value="optional">ঐচ্ছিক (এক্সট্রা কেয়ার)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-[11px] text-gray-400">
+                                        {feeTypeForm.fee_category === "common" && "এই ফি সকল শিক্ষার্থীর জন্য প্রযোজ্য হবে।"}
+                                        {feeTypeForm.fee_category === "residential" && "এই ফি শুধুমাত্র আবাসিক শিক্ষার্থীদের জন্য জেনারেট হবে।"}
+                                        {feeTypeForm.fee_category === "optional" && "এই ফি শুধুমাত্র এক্সট্রা কেয়ার সেবাগ্রহণকারী শিক্ষার্থীদের জন্য জেনারেট হবে।"}
+                                    </p>
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-sm font-bold text-gray-700">বিবরণ (ঐচ্ছিক)</label>

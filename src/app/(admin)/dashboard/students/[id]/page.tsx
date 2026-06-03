@@ -616,7 +616,10 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                       <InfoRow label="শ্রেণি" value={student.class_name} />
                       <InfoRow label="শিক্ষাবর্ষ" value={student.academic_year} />
                       <InfoRow label="রোল নম্বর" value={student.roll_number || '-'} />
-                      <InfoRow label="আবাসিক" value={student.is_residential ? 'হ্যাঁ' : 'না'} />
+                      <InfoRow label="আবাসন অবস্থা" value={student.residential_status === 'residential' ? 'আবাসিক' : 'অনাবাসিক'} />
+                      {student.residential_status === 'non_residential' && (
+                        <InfoRow label="এক্সট্রা কেয়ার" value={student.extra_care_enabled ? 'সক্রিয়' : 'নিষ্ক্রিয়'} />
+                      )}
                   </InfoCard>
                   <InfoCard title="ডকুমেন্ট ও ফাইল" icon={FileText}>
                       <div className="pt-2">
