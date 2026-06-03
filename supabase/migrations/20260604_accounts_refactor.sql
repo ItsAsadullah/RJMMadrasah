@@ -105,7 +105,7 @@ BEGIN
             payment_date = NOW(),
             receipt_no = payload->>'receipt_no',
             updated_at = NOW()
-        WHERE id = (v_fee->>'due_id')::bigint;
+        WHERE id = (v_fee->>'due_id')::uuid;
 
         -- Insert transaction for this specific fee
         INSERT INTO public.transactions (
@@ -129,7 +129,7 @@ BEGIN
             payload->>'student_id',
             (payload->>'branch_id')::int,
             payload->>'payment_method',
-            (v_fee->>'due_id')::bigint
+            (v_fee->>'due_id')::uuid
         ) RETURNING id INTO v_tx_id;
         
         v_total_paid := v_total_paid + (v_fee->>'pay_amount')::numeric;
