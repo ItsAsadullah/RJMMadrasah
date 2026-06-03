@@ -431,9 +431,9 @@ export default function FeeCollection() {
             
             let remainingAmount = amountToPay;
             const receiptFees = [];
-            const transactionsToInsert = [];
+            const rpcFees: any[] = [];
             
-            // 1. Update Dues Status Sequentially
+            // 1. Prepare Dues Status Sequentially
             for (const fee of feesToPay) {
                 if (remainingAmount <= 0) break;
 
@@ -475,36 +475,19 @@ export default function FeeCollection() {
 
                 const feeDescription = extendedDesc ? `${displayTitle} ||| ${extendedDesc}` : displayTitle;
 
-                const { error } = await supabase.from("student_dues")
-                    .update({
-                        status: newStatus,
-                        paid_amount: newPaidAmount,
-                        net_amount: finalNetAmount,
-                        waiver: finalWaiver,
-                        payment_date: new Date().toISOString(),
-                        receipt_no: receiptNo
-                    })
-                    .eq("id", fee.id);
-                
-                if (error) throw error;
-
                 receiptFees.push({ 
                     description: feeDescription, 
                     amount: payForThisDue 
                 });
 
-                // Prepare individual transaction for this due
-                transactionsToInsert.push({
-                    amount: payForThisDue,
-                    type: "income",
-                    fund_type: "general",
-                    description: `${feeDescription} | রসিদ: ${receiptNo}`,
-                    transaction_date: new Date().toISOString().split("T")[0],
-                    created_by: user?.id,
-                    student_id: selectedStudent.student_id,
-                    branch_id: selectedStudent.branch_id,
-                    payment_method: paymentMethod,
-                    due_id: fee.id
+                rpcFees.push({
+                    due_id: fee.id,
+                    pay_amount: payForThisDue,
+                    new_paid_amount: newPaidAmount,
+                    new_status: newStatus,
+                    net_amount: finalNetAmount,
+                    waiver: finalWaiver,
+                    description: feeDescription
                 });
 
                 remainingAmount -= payForThisDue;
@@ -512,9 +495,18 @@ export default function FeeCollection() {
 
             const actualTotalPaid = amountToPay - remainingAmount;
 
-            // 2. Create Transactions (Bulk Insert)
-            if (transactionsToInsert.length > 0) {
-                const { error: txError } = await supabase.from("transactions").insert(transactionsToInsert);
+            // 2. Call RPC to process all transactions
+            if (rpcFees.length > 0) {
+                const payload = {
+                    student_id: selectedStudent.student_id,
+                    branch_id: selectedStudent.branch_id,
+                    receipt_no: receiptNo,
+                    payment_method: paymentMethod,
+                    user_id: user?.id,
+                    fees: rpcFees
+                };
+                
+                const { error: txError } = await supabase.rpc('process_fee_payments_bulk', { payload });
                 if (txError) throw txError;
             }
 

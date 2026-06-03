@@ -185,6 +185,7 @@ export default function TeacherSalary() {
 
         try {
             const { data: { user } } = await supabase.auth.getUser();
+            const rpcSalaries = [];
 
             for (const teacherId of selectedTeachers) {
                 const teacher = teachers.find(t => t.id === teacherId);
@@ -195,32 +196,24 @@ export default function TeacherSalary() {
                 const amount = agg.due_amount > 0 ? agg.due_amount : (teacher?.salary_amount || 0);
                 if (amount <= 0) continue;
 
-                const { data: txData } = await supabase
-                    .from("transactions")
-                    .insert({
-                        amount,
-                        type: "expense",
-                        fund_type: "general",
-                        description: `শিক্ষক বেতন - ${teacher?.name} - ${bengaliMonths[selectedMonth]} ${selectedYear}`,
-                        transaction_date: new Date().toISOString().split("T")[0],
-                        branch_id: teacher?.branch_id,
-                        created_by: user?.id
-                    })
-                    .select()
-                    .single();
+                rpcSalaries.push({
+                    teacher_id: teacherId,
+                    amount: amount,
+                    base_amount: agg.base_amount > 0 ? agg.base_amount : amount,
+                    branch_id: teacher?.branch_id,
+                    description: `শিক্ষক বেতন - ${teacher?.name} - ${bengaliMonths[selectedMonth]} ${selectedYear}`
+                });
+            }
 
-                await supabase
-                    .from("teacher_salaries")
-                    .insert({
-                        teacher_id: teacherId,
-                        base_amount: agg.base_amount > 0 ? agg.base_amount : amount,
-                        net_amount: amount,
-                        salary_month: selectedMonth,
-                        salary_year: selectedYear,
-                        payment_date: new Date().toISOString().split("T")[0],
-                        payment_method: "cash",
-                        created_by: user?.id
-                    });
+            if (rpcSalaries.length > 0) {
+                const payload = {
+                    month: selectedMonth,
+                    year: selectedYear,
+                    user_id: user?.id,
+                    salaries: rpcSalaries
+                };
+                const { error } = await supabase.rpc('process_teacher_salaries_bulk', { payload });
+                if (error) throw error;
             }
 
             setSelectedTeachers([]);

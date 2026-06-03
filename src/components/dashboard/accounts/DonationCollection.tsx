@@ -71,7 +71,9 @@ const buildDonationDescription = (formData: {
 const parseDonationTransaction = (transaction: any) => {
     const description = String(transaction.description || "");
     const fallbackPurpose = transaction.fund_type === "lillah" ? "lillah" : "general";
-    const parsed = {
+    
+    // Default parsed object
+    let parsed = {
         id: transaction.id,
         amount: transaction.amount,
         created_at: transaction.created_at || transaction.transaction_date,
@@ -81,8 +83,22 @@ const parseDonationTransaction = (transaction: any) => {
         donor_mobile: "",
         purpose: fallbackPurpose,
         payment_method: "cash",
+        branch_id: transaction.branch_id
     };
 
+    // If metadata exists, use it natively
+    if (transaction.metadata && Object.keys(transaction.metadata).length > 0) {
+        return {
+            ...parsed,
+            donor_name: transaction.metadata.donor_name || parsed.donor_name,
+            donor_address: transaction.metadata.donor_address || "",
+            donor_mobile: transaction.metadata.donor_mobile || "",
+            purpose: transaction.metadata.purpose || parsed.purpose,
+            payment_method: transaction.metadata.payment_method || parsed.payment_method,
+        };
+    }
+
+    // Fallback for older string-based records
     if (description.startsWith(DONATION_PREFIX)) {
         const fields = description.split(" | ").slice(1).reduce((acc: Record<string, string>, item) => {
             const [key, ...rest] = item.split("=");
@@ -223,7 +239,14 @@ export default function DonationCollection() {
 
         const payload: Record<string, any> = {
             amount: parseFloat(formData.amount),
-            description: buildDonationDescription(formData),
+            description: `Donation from ${formData.donor_name}`,
+            metadata: {
+                donor_name: formData.donor_name.trim(),
+                donor_mobile: formData.donor_mobile.trim(),
+                donor_address: formData.donor_address.trim(),
+                purpose: formData.purpose,
+                payment_method: formData.payment_method
+            },
             type: "income",
             fund_type: formData.purpose === "lillah" || formData.purpose === "zakat" || formData.purpose === "fitra" ? "lillah" : "general",
             created_by: user?.id,

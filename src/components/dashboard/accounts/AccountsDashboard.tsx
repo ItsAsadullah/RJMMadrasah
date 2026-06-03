@@ -42,122 +42,77 @@ export default function AccountsDashboard() {
             const { data: b } = await supabase.from("branches").select("id, name");
             if (b) setBranches(b);
 
-            // Fetch all transactions
+            const branchIdParam = filterBranch !== "all" ? parseInt(filterBranch) : null;
+
+            // Fetch Stats using RPC
+            const { data: statsData, error: statsError } = await supabase.rpc('get_accounts_dashboard_stats', {
+                p_branch_id: branchIdParam
+            });
+            
+            if (statsData) {
+                setStats({
+                    totalIncome: statsData.totalIncome || 0,
+                    totalExpense: statsData.totalExpense || 0,
+                    balance: statsData.balance || 0,
+                    lillahFund: statsData.lillahFund || 0,
+                    totalDue: statsData.totalDue || 0,
+                    dueStudents: statsData.dueStudents || 0,
+                    teachersPaid: statsData.teachersPaid || 0,
+                    teachersTotal: statsData.teachersTotal || 0
+                });
+            }
+
+            // Fetch Recent Transactions
             let txQuery = supabase
                 .from("transactions")
                 .select("*, categories(name)")
-                .order("transaction_date", { ascending: false });
+                .order("transaction_date", { ascending: false })
+                .limit(10);
             
-            if (filterBranch !== "all") {
-                txQuery = txQuery.eq("branch_id", parseInt(filterBranch));
-            }
+            if (branchIdParam) txQuery = txQuery.eq("branch_id", branchIdParam);
             const { data: txData } = await txQuery;
+            if (txData) setRecentTransactions(txData);
 
-            // Fetch student dues summary
-            let dueQuery = supabase
-                .from("student_dues")
-                .select("student_id, amount, waiver, fine, net_amount, paid_amount, status, students!inner(branch_id)")
-                .not("status", "in", '("paid","waived")');
-            if (filterBranch !== "all") {
-                dueQuery = dueQuery.eq("students.branch_id", parseInt(filterBranch));
-            }
-            const { data: dueData } = await dueQuery;
-
-            // Fetch teachers count
-            let teacherQuery = supabase
-                .from("teachers")
-                .select("id");
-            if (filterBranch !== "all") {
-                teacherQuery = teacherQuery.eq("branch_id", parseInt(filterBranch));
-            }
-            const { data: teacherData } = await teacherQuery;
-
-            // Fetch teacher salary payments this month
-            const currentMonth = new Date().getMonth();
-            const currentYear = new Date().getFullYear();
-            let teachersPaidCount = 0;
-            try {
-                let salaryQuery = supabase
-                    .from("teacher_salaries")
-                    .select("teacher_id")
-                    .eq("salary_month", currentMonth)
-                    .eq("salary_year", currentYear);
-                
-                if (filterBranch !== "all" && teacherData) {
-                    const validTeacherIds = teacherData.map(t => t.id);
-                    if (validTeacherIds.length > 0) {
-                        salaryQuery = salaryQuery.in("teacher_id", validTeacherIds);
-                    } else {
-                        // if no teachers in this branch, no salaries paid
-                        salaryQuery = salaryQuery.eq("id", -1);
-                    }
-                }
-                const { data: salaryData } = await salaryQuery;
-                teachersPaidCount = salaryData?.length || 0;
-            } catch { /* table may not exist yet */ }
-
-            if (txData) {
-                let inc = 0, exp = 0, lil = 0;
-                const monthMap: Record<string, { income: number; expense: number }> = {};
-
-                txData.forEach((t: any) => {
-                    if (t.type === 'income') {
-                        inc += t.amount;
-                        if (t.fund_type === 'lillah') lil += t.amount;
-                    } else {
-                        exp += t.amount;
-                        if (t.fund_type === 'lillah') lil -= t.amount;
-                    }
-
-                    // Monthly aggregation (last 6 months)
+            // Fetch monthly data for chart (Last 6 months)
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+            sixMonthsAgo.setDate(1);
+            
+            let monthlyTxQuery = supabase
+                .from("transactions")
+                .select("amount, type, transaction_date")
+                .gte("transaction_date", sixMonthsAgo.toISOString().split("T")[0]);
+            
+            if (branchIdParam) monthlyTxQuery = monthlyTxQuery.eq("branch_id", branchIdParam);
+            
+            const { data: monthlyTxData } = await monthlyTxQuery;
+            
+            const monthMap: Record<string, { income: number; expense: number }> = {};
+            if (monthlyTxData) {
+                monthlyTxData.forEach((t: any) => {
                     const txDate = new Date(t.transaction_date);
                     const monthKey = format(txDate, 'yyyy-MM');
                     if (!monthMap[monthKey]) monthMap[monthKey] = { income: 0, expense: 0 };
                     if (t.type === 'income') monthMap[monthKey].income += t.amount;
                     else monthMap[monthKey].expense += t.amount;
                 });
-
-                // Build monthly data (last 6 months)
-                const months: { month: string; income: number; expense: number }[] = [];
-                const bengaliMonthNames = ["জানু", "ফেব্রু", "মার্চ", "এপ্রি", "মে", "জুন", "জুলা", "আগ", "সেপ্টে", "অক্টো", "নভে", "ডিসে"];
-                for (let i = 5; i >= 0; i--) {
-                    const d = new Date();
-                    d.setMonth(d.getMonth() - i);
-                    const key = format(d, 'yyyy-MM');
-                    months.push({
-                        month: bengaliMonthNames[d.getMonth()],
-                        income: monthMap[key]?.income || 0,
-                        expense: monthMap[key]?.expense || 0
-                    });
-                }
-                setMonthlyData(months);
-
-                // Due calculation
-                let totalDueAmount = 0;
-                const dueStudentSet = new Set<string>();
-                if (dueData) {
-                    dueData.forEach((d: any) => {
-                        const due = getDueAmount(d);
-                        if (due > 0) {
-                            totalDueAmount += due;
-                            dueStudentSet.add(d.student_id);
-                        }
-                    });
-                }
-
-                setStats({
-                    totalIncome: inc,
-                    totalExpense: exp,
-                    balance: inc - exp,
-                    lillahFund: lil,
-                    totalDue: totalDueAmount,
-                    dueStudents: dueStudentSet.size,
-                    teachersPaid: teachersPaidCount,
-                    teachersTotal: teacherData?.length || 0
-                });
-
-                setRecentTransactions(txData.slice(0, 10));
             }
+
+            // Build monthly data (last 6 months)
+            const months: { month: string; income: number; expense: number }[] = [];
+            const bengaliMonthNames = ["জানু", "ফেব্রু", "মার্চ", "এপ্রি", "মে", "জুন", "জুলা", "আগ", "সেপ্টে", "অক্টো", "নভে", "ডিসে"];
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date();
+                d.setMonth(d.getMonth() - i);
+                const key = format(d, 'yyyy-MM');
+                months.push({
+                    month: bengaliMonthNames[d.getMonth()],
+                    income: monthMap[key]?.income || 0,
+                    expense: monthMap[key]?.expense || 0
+                });
+            }
+            setMonthlyData(months);
+
         } catch (err) {
             console.error("Dashboard fetch error:", err);
         }
