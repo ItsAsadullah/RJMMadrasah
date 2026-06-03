@@ -603,8 +603,8 @@ export default function FeeCollection() {
 
                     <Card className="rounded-2xl shadow-sm">
                         <CardContent className="p-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
-                                <div className="space-y-1.5">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 items-end">
+                                <div className="col-span-2 sm:col-span-1 space-y-1.5">
                                     <label className="text-xs font-bold text-gray-600">খুঁজুন</label>
                                     <div className="relative">
                                         <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
@@ -664,28 +664,28 @@ export default function FeeCollection() {
 
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
                         <Card className="rounded-xl border-l-4 border-l-slate-500 py-0">
-                            <CardContent className="p-3">
+                            <CardContent className="p-2 sm:p-3 flex flex-col justify-center">
                                 <p className="text-[10px] sm:text-xs font-bold text-gray-500">মোট শিক্ষার্থী</p>
-                                <h3 className="text-lg sm:text-2xl font-bold text-gray-800">{toBengaliNumber(students.length)} জন</h3>
-                                <p className="text-[10px] text-gray-400">পরিশোধিত: {toBengaliNumber(paidStudentCount)} জন</p>
+                                <h3 className="text-base sm:text-2xl font-bold text-gray-800">{toBengaliNumber(students.length)} জন</h3>
+                                <p className="text-[9px] sm:text-[10px] text-gray-400">পরিশোধিত: {toBengaliNumber(paidStudentCount)} জন</p>
                             </CardContent>
                         </Card>
                         <Card className="rounded-xl border-l-4 border-l-red-500 py-0">
-                            <CardContent className="p-3">
+                            <CardContent className="p-2 sm:p-3 flex flex-col justify-center">
                                 <p className="text-[10px] sm:text-xs font-bold text-red-600">বকেয়া শিক্ষার্থী</p>
-                                <h3 className="text-lg sm:text-2xl font-bold text-red-700">{toBengaliNumber(dueStudentCount)} জন</h3>
+                                <h3 className="text-base sm:text-2xl font-bold text-red-700">{toBengaliNumber(dueStudentCount)} জন</h3>
                             </CardContent>
                         </Card>
                         <Card className="rounded-xl border-l-4 border-l-amber-500 py-0">
-                            <CardContent className="p-3">
+                            <CardContent className="p-2 sm:p-3 flex flex-col justify-center">
                                 <p className="text-[10px] sm:text-xs font-bold text-amber-600">বকেয়া ফি আইটেম</p>
-                                <h3 className="text-lg sm:text-2xl font-bold text-amber-700">{toBengaliNumber(totalDueItems)} টি</h3>
+                                <h3 className="text-base sm:text-2xl font-bold text-amber-700">{toBengaliNumber(totalDueItems)} টি</h3>
                             </CardContent>
                         </Card>
                         <Card className="rounded-xl border-l-4 border-l-green-600 py-0">
-                            <CardContent className="p-3">
+                            <CardContent className="p-2 sm:p-3 flex flex-col justify-center">
                                 <p className="text-[10px] sm:text-xs font-bold text-green-700">মোট আদায়যোগ্য</p>
-                                <h3 className="text-lg sm:text-2xl font-bold text-green-700">৳ {toBengaliNumber(totalDueAmount)}</h3>
+                                <h3 className="text-base sm:text-2xl font-bold text-green-700">৳ {toBengaliNumber(totalDueAmount)}</h3>
                             </CardContent>
                         </Card>
                     </div>
@@ -700,7 +700,8 @@ export default function FeeCollection() {
                                     <p className="font-bold">শিক্ষার্থী পাওয়া যায়নি</p>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
+                                <>
+                                <div className="hidden md:block overflow-x-auto">
                                 <Table>
                                     <TableHeader className="bg-gray-50">
                                         <TableRow>
@@ -792,6 +793,54 @@ export default function FeeCollection() {
                                     </TableBody>
                                 </Table>
                                 </div>
+                                
+                                {/* Mobile View */}
+                                <div className="md:hidden flex flex-col gap-2 p-2">
+                                    {students.map(s => (
+                                        <Card key={s.id} className="cursor-pointer hover:bg-green-50/50 shadow-sm border" onClick={() => handleSelectStudent(s)}>
+                                            <CardContent className="p-3 space-y-2">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">
+                                                            {s.name_bn}
+                                                            {activeWaivers.some(w => String(w.student_id) === String(s.student_id) && w.waiver_type === 'full') && (
+                                                                <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-700 border-purple-200 px-1 py-0 h-4">মওকুফ</Badge>
+                                                            )}
+                                                        </h4>
+                                                        <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
+                                                            <CopyableId id={s.student_id} /> • রোল: {toBengaliNumber(s.roll_number ?? s.roll_no ?? "") || "-"}
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        {s.totalDue > 0 ? (
+                                                            <span className="font-bold text-red-600 text-sm">৳ {toBengaliNumber(s.totalDue)}</span>
+                                                        ) : (
+                                                            <span className="font-bold text-green-600 text-sm">৳ ০</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="flex justify-between items-center text-[11px] text-gray-600 border-t pt-1.5 mt-1">
+                                                    <div className="flex-1 truncate pr-2">
+                                                        {getBranchName(s.branch_id)} • {s.department || "-"} • {s.class_name}
+                                                    </div>
+                                                    <Button
+                                                        size="sm"
+                                                        variant={s.totalDue > 0 ? "default" : "outline"}
+                                                        className={`h-7 px-2 text-[10px] shrink-0 ${s.totalDue > 0 ? "bg-green-600 hover:bg-green-700" : "text-gray-700"}`}
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            handleSelectStudent(s);
+                                                        }}
+                                                    >
+                                                        {s.totalDue > 0 ? <CreditCard className="w-3 h-3 mr-1" /> : <Eye className="w-3 h-3 mr-1" />}
+                                                        {s.totalDue > 0 ? "আদায়" : "বিস্তারিত"}
+                                                    </Button>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                                </>
                             )}
                         </CardContent>
                     </Card>
