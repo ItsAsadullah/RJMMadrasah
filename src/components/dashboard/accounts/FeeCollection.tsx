@@ -154,6 +154,10 @@ export default function FeeCollection() {
         const direction = dir === "asc" ? 1 : -1;
         return [...list].sort((a: any, b: any) => {
             if (key === "default") {
+                const aBranch = a.branch_id || 0;
+                const bBranch = b.branch_id || 0;
+                if (aBranch !== bBranch) return aBranch - bBranch;
+                
                 const aC = getClassOrder(a.class_name);
                 const bC = getClassOrder(b.class_name);
                 if (aC !== bC) return aC - bC;
@@ -181,6 +185,10 @@ export default function FeeCollection() {
         setSortDir(nextDir);
         setStudents((prev) => sortStudentList(prev, nextKey, nextDir));
     };
+
+    // Pagination states
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // Student selection state
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
@@ -270,6 +278,7 @@ export default function FeeCollection() {
     }, []);
 
     useEffect(() => {
+        setCurrentPage(1);
         fetchStudents();
     }, [search, filterBranch, filterClass, filterDepartment, filterPaymentStatus]);
 
@@ -700,7 +709,12 @@ export default function FeeCollection() {
                                     <UserRound className="w-12 h-12 mx-auto mb-3 opacity-30" />
                                     <p className="font-bold">শিক্ষার্থী পাওয়া যায়নি</p>
                                 </div>
-                            ) : (
+                            ) : (() => {
+                                const totalPages = Math.ceil(students.length / itemsPerPage);
+                                const startIndex = (currentPage - 1) * itemsPerPage;
+                                const paginatedStudents = students.slice(startIndex, startIndex + itemsPerPage);
+                                
+                                return (
                                 <>
                                 <div className="hidden md:block overflow-x-auto">
                                 <Table>
@@ -720,7 +734,7 @@ export default function FeeCollection() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {students.map(s => {
+                                        {paginatedStudents.map(s => {
                                             const guardianName = s.guardian_type === 'father' ? s.father_name_bn : (s.guardian_name || s.father_name_bn);
                                             const guardianPhone = s.guardian_type === 'father' ? s.father_mobile : (s.guardian_mobile || s.father_mobile);
                                             
@@ -753,8 +767,7 @@ export default function FeeCollection() {
                                                 <TableCell>
                                                     <div className="flex flex-col gap-1 text-sm text-gray-600">
                                                         <div className="flex items-center gap-1.5">
-                                                            <span className="font-semibold text-gray-700">{guardianName || "-"}</span>
-                                                            <span className="text-xs">({toBengaliNumber(guardianPhone || "-")})</span>
+                                                            <span className="font-semibold text-gray-700">{guardianName || "-"} - {toBengaliNumber(guardianPhone || "-")}</span>
                                                         </div>
                                                         <div>
                                                             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${s.residential_status === 'residential' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
@@ -810,7 +823,7 @@ export default function FeeCollection() {
                                 
                                 {/* Mobile View - Modern Compact Cards */}
                                 <div className="md:hidden flex flex-col gap-3 p-2">
-                                    {students.map(s => {
+                                    {paginatedStudents.map(s => {
                                         const guardianName = s.guardian_type === 'father' ? s.father_name_bn : (s.guardian_name || s.father_name_bn);
                                         const guardianPhone = s.guardian_type === 'father' ? s.father_mobile : (s.guardian_mobile || s.father_mobile);
                                         
@@ -872,8 +885,7 @@ export default function FeeCollection() {
                                                 {/* Bottom row: Contact & Action */}
                                                 <div className="flex justify-between items-center border-t border-gray-100 pt-2 mt-2">
                                                     <div className="text-[11px] text-gray-500 flex flex-col justify-center">
-                                                        <span className="font-medium text-gray-700">{guardianName || "-"}</span>
-                                                        <span>{toBengaliNumber(guardianPhone || "-")}</span>
+                                                        <span className="font-medium text-gray-700">{guardianName || "-"} - {toBengaliNumber(guardianPhone || "-")}</span>
                                                     </div>
                                                     <Button
                                                         size="sm"
@@ -892,8 +904,48 @@ export default function FeeCollection() {
                                         </Card>
                                     )})}
                                 </div>
+                                
+                                {/* Pagination Controls */}
+                                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-4 border-t bg-white rounded-b-2xl">
+                                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                                        <span>প্রতি পেজে:</span>
+                                        <Select value={itemsPerPage.toString()} onValueChange={(val) => { setItemsPerPage(Number(val)); setCurrentPage(1); }}>
+                                            <SelectTrigger className="w-[80px] h-8 bg-white"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                {[10, 20, 30, 50, 100, 200].map(n => (
+                                                    <SelectItem key={n} value={n.toString()}>{toBengaliNumber(n)}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <span>জন</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                            disabled={currentPage === 1}
+                                            className="h-8"
+                                        >
+                                            আগের পেজ
+                                        </Button>
+                                        <span className="font-medium min-w-[80px] text-center">
+                                            {toBengaliNumber(currentPage)} / {toBengaliNumber(totalPages || 1)}
+                                        </span>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                            disabled={currentPage === totalPages || totalPages === 0}
+                                            className="h-8"
+                                        >
+                                            পরের পেজ
+                                        </Button>
+                                    </div>
+                                </div>
                                 </>
-                            )}
+                                );
+                            })}
                         </CardContent>
                     </Card>
                 </div>
