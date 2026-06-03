@@ -306,6 +306,7 @@ export default function FeeCollection() {
         let query = supabase.from("students")
             .select(`
                 id, name_bn, student_id, roll_no, roll_number, class_name, department, branch_id, academic_year, photo_url,
+                residential_status, father_name_bn, father_mobile, guardian_name, guardian_mobile, guardian_type,
                 student_dues!student_id(amount, waiver, fine, paid_amount, status, net_amount, fee_type_id)
             `)
             .eq("status", "active")
@@ -707,138 +708,189 @@ export default function FeeCollection() {
                                         <TableRow>
                                             <TableHead
                                                 className="cursor-pointer select-none"
-                                                onClick={() => handleSortClick("student_id")}
-                                                title="আইডি দিয়ে শর্ট"
-                                            >
-                                                আইডি{sortIndicator("student_id")}
-                                            </TableHead>
-                                            <TableHead
-                                                className="cursor-pointer select-none"
-                                                onClick={() => handleSortClick("roll")}
-                                                title="রোল দিয়ে শর্ট"
-                                            >
-                                                রোল{sortIndicator("roll")}
-                                            </TableHead>
-                                            <TableHead
-                                                className="cursor-pointer select-none"
                                                 onClick={() => handleSortClick("name")}
                                                 title="নাম দিয়ে শর্ট"
                                             >
-                                                নাম{sortIndicator("name")}
+                                                ছাত্র/ছাত্রী{sortIndicator("name")}
                                             </TableHead>
-                                            <TableHead>শাখা</TableHead>
-                                            <TableHead>বিভাগ</TableHead>
-                                            <TableHead>শ্রেণি</TableHead>
-                                            <TableHead className="text-center">বেতন</TableHead>
-                                            <TableHead className="text-right">টাকার পরিমাণ</TableHead>
-                                            <TableHead>স্ট্যাটাস</TableHead>
+                                            <TableHead>যোগাযোগ ও আবাসিক তথ্য</TableHead>
+                                            <TableHead>শ্রেণি ও শাখা</TableHead>
+                                            <TableHead className="text-center">বকেয়া স্ট্যাটাস</TableHead>
                                             <TableHead className="text-right">অ্যাকশন</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {students.map(s => (
+                                        {students.map(s => {
+                                            const guardianName = s.guardian_type === 'father' ? s.father_name_bn : (s.guardian_name || s.father_name_bn);
+                                            const guardianPhone = s.guardian_type === 'father' ? s.father_mobile : (s.guardian_mobile || s.father_mobile);
+                                            
+                                            return (
                                             <TableRow key={s.id} className="hover:bg-green-50/50 cursor-pointer" onClick={() => handleSelectStudent(s)}>
-                                                <TableCell className="font-mono text-sm"><CopyableId id={s.student_id} /></TableCell>
-                                                <TableCell className="text-sm text-gray-600">{toBengaliNumber(s.roll_number ?? s.roll_no ?? "") || "-"}</TableCell>
-                                                <TableCell className="font-bold text-gray-800">
-                                                    <div className="flex items-center gap-2">
-                                                        <span>{s.name_bn}</span>
-                                                        {activeWaivers.some(w => String(w.student_id) === String(s.student_id) && w.waiver_type === 'full') && (
-                                                            <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 px-1 py-0 h-4">মওকুফ</Badge>
-                                                        )}
+                                                <TableCell>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden shrink-0 border border-gray-200">
+                                                            {s.photo_url ? (
+                                                                <img src={s.photo_url} alt="" className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <UserRound className="w-5 h-5 text-gray-400" />
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-bold text-gray-800">{s.name_bn}</span>
+                                                                {activeWaivers.some(w => String(w.student_id) === String(s.student_id) && w.waiver_type === 'full') && (
+                                                                    <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 px-1 py-0 h-4">মওকুফ</Badge>
+                                                                )}
+                                                            </div>
+                                                            <div className="text-[11px] text-gray-500 flex items-center gap-2 mt-0.5">
+                                                                <CopyableId id={s.student_id} className="font-mono" />
+                                                                <span>•</span>
+                                                                <span>রোল: {toBengaliNumber(s.roll_number ?? s.roll_no ?? "") || "-"}</span>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="text-sm min-w-35">{getBranchName(s.branch_id)}</TableCell>
-                                                <TableCell className="text-sm text-gray-600">{s.department || "-"}</TableCell>
-                                                <TableCell className="text-sm">{s.class_name}</TableCell>
-                                                <TableCell className="text-center">
-                                                    {s.totalDue > 0 ? (
-                                                        <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">{toBengaliNumber(s.dueCount || 0)} টি</Badge>
-                                                    ) : (
-                                                        <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">নেই</Badge>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {s.totalDue > 0 ? (
-                                                        <span className="font-bold text-red-600">৳ {toBengaliNumber(s.totalDue)}</span>
-                                                    ) : (
-                                                        <span className="text-gray-500">৳ ০</span>
-                                                    )}
+                                                <TableCell>
+                                                    <div className="flex flex-col gap-1 text-sm text-gray-600">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="font-semibold text-gray-700">{guardianName || "-"}</span>
+                                                            <span className="text-xs">({toBengaliNumber(guardianPhone || "-")})</span>
+                                                        </div>
+                                                        <div>
+                                                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${s.residential_status === 'residential' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                                                                {s.residential_status === 'residential' ? 'আবাসিক' : 'অনাবাসিক'}
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {!s.student_dues || s.student_dues.length === 0 ? (
-                                                        <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">নির্ধারণ করা হয়নি</span>
-                                                    ) : s.totalDue > 0 ? (
-                                                        <span className="text-xs font-bold text-red-600">বকেয়া</span>
-                                                    ) : (
-                                                        <span className="text-xs font-bold text-green-600">পরিশোধিত</span>
-                                                    )}
+                                                    <div className="flex flex-col gap-0.5 text-sm text-gray-600">
+                                                        <span className="font-semibold text-gray-700">{s.class_name} <span className="text-xs font-normal text-gray-500">({s.department || "-"})</span></span>
+                                                        <span className="text-xs">{getBranchName(s.branch_id)}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        {s.totalDue > 0 ? (
+                                                            <>
+                                                                <span className="font-bold text-red-600 text-sm">৳ {toBengaliNumber(s.totalDue)}</span>
+                                                                <Badge variant="outline" className="text-[10px] text-red-600 border-red-200 bg-red-50 px-1.5 py-0 h-4">{toBengaliNumber(s.dueCount || 0)} টি বকেয়া</Badge>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <span className="font-bold text-green-600 text-sm">৳ ০</span>
+                                                                {!s.student_dues || s.student_dues.length === 0 ? (
+                                                                    <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0 h-4 border-amber-200">নির্ধারণ হয়নি</Badge>
+                                                                ) : (
+                                                                    <Badge variant="outline" className="text-[10px] text-green-600 border-green-200 bg-green-50 px-1.5 py-0 h-4">পরিশোধিত</Badge>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <Button
                                                         size="sm"
                                                         variant={s.totalDue > 0 ? "default" : "outline"}
-                                                        className={s.totalDue > 0 ? "bg-green-600 hover:bg-green-700" : "text-gray-700"}
+                                                        className={s.totalDue > 0 ? "bg-green-600 hover:bg-green-700 shadow-sm" : "text-gray-700"}
                                                         onClick={(event) => {
                                                             event.stopPropagation();
                                                             handleSelectStudent(s);
                                                         }}
                                                     >
-                                                        {s.totalDue > 0 ? <CreditCard className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                        {s.totalDue > 0 ? <CreditCard className="w-4 h-4 mr-1.5" /> : <Eye className="w-4 h-4 mr-1.5" />}
                                                         {s.totalDue > 0 ? "আদায়" : "বিস্তারিত"}
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
+                                        )})}
                                     </TableBody>
                                 </Table>
                                 </div>
                                 
-                                {/* Mobile View */}
-                                <div className="md:hidden flex flex-col gap-2 p-2">
-                                    {students.map(s => (
-                                        <Card key={s.id} className="cursor-pointer hover:bg-green-50/50 shadow-sm border" onClick={() => handleSelectStudent(s)}>
-                                            <CardContent className="p-3 space-y-2">
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <h4 className="font-bold text-gray-800 text-sm flex items-center gap-2">
-                                                            {s.name_bn}
-                                                            {activeWaivers.some(w => String(w.student_id) === String(s.student_id) && w.waiver_type === 'full') && (
-                                                                <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-700 border-purple-200 px-1 py-0 h-4">মওকুফ</Badge>
-                                                            )}
-                                                        </h4>
-                                                        <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
-                                                            <CopyableId id={s.student_id} /> • রোল: {toBengaliNumber(s.roll_number ?? s.roll_no ?? "") || "-"}
-                                                        </p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        {s.totalDue > 0 ? (
-                                                            <span className="font-bold text-red-600 text-sm">৳ {toBengaliNumber(s.totalDue)}</span>
+                                {/* Mobile View - Modern Compact Cards */}
+                                <div className="md:hidden flex flex-col gap-3 p-2">
+                                    {students.map(s => {
+                                        const guardianName = s.guardian_type === 'father' ? s.father_name_bn : (s.guardian_name || s.father_name_bn);
+                                        const guardianPhone = s.guardian_type === 'father' ? s.father_mobile : (s.guardian_mobile || s.father_mobile);
+                                        
+                                        return (
+                                        <Card key={s.id} className="cursor-pointer hover:bg-green-50/30 transition-colors shadow-sm border overflow-hidden" onClick={() => handleSelectStudent(s)}>
+                                            <div className="p-3">
+                                                {/* Top row: Avatar, Name & Status */}
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-11 h-11 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden shrink-0 border border-gray-200">
+                                                        {s.photo_url ? (
+                                                            <img src={s.photo_url} alt="" className="w-full h-full object-cover" />
                                                         ) : (
-                                                            <span className="font-bold text-green-600 text-sm">৳ ০</span>
+                                                            <UserRound className="w-5 h-5 text-gray-400" />
                                                         )}
                                                     </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex justify-between items-start">
+                                                            <div className="truncate pr-2">
+                                                                <h4 className="font-bold text-gray-800 text-sm truncate flex items-center gap-1.5">
+                                                                    {s.name_bn}
+                                                                    {activeWaivers.some(w => String(w.student_id) === String(s.student_id) && w.waiver_type === 'full') && (
+                                                                        <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-700 border-purple-200 px-1 py-0 h-3.5 leading-none shrink-0">মওকুফ</Badge>
+                                                                    )}
+                                                                </h4>
+                                                                <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
+                                                                    <CopyableId id={s.student_id} className="font-mono" /> • রোল: {toBengaliNumber(s.roll_number ?? s.roll_no ?? "") || "-"}
+                                                                </p>
+                                                            </div>
+                                                            <div className="text-right shrink-0">
+                                                                {s.totalDue > 0 ? (
+                                                                    <div className="flex flex-col items-end">
+                                                                        <span className="font-bold text-red-600 text-[15px] leading-none">৳ {toBengaliNumber(s.totalDue)}</span>
+                                                                        <span className="text-[9px] font-semibold text-red-500 mt-1">{toBengaliNumber(s.dueCount || 0)} টি বকেয়া</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex flex-col items-end">
+                                                                        <span className="font-bold text-green-600 text-[15px] leading-none">৳ ০</span>
+                                                                        <span className="text-[9px] font-semibold text-green-600 mt-1">পরিশোধিত</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="flex justify-between items-center text-[11px] text-gray-600 border-t pt-1.5 mt-1">
-                                                    <div className="flex-1 truncate pr-2">
-                                                        {getBranchName(s.branch_id)} • {s.department || "-"} • {s.class_name}
+                                                
+                                                {/* Middle row: Info pills */}
+                                                <div className="flex flex-wrap gap-1.5 mt-3">
+                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-gray-100 text-gray-600 hover:bg-gray-200 font-medium">
+                                                        {s.class_name} {s.department ? `(${s.department})` : ''}
+                                                    </Badge>
+                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-gray-100 text-gray-600 hover:bg-gray-200 font-medium">
+                                                        {getBranchName(s.branch_id)}
+                                                    </Badge>
+                                                    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 font-medium ${s.residential_status === 'residential' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                                                        {s.residential_status === 'residential' ? 'আবাসিক' : 'অনাবাসিক'}
+                                                    </Badge>
+                                                </div>
+                                                
+                                                {/* Bottom row: Contact & Action */}
+                                                <div className="flex justify-between items-center border-t border-gray-100 pt-2.5 mt-2.5">
+                                                    <div className="text-[11px] text-gray-500 flex flex-col justify-center">
+                                                        <span className="font-medium text-gray-700">{guardianName || "-"}</span>
+                                                        <span>{toBengaliNumber(guardianPhone || "-")}</span>
                                                     </div>
                                                     <Button
                                                         size="sm"
                                                         variant={s.totalDue > 0 ? "default" : "outline"}
-                                                        className={`h-7 px-2 text-[10px] shrink-0 ${s.totalDue > 0 ? "bg-green-600 hover:bg-green-700" : "text-gray-700"}`}
+                                                        className={`h-8 px-3 text-[11px] rounded-full shrink-0 shadow-sm ${s.totalDue > 0 ? "bg-green-600 hover:bg-green-700" : "text-gray-700 border-gray-300"}`}
                                                         onClick={(event) => {
                                                             event.stopPropagation();
                                                             handleSelectStudent(s);
                                                         }}
                                                     >
-                                                        {s.totalDue > 0 ? <CreditCard className="w-3 h-3 mr-1" /> : <Eye className="w-3 h-3 mr-1" />}
-                                                        {s.totalDue > 0 ? "আদায়" : "বিস্তারিত"}
+                                                        {s.totalDue > 0 ? <CreditCard className="w-3 h-3 mr-1.5" /> : <Eye className="w-3 h-3 mr-1.5" />}
+                                                        {s.totalDue > 0 ? "ফি আদায়" : "দেখুন"}
                                                     </Button>
                                                 </div>
-                                            </CardContent>
+                                            </div>
                                         </Card>
-                                    ))}
+                                    )})}
                                 </div>
                                 </>
                             )}
