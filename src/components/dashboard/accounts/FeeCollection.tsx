@@ -816,14 +816,14 @@ export default function FeeCollection() {
                                         
                                         return (
                                         <Card key={s.id} className="cursor-pointer hover:bg-green-50/30 transition-colors shadow-sm border overflow-hidden" onClick={() => handleSelectStudent(s)}>
-                                            <div className="p-3">
+                                            <div className="p-2.5">
                                                 {/* Top row: Avatar, Name & Status */}
-                                                <div className="flex items-start gap-3">
-                                                    <div className="w-11 h-11 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden shrink-0 border border-gray-200">
+                                                <div className="flex items-start gap-2.5">
+                                                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden shrink-0 border border-gray-200">
                                                         {s.photo_url ? (
                                                             <img src={s.photo_url} alt="" className="w-full h-full object-cover" />
                                                         ) : (
-                                                            <UserRound className="w-5 h-5 text-gray-400" />
+                                                            <UserRound className="w-4 h-4 text-gray-400" />
                                                         )}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
@@ -842,12 +842,12 @@ export default function FeeCollection() {
                                                             <div className="text-right shrink-0">
                                                                 {s.totalDue > 0 ? (
                                                                     <div className="flex flex-col items-end">
-                                                                        <span className="font-bold text-red-600 text-[15px] leading-none">৳ {toBengaliNumber(s.totalDue)}</span>
+                                                                        <span className="font-bold text-red-600 text-[14px] leading-none">৳ {toBengaliNumber(s.totalDue)}</span>
                                                                         <span className="text-[9px] font-semibold text-red-500 mt-1">{toBengaliNumber(s.dueCount || 0)} টি বকেয়া</span>
                                                                     </div>
                                                                 ) : (
                                                                     <div className="flex flex-col items-end">
-                                                                        <span className="font-bold text-green-600 text-[15px] leading-none">৳ ০</span>
+                                                                        <span className="font-bold text-green-600 text-[14px] leading-none">৳ ০</span>
                                                                         <span className="text-[9px] font-semibold text-green-600 mt-1">পরিশোধিত</span>
                                                                     </div>
                                                                 )}
@@ -857,20 +857,20 @@ export default function FeeCollection() {
                                                 </div>
                                                 
                                                 {/* Middle row: Info pills */}
-                                                <div className="flex flex-wrap gap-1.5 mt-3">
-                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-gray-100 text-gray-600 hover:bg-gray-200 font-medium">
+                                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-3.5 bg-gray-100 text-gray-600 hover:bg-gray-200 font-medium">
                                                         {s.class_name} {s.department ? `(${s.department})` : ''}
                                                     </Badge>
-                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-gray-100 text-gray-600 hover:bg-gray-200 font-medium">
+                                                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-3.5 bg-gray-100 text-gray-600 hover:bg-gray-200 font-medium">
                                                         {getBranchName(s.branch_id)}
                                                     </Badge>
-                                                    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 font-medium ${s.residential_status === 'residential' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                                                    <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-3.5 font-medium ${s.residential_status === 'residential' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
                                                         {s.residential_status === 'residential' ? 'আবাসিক' : 'অনাবাসিক'}
                                                     </Badge>
                                                 </div>
                                                 
                                                 {/* Bottom row: Contact & Action */}
-                                                <div className="flex justify-between items-center border-t border-gray-100 pt-2.5 mt-2.5">
+                                                <div className="flex justify-between items-center border-t border-gray-100 pt-2 mt-2">
                                                     <div className="text-[11px] text-gray-500 flex flex-col justify-center">
                                                         <span className="font-medium text-gray-700">{guardianName || "-"}</span>
                                                         <span>{toBengaliNumber(guardianPhone || "-")}</span>
