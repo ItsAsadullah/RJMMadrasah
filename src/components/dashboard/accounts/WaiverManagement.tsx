@@ -612,35 +612,67 @@ export default function WaiverManagement() {
                 <>
                     {/* Mobile */}
                     <div className="md:hidden space-y-2.5">
-                        {filteredWaivers.map((w) => (
+                        {filteredWaivers.map((w) => {
+                            const studentInfo = allStudentsData[w.student_id];
+                            const branchName = studentInfo ? (branchMap[String(studentInfo.branch_id)] ?? "-") : "-";
+                            const roll = studentInfo ? (studentInfo.roll_number ?? studentInfo.roll_no) : "-";
+
+                            return (
                             <Card key={w.id} className="border-l-[3px] border-l-purple-400 shadow-sm rounded-xl">
-                                <CardContent className="p-2.5 space-y-1.5">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <CopyableId id={w.student_id} className="font-bold text-gray-800 text-sm" />
-                                            <p className="text-[11px] text-gray-500">{w.fee_types?.name_bn}</p>
+                                <CardContent className="p-2.5 space-y-2">
+                                    <div className="flex items-start gap-2.5">
+                                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden shrink-0 border border-gray-200">
+                                            {studentInfo?.photo_url ? (
+                                                <img src={studentInfo.photo_url} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <UserRound className="w-4 h-4 text-gray-400" />
+                                            )}
                                         </div>
-                                        <div className="flex flex-col items-end gap-1">
-                                            <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-[9px] px-1.5 py-0.5 font-semibold">
-                                                {WAIVER_TYPE_LABELS[w.waiver_type]}
-                                            </Badge>
-                                            <span className="text-[11px] font-bold text-gray-700">
-                                                {w.waiver_type === "full" ? "১০০%" : w.waiver_type === "percentage" ? `${toBengaliNumber(w.waiver_value)}%` : `৳ ${toBengaliNumber(w.waiver_value)}`}
-                                            </span>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex justify-between items-start">
+                                                <div className="truncate pr-2">
+                                                    <h4 className="font-bold text-gray-800 text-sm truncate">
+                                                        {studentInfo?.name_bn || "-"}
+                                                    </h4>
+                                                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
+                                                        <CopyableId id={w.student_id} className="font-mono text-purple-600 font-semibold" />
+                                                        <span>• রোল: {roll && roll !== "-" ? toBengaliNumber(String(roll)) : "-"}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                                    <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-[9px] px-1.5 py-0.5 font-semibold leading-none h-4">
+                                                        {WAIVER_TYPE_LABELS[w.waiver_type]}
+                                                    </Badge>
+                                                    <span className="text-[11px] font-bold text-gray-700">
+                                                        {w.waiver_type === "full" ? "১০০%" : w.waiver_type === "percentage" ? `${toBengaliNumber(w.waiver_value)}%` : `৳ ${toBengaliNumber(w.waiver_value)}`}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="mt-1 flex flex-wrap gap-1.5">
+                                                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal text-gray-600">{studentInfo?.class_name || "-"}</Badge>
+                                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-gray-500 bg-gray-50">{branchName}</Badge>
+                                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-purple-600 bg-purple-50 border-purple-200">{w.fee_types?.name_bn}</Badge>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="flex justify-between items-center pt-1.5 border-t mt-1">
-                                        <div className="text-[11px]">
+                                    <div className="flex justify-between items-center pt-2 border-t mt-1 text-xs text-gray-500">
+                                        <div className="truncate pr-2">
                                             <span className="text-gray-500">কারণ: </span>
-                                            <span className="font-medium">{w.reason || "-"}</span>
+                                            <span className="font-medium text-gray-700">{w.reason || "-"}</span>
                                         </div>
-                                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500" onClick={() => handleDelete(w.id)}>
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </Button>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] text-blue-600 border-blue-200 hover:bg-blue-50" onClick={() => handleEdit(w)}>
+                                                এডিট
+                                            </Button>
+                                            <Button size="sm" variant="outline" className="h-6 w-6 p-0 text-red-500 border-red-200 hover:bg-red-50" onClick={() => handleDelete(w.id)}>
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </Button>
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     {/* Desktop */}
