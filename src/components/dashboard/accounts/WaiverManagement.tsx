@@ -811,24 +811,13 @@ export default function WaiverManagement() {
                                             <p className="text-sm">কোনো শিক্ষার্থী পাওয়া যায়নি</p>
                                         </div>
                                     ) : (
-                                        <Table>
-                                            <TableHeader className="bg-gray-50 sticky top-0 z-10">
-                                                <TableRow>
-                                                    <TableHead className="font-bold text-sm py-2.5">আইডি / রোল</TableHead>
-                                                    <TableHead className="font-bold text-sm py-2.5">নাম</TableHead>
-                                                    <TableHead className="font-bold text-sm py-2.5">শাখা</TableHead>
-                                                    <TableHead className="font-bold text-sm py-2.5">মাসিক</TableHead>
-                                                    <TableHead className="font-bold text-sm py-2.5">অভিভাবক</TableHead>
-                                                    <TableHead className="font-bold text-sm py-2.5">মোবাইল</TableHead>
-                                                    <TableHead className="font-bold text-sm py-2.5 text-right">অ্যাকশন</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
+                                        <>
+                                            {/* Mobile View - Modern Compact Cards */}
+                                            <div className="md:hidden flex flex-col gap-2 p-2">
                                                 {waiverStudents.map((s) => {
                                                     const sid = String(s.student_id);
                                                     const isSelected = form.student_id === sid;
                                                     const summary = getStudentWaiverSummary(sid);
-                                                    // FIX #4: O(1) lookup instead of repeated .find()
                                                     const branchName = branchMap[String(s.branch_id)] ?? "-";
                                                     const roll = (s.roll_number ?? s.roll_no) ? String(s.roll_number ?? s.roll_no) : "-";
                                                     const guardianName = String(s.guardian_name ?? "").trim() || "-";
@@ -836,35 +825,100 @@ export default function WaiverManagement() {
                                                     const monthly = monthlyFeeByStudentId[sid];
 
                                                     return (
-                                                        <TableRow key={sid} className={isSelected ? "bg-purple-50" : "hover:bg-purple-50/30"}>
-                                                            <TableCell className="whitespace-nowrap py-2">
-                                                                <div className="font-mono text-sm font-semibold"><CopyableId id={sid} /></div>
-                                                                <div className="text-xs text-gray-500">রোল: {roll === "-" ? "-" : toBengaliNumber(roll)}</div>
-                                                            </TableCell>
-                                                            <TableCell className="py-2 min-w-[160px]">
-                                                                <p className="font-medium text-sm text-gray-800 truncate max-w-[200px]">{s.name_bn || "-"}</p>
-                                                                <p className="text-xs text-gray-400 truncate max-w-[200px]">
-                                                                    {s.department ? `${s.department} | ` : ""}{s.class_name || "-"}
-                                                                </p>
-                                                            </TableCell>
-                                                            <TableCell className="text-sm whitespace-nowrap py-2">{branchName}</TableCell>
-                                                            <TableCell className="text-sm whitespace-nowrap py-2">
-                                                                <div className="font-semibold text-green-700">{monthly ? `৳ ${toBengaliNumber(monthly)}` : "-"}</div>
-                                                                <div className="text-xs text-gray-400">{summary.text}</div>
-                                                            </TableCell>
-                                                            <TableCell className="text-sm whitespace-nowrap py-2">{guardianName}</TableCell>
-                                                            <TableCell className="text-sm whitespace-nowrap py-2">{mobile === "-" ? "-" : toBengaliNumber(mobile)}</TableCell>
-                                                            <TableCell className="text-right whitespace-nowrap py-2">
-                                                                <Button size="sm" onClick={() => handleSelectStudent(s)}
-                                                                    className="bg-purple-600 hover:bg-purple-700 h-8 px-4 text-sm">
-                                                                    {isSelected ? "সিলেক্টেড" : "অ্যাকশন"}
-                                                                </Button>
-                                                            </TableCell>
-                                                        </TableRow>
+                                                        <Card key={sid} className={`cursor-pointer transition-colors shadow-sm border overflow-hidden p-0 py-0 gap-0 ${isSelected ? "border-purple-500 bg-purple-50" : "hover:bg-purple-50/30"}`} onClick={() => handleSelectStudent(s)}>
+                                                            <div className="p-2.5">
+                                                                <div className="flex justify-between items-start">
+                                                                    <div className="truncate pr-2">
+                                                                        <h4 className="font-bold text-gray-800 text-sm truncate flex items-center gap-1.5">
+                                                                            {s.name_bn || "-"}
+                                                                            {summary.tone === "has" && (
+                                                                                <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-700 border-purple-200 px-1 py-0 h-3.5 leading-none shrink-0">মওকুফ</Badge>
+                                                                            )}
+                                                                        </h4>
+                                                                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
+                                                                            <span className="font-mono text-purple-600 font-semibold">{sid}</span>
+                                                                            <span>• রোল: {roll === "-" ? "-" : toBengaliNumber(roll)}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-right shrink-0">
+                                                                        <span className="font-bold text-green-700 text-sm">{monthly ? `৳ ${toBengaliNumber(monthly)}` : "-"}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                                                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal text-gray-600">{s.class_name || "-"}</Badge>
+                                                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-gray-500 bg-gray-50">{branchName}</Badge>
+                                                                </div>
+                                                                <div className="mt-2.5 pt-2 border-t flex justify-between items-center text-xs text-gray-500">
+                                                                    <div className="truncate pr-2">
+                                                                        {guardianName} - {mobile === "-" ? "-" : toBengaliNumber(mobile)}
+                                                                    </div>
+                                                                    <Button size="sm" onClick={(e) => { e.stopPropagation(); handleSelectStudent(s); }} className={`h-6 px-2.5 text-[10px] ${isSelected ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+                                                                        {isSelected ? "সিলেক্টেড" : "অ্যাকশন"}
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        </Card>
                                                     );
                                                 })}
-                                            </TableBody>
-                                        </Table>
+                                            </div>
+
+                                            {/* Desktop View - Table */}
+                                            <div className="hidden md:block">
+                                                <Table>
+                                                    <TableHeader className="bg-gray-50 sticky top-0 z-10">
+                                                        <TableRow>
+                                                            <TableHead className="font-bold text-sm py-2.5">আইডি / রোল</TableHead>
+                                                            <TableHead className="font-bold text-sm py-2.5">নাম</TableHead>
+                                                            <TableHead className="font-bold text-sm py-2.5">শাখা</TableHead>
+                                                            <TableHead className="font-bold text-sm py-2.5">মাসিক</TableHead>
+                                                            <TableHead className="font-bold text-sm py-2.5">অভিভাবক</TableHead>
+                                                            <TableHead className="font-bold text-sm py-2.5">মোবাইল</TableHead>
+                                                            <TableHead className="font-bold text-sm py-2.5 text-right">অ্যাকশন</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {waiverStudents.map((s) => {
+                                                            const sid = String(s.student_id);
+                                                            const isSelected = form.student_id === sid;
+                                                            const summary = getStudentWaiverSummary(sid);
+                                                            const branchName = branchMap[String(s.branch_id)] ?? "-";
+                                                            const roll = (s.roll_number ?? s.roll_no) ? String(s.roll_number ?? s.roll_no) : "-";
+                                                            const guardianName = String(s.guardian_name ?? "").trim() || "-";
+                                                            const mobile = String(s.guardian_mobile ?? s.father_mobile ?? "").trim() || "-";
+                                                            const monthly = monthlyFeeByStudentId[sid];
+
+                                                            return (
+                                                                <TableRow key={sid} className={isSelected ? "bg-purple-50" : "hover:bg-purple-50/30"}>
+                                                                    <TableCell className="whitespace-nowrap py-2">
+                                                                        <div className="font-mono text-sm font-semibold"><CopyableId id={sid} /></div>
+                                                                        <div className="text-xs text-gray-500">রোল: {roll === "-" ? "-" : toBengaliNumber(roll)}</div>
+                                                                    </TableCell>
+                                                                    <TableCell className="py-2 min-w-[160px]">
+                                                                        <p className="font-medium text-sm text-gray-800 truncate max-w-[200px]">{s.name_bn || "-"}</p>
+                                                                        <p className="text-xs text-gray-400 truncate max-w-[200px]">
+                                                                            {s.department ? `${s.department} | ` : ""}{s.class_name || "-"}
+                                                                        </p>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-sm whitespace-nowrap py-2">{branchName}</TableCell>
+                                                                    <TableCell className="text-sm whitespace-nowrap py-2">
+                                                                        <div className="font-semibold text-green-700">{monthly ? `৳ ${toBengaliNumber(monthly)}` : "-"}</div>
+                                                                        <div className="text-xs text-gray-400">{summary.text}</div>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-sm whitespace-nowrap py-2">{guardianName}</TableCell>
+                                                                    <TableCell className="text-sm whitespace-nowrap py-2">{mobile === "-" ? "-" : toBengaliNumber(mobile)}</TableCell>
+                                                                    <TableCell className="text-right whitespace-nowrap py-2">
+                                                                        <Button size="sm" onClick={() => handleSelectStudent(s)}
+                                                                            className="bg-purple-600 hover:bg-purple-700 h-8 px-4 text-sm">
+                                                                            {isSelected ? "সিলেক্টেড" : "অ্যাকশন"}
+                                                                        </Button>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            );
+                                                        })}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </>
                                     )}
                                 </div>
                             </div>
