@@ -733,10 +733,6 @@ export default function WaiverManagement() {
                             <ShieldOff className="w-4 h-4 text-purple-600" /> নতুন ছাড়/মওকুফ
                         </DialogTitle>
                         <DialogDescription className="sr-only">শিক্ষার্থীদের জন্য নতুন ছাড় বা মওকুফ যুক্ত করার ফর্ম</DialogDescription>
-                        {/* Explicit Close Button for mobile to ensure it's clickable */}
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 rounded-full hover:bg-red-50 hover:text-red-600 z-50 md:hidden" onClick={() => handleModalOpenChange(false)}>
-                            <X className="w-5 h-5" />
-                        </Button>
                     </DialogHeader>
 
                     {/* Body */}
@@ -1050,9 +1046,6 @@ export default function WaiverManagement() {
                                 শিক্ষার্থী: <span className="font-bold text-gray-800">{editForm.student_name}</span> ({editForm.student_id})
                             </DialogDescription>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 rounded-full hover:bg-red-50 hover:text-red-600 z-50 md:hidden" onClick={() => setEditModalOpen(false)}>
-                            <X className="w-5 h-5" />
-                        </Button>
                     </DialogHeader>
 
                     <div className="p-5 space-y-4">
