@@ -19,7 +19,7 @@ import {
     Dialog, DialogContent, DialogHeader,
     DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, Trash2, Search, ShieldOff, UserMinus, GraduationCap, Edit } from "lucide-react";
+import { Loader2, Plus, Trash2, Search, ShieldOff, UserMinus, GraduationCap, Edit, X } from "lucide-react";
 import { sortClassNames } from "@/lib/classOrder";
 
 // ─────────────────────────────────────────────
