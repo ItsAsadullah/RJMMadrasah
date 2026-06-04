@@ -719,14 +719,24 @@ export default function WaiverManagement() {
             {/* Add Waiver Modal                       */}
             {/* ══════════════════════════════════════ */}
             <Dialog open={modalOpen} onOpenChange={handleModalOpenChange}>
-                <DialogContent className="w-[98vw]! sm:w-[98vw]! max-w-[98vw]! sm:max-w-[98vw]! h-[92vh] overflow-hidden p-0 flex flex-col">
+                <DialogContent className="w-full max-w-full md:max-w-[98vw] h-[100dvh] md:h-[92vh] md:rounded-xl rounded-none overflow-hidden p-0 flex flex-col gap-0">
 
                     {/* Header */}
-                    <DialogHeader className="px-5 py-3 border-b shrink-0">
-                        <DialogTitle className="flex items-center gap-2 text-base">
-                            <ShieldOff className="w-4 h-4 text-purple-600" /> নতুন ছাড়/মওকুফ যুক্ত করুন
-                        </DialogTitle>
+                    <DialogHeader className="px-4 py-3 md:px-5 md:py-3 border-b bg-gray-50 shrink-0 flex flex-row items-center justify-between">
+                        <div className="flex items-center gap-2 text-base font-bold text-gray-800">
+                            {/* On mobile, if a student is selected, show a back button to go back to the list */}
+                            {form.student_id && (
+                                <Button variant="ghost" size="icon" className="h-8 w-8 lg:hidden mr-1 text-gray-600" onClick={() => { setForm((p) => ({ ...p, student_id: "", student_name: "" })); setSelectedStudent(null); }}>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                                </Button>
+                            )}
+                            <ShieldOff className="w-4 h-4 text-purple-600" /> নতুন ছাড়/মওকুফ
+                        </div>
                         <DialogDescription className="sr-only">শিক্ষার্থীদের জন্য নতুন ছাড় বা মওকুফ যুক্ত করার ফর্ম</DialogDescription>
+                        {/* Explicit Close Button for mobile to ensure it's clickable */}
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 rounded-full hover:bg-red-50 hover:text-red-600 z-50 md:hidden" onClick={() => handleModalOpenChange(false)}>
+                            <X className="w-5 h-5" />
+                        </Button>
                     </DialogHeader>
 
                     {/* Body */}
@@ -1030,14 +1040,19 @@ export default function WaiverManagement() {
             {/* Edit Waiver Modal                      */}
             {/* ══════════════════════════════════════ */}
             <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-                <DialogContent className="max-w-md p-0 flex flex-col rounded-xl overflow-hidden">
-                    <DialogHeader className="px-5 py-4 border-b bg-gray-50 shrink-0">
-                        <DialogTitle className="flex items-center gap-2 text-base text-gray-800">
-                            <Edit className="w-4 h-4 text-blue-600" /> ছাড়/মওকুফ আপডেট করুন
-                        </DialogTitle>
-                        <DialogDescription className="text-xs text-gray-500">
-                            শিক্ষার্থী: <span className="font-bold text-gray-800">{editForm.student_name}</span> ({editForm.student_id})
-                        </DialogDescription>
+                <DialogContent className="w-full max-w-md h-[100dvh] md:h-auto md:max-h-[90vh] md:rounded-xl rounded-none p-0 flex flex-col overflow-hidden gap-0">
+                    <DialogHeader className="px-4 py-3 md:px-5 md:py-4 border-b bg-gray-50 shrink-0 flex flex-row items-center justify-between">
+                        <div>
+                            <DialogTitle className="flex items-center gap-2 text-base text-gray-800">
+                                <Edit className="w-4 h-4 text-blue-600" /> ছাড়/মওকুফ আপডেট
+                            </DialogTitle>
+                            <DialogDescription className="text-xs text-gray-500 mt-1">
+                                শিক্ষার্থী: <span className="font-bold text-gray-800">{editForm.student_name}</span> ({editForm.student_id})
+                            </DialogDescription>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 rounded-full hover:bg-red-50 hover:text-red-600 z-50 md:hidden" onClick={() => setEditModalOpen(false)}>
+                            <X className="w-5 h-5" />
+                        </Button>
                     </DialogHeader>
 
                     <div className="p-5 space-y-4">
