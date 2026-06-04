@@ -828,7 +828,7 @@ export default function FeeCollection() {
                                         const guardianPhone = s.guardian_type === 'father' ? s.father_mobile : (s.guardian_mobile || s.father_mobile);
                                         
                                         return (
-                                        <Card key={s.id} className="cursor-pointer hover:bg-green-50/30 transition-colors shadow-sm border overflow-hidden" onClick={() => handleSelectStudent(s)}>
+                                        <Card key={s.id} className="cursor-pointer hover:bg-green-50/30 transition-colors shadow-sm border overflow-hidden p-0 py-0 gap-0" onClick={() => handleSelectStudent(s)}>
                                             <div className="p-2.5">
                                                 {/* Top row: Avatar, Name & Status */}
                                                 <div className="flex items-start gap-2.5">
