@@ -828,6 +828,7 @@ export default function WaiverManagement() {
                                                     return (
                                                         <Card key={sid} className={`cursor-pointer transition-colors shadow-sm border overflow-hidden p-0 py-0 gap-0 ${isSelected ? "border-purple-500 bg-purple-50" : "hover:bg-purple-50/30"}`} onClick={() => handleSelectStudent(s)}>
                                                             <div className="p-2.5">
+                                                                {/* Top part: Photo + Info */}
                                                                 <div className="flex items-start gap-2.5">
                                                                     <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden shrink-0 border border-gray-200">
                                                                         {s.photo_url ? (
@@ -858,15 +859,17 @@ export default function WaiverManagement() {
                                                                             <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal text-gray-600">{s.class_name || "-"}</Badge>
                                                                             <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-gray-500 bg-gray-50">{branchName}</Badge>
                                                                         </div>
-                                                                        <div className="mt-2.5 pt-2 border-t flex justify-between items-center text-xs text-gray-500">
-                                                                            <div className="truncate pr-2">
-                                                                                {guardianName} - {mobile === "-" ? "-" : toBengaliNumber(mobile)}
-                                                                            </div>
-                                                                            <Button size="sm" onClick={(e) => { e.stopPropagation(); handleSelectStudent(s); }} className={`h-6 px-2.5 text-[10px] ${isSelected ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
-                                                                                {isSelected ? "সিলেক্টেড" : "অ্যাকশন"}
-                                                                            </Button>
-                                                                        </div>
                                                                     </div>
+                                                                </div>
+
+                                                                {/* Bottom part: Guardian + Action button */}
+                                                                <div className="mt-2.5 pt-2 border-t flex justify-between items-center text-xs text-gray-500">
+                                                                    <div className="truncate pr-2">
+                                                                        {guardianName} - {mobile === "-" ? "-" : toBengaliNumber(mobile)}
+                                                                    </div>
+                                                                    <Button size="sm" onClick={(e) => { e.stopPropagation(); handleSelectStudent(s); }} className={`h-6 px-2.5 text-[10px] ${isSelected ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+                                                                        {isSelected ? "সিলেক্টেড" : "অ্যাকশন"}
+                                                                    </Button>
                                                                 </div>
                                                             </div>
                                                         </Card>
