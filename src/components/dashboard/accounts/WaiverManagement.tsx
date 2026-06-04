@@ -19,7 +19,7 @@ import {
     Dialog, DialogContent, DialogHeader,
     DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, Trash2, Search, ShieldOff, UserMinus, GraduationCap, Edit, X } from "lucide-react";
+import { Loader2, Plus, Trash2, Search, ShieldOff, UserMinus, GraduationCap, Edit, X, UserRound } from "lucide-react";
 import { sortClassNames } from "@/lib/classOrder";
 
 // ─────────────────────────────────────────────
@@ -49,6 +49,7 @@ interface Student {
     guardian_name?: string;
     guardian_mobile?: string;
     father_mobile?: string;
+    photo_url?: string | null;
 }
 
 interface Waiver {
@@ -402,7 +403,7 @@ export default function WaiverManagement() {
 
         let query = supabase
             .from("students")
-            .select("student_id, name_bn, roll_number, roll_no, class_name, department, branch_id, guardian_name, guardian_mobile, father_mobile")
+            .select("student_id, name_bn, roll_number, roll_no, class_name, department, branch_id, guardian_name, guardian_mobile, father_mobile, photo_url")
             .eq("status", "active");
 
         if (filterBranch !== "all") query = query.eq("branch_id", parseInt(filterBranch));
@@ -827,34 +828,45 @@ export default function WaiverManagement() {
                                                     return (
                                                         <Card key={sid} className={`cursor-pointer transition-colors shadow-sm border overflow-hidden p-0 py-0 gap-0 ${isSelected ? "border-purple-500 bg-purple-50" : "hover:bg-purple-50/30"}`} onClick={() => handleSelectStudent(s)}>
                                                             <div className="p-2.5">
-                                                                <div className="flex justify-between items-start">
-                                                                    <div className="truncate pr-2">
-                                                                        <h4 className="font-bold text-gray-800 text-sm truncate flex items-center gap-1.5">
-                                                                            {s.name_bn || "-"}
-                                                                            {summary.tone === "has" && (
-                                                                                <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-700 border-purple-200 px-1 py-0 h-3.5 leading-none shrink-0">মওকুফ</Badge>
-                                                                            )}
-                                                                        </h4>
-                                                                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
-                                                                            <span className="font-mono text-purple-600 font-semibold">{sid}</span>
-                                                                            <span>• রোল: {roll === "-" ? "-" : toBengaliNumber(roll)}</span>
+                                                                <div className="flex items-start gap-2.5">
+                                                                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden shrink-0 border border-gray-200">
+                                                                        {s.photo_url ? (
+                                                                            <img src={s.photo_url} alt="" className="w-full h-full object-cover" />
+                                                                        ) : (
+                                                                            <UserRound className="w-4 h-4 text-gray-400" />
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <div className="flex justify-between items-start">
+                                                                            <div className="truncate pr-2">
+                                                                                <h4 className="font-bold text-gray-800 text-sm truncate flex items-center gap-1.5">
+                                                                                    {s.name_bn || "-"}
+                                                                                    {summary.tone === "has" && (
+                                                                                        <Badge variant="outline" className="text-[9px] bg-purple-50 text-purple-700 border-purple-200 px-1 py-0 h-3.5 leading-none shrink-0">মওকুফ</Badge>
+                                                                                    )}
+                                                                                </h4>
+                                                                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
+                                                                                    <span className="font-mono text-purple-600 font-semibold">{sid}</span>
+                                                                                    <span>• রোল: {roll === "-" ? "-" : toBengaliNumber(roll)}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="text-right shrink-0">
+                                                                                <span className="font-bold text-green-700 text-sm">{monthly ? `৳ ${toBengaliNumber(monthly)}` : "-"}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                                                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal text-gray-600">{s.class_name || "-"}</Badge>
+                                                                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-gray-500 bg-gray-50">{branchName}</Badge>
+                                                                        </div>
+                                                                        <div className="mt-2.5 pt-2 border-t flex justify-between items-center text-xs text-gray-500">
+                                                                            <div className="truncate pr-2">
+                                                                                {guardianName} - {mobile === "-" ? "-" : toBengaliNumber(mobile)}
+                                                                            </div>
+                                                                            <Button size="sm" onClick={(e) => { e.stopPropagation(); handleSelectStudent(s); }} className={`h-6 px-2.5 text-[10px] ${isSelected ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+                                                                                {isSelected ? "সিলেক্টেড" : "অ্যাকশন"}
+                                                                            </Button>
                                                                         </div>
                                                                     </div>
-                                                                    <div className="text-right shrink-0">
-                                                                        <span className="font-bold text-green-700 text-sm">{monthly ? `৳ ${toBengaliNumber(monthly)}` : "-"}</span>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                                                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 font-normal text-gray-600">{s.class_name || "-"}</Badge>
-                                                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-gray-500 bg-gray-50">{branchName}</Badge>
-                                                                </div>
-                                                                <div className="mt-2.5 pt-2 border-t flex justify-between items-center text-xs text-gray-500">
-                                                                    <div className="truncate pr-2">
-                                                                        {guardianName} - {mobile === "-" ? "-" : toBengaliNumber(mobile)}
-                                                                    </div>
-                                                                    <Button size="sm" onClick={(e) => { e.stopPropagation(); handleSelectStudent(s); }} className={`h-6 px-2.5 text-[10px] ${isSelected ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
-                                                                        {isSelected ? "সিলেক্টেড" : "অ্যাকশন"}
-                                                                    </Button>
                                                                 </div>
                                                             </div>
                                                         </Card>
@@ -867,8 +879,8 @@ export default function WaiverManagement() {
                                                 <Table>
                                                     <TableHeader className="bg-gray-50 sticky top-0 z-10">
                                                         <TableRow>
-                                                            <TableHead className="font-bold text-sm py-2.5">আইডি / রোল</TableHead>
-                                                            <TableHead className="font-bold text-sm py-2.5">নাম</TableHead>
+                                                            <TableHead className="font-bold text-sm py-2.5">শিক্ষার্থী</TableHead>
+                                                            <TableHead className="font-bold text-sm py-2.5">শ্রেণি</TableHead>
                                                             <TableHead className="font-bold text-sm py-2.5">শাখা</TableHead>
                                                             <TableHead className="font-bold text-sm py-2.5">মাসিক</TableHead>
                                                             <TableHead className="font-bold text-sm py-2.5">অভিভাবক</TableHead>
@@ -889,15 +901,26 @@ export default function WaiverManagement() {
 
                                                             return (
                                                                 <TableRow key={sid} className={isSelected ? "bg-purple-50" : "hover:bg-purple-50/30"}>
-                                                                    <TableCell className="whitespace-nowrap py-2">
-                                                                        <div className="font-mono text-sm font-semibold"><CopyableId id={sid} /></div>
-                                                                        <div className="text-xs text-gray-500">রোল: {roll === "-" ? "-" : toBengaliNumber(roll)}</div>
+                                                                    <TableCell className="py-2">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden shrink-0 border border-gray-200">
+                                                                                {s.photo_url ? (
+                                                                                    <img src={s.photo_url} alt="" className="w-full h-full object-cover" />
+                                                                                ) : (
+                                                                                    <UserRound className="w-5 h-5 text-gray-400" />
+                                                                                )}
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="font-medium text-sm text-gray-800 truncate max-w-[150px]">{s.name_bn || "-"}</p>
+                                                                                <div className="text-xs text-gray-400 mt-0.5">
+                                                                                    <span className="font-mono text-purple-600 font-semibold">{sid}</span>
+                                                                                    {roll !== "-" && <span> • রোল: {toBengaliNumber(roll)}</span>}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
                                                                     </TableCell>
-                                                                    <TableCell className="py-2 min-w-[160px]">
-                                                                        <p className="font-medium text-sm text-gray-800 truncate max-w-[200px]">{s.name_bn || "-"}</p>
-                                                                        <p className="text-xs text-gray-400 truncate max-w-[200px]">
-                                                                            {s.department ? `${s.department} | ` : ""}{s.class_name || "-"}
-                                                                        </p>
+                                                                    <TableCell className="text-sm whitespace-nowrap py-2 text-gray-600">
+                                                                        {s.department ? `${s.department} | ` : ""}{s.class_name || "-"}
                                                                     </TableCell>
                                                                     <TableCell className="text-sm whitespace-nowrap py-2">{branchName}</TableCell>
                                                                     <TableCell className="text-sm whitespace-nowrap py-2">
