@@ -1243,7 +1243,7 @@ export default function FeeCollection() {
                             </Button>
                         </div>
                     </div>
-                    <div className="p-4 sm:p-8 print:p-0 flex justify-center overflow-auto flex-1 bg-gray-100/50 custom-scrollbar">
+                    <div className="p-4 sm:p-8 print:p-0 block overflow-auto flex-1 bg-gray-100/50 custom-scrollbar">
                             {receiptData && (
                                 <PaymentSlip 
                                     ref={printRef}
@@ -1273,7 +1273,7 @@ export default function FeeCollection() {
                             </Button>
                         </div>
                     </div>
-                    <div className="p-4 sm:p-8 print:p-0 flex justify-center overflow-auto flex-1 bg-gray-100/50 custom-scrollbar">
+                    <div className="p-4 sm:p-8 print:p-0 block overflow-auto flex-1 bg-gray-100/50 custom-scrollbar">
                         {selectedStudent && (
                             <StudentPaymentReport 
                                 ref={reportRef}
