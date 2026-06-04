@@ -625,7 +625,7 @@ export default function WaiverManagement() {
                                             {studentInfo?.photo_url ? (
                                                 <img src={studentInfo.photo_url} alt="" className="w-full h-full object-cover" />
                                             ) : (
-                                                <UserRound className="w-4 h-4 text-gray-400" />
+                                                <img src="/images/default-avatar.png" alt="" className="w-full h-full object-cover" />
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -866,7 +866,7 @@ export default function WaiverManagement() {
                                                                         {s.photo_url ? (
                                                                             <img src={s.photo_url} alt="" className="w-full h-full object-cover" />
                                                                         ) : (
-                                                                            <UserRound className="w-4 h-4 text-gray-400" />
+                                                                            <img src="/images/default-avatar.png" alt="" className="w-full h-full object-cover" />
                                                                         )}
                                                                     </div>
                                                                     <div className="flex-1 min-w-0">
@@ -942,7 +942,7 @@ export default function WaiverManagement() {
                                                                                 {s.photo_url ? (
                                                                                     <img src={s.photo_url} alt="" className="w-full h-full object-cover" />
                                                                                 ) : (
-                                                                                    <UserRound className="w-5 h-5 text-gray-400" />
+                                                                                    <img src="/images/default-avatar.png" alt="" className="w-full h-full object-cover" />
                                                                                 )}
                                                                             </div>
                                                                             <div>

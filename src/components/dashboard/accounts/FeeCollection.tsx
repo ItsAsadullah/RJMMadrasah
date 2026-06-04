@@ -706,7 +706,7 @@ export default function FeeCollection() {
                                 <div className="flex justify-center py-20"><Loader2 className="animate-spin w-8 h-8 text-green-600" /></div>
                             ) : students.length === 0 ? (
                                 <div className="text-center py-16 text-gray-400">
-                                    <UserRound className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                    <img src="/images/default-avatar.png" alt="" className="w-12 h-12 mx-auto mb-3 object-cover rounded-full bg-gray-100" />
                                     <p className="font-bold">শিক্ষার্থী পাওয়া যায়নি</p>
                                 </div>
                             ) : (() => {
@@ -746,7 +746,7 @@ export default function FeeCollection() {
                                                             {s.photo_url ? (
                                                                 <img src={s.photo_url} alt="" className="w-full h-full object-cover" />
                                                             ) : (
-                                                                <UserRound className="w-5 h-5 text-gray-400" />
+                                                                <img src="/images/default-avatar.png" alt="" className="w-full h-full object-cover" />
                                                             )}
                                                         </div>
                                                         <div>
@@ -838,7 +838,7 @@ export default function FeeCollection() {
                                                         {s.photo_url ? (
                                                             <img src={s.photo_url} alt="" className="w-full h-full object-cover" />
                                                         ) : (
-                                                            <UserRound className="w-4 h-4 text-gray-400" />
+                                                            <img src="/images/default-avatar.png" alt="" className="w-full h-full object-cover" />
                                                         )}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
