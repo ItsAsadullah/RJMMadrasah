@@ -723,7 +723,7 @@ export default function WaiverManagement() {
 
                     {/* Header */}
                     <DialogHeader className="px-4 py-3 md:px-5 md:py-3 border-b bg-gray-50 shrink-0 flex flex-row items-center justify-between">
-                        <div className="flex items-center gap-2 text-base font-bold text-gray-800">
+                        <DialogTitle className="flex items-center gap-2 text-base font-bold text-gray-800 m-0">
                             {/* On mobile, if a student is selected, show a back button to go back to the list */}
                             {form.student_id && (
                                 <Button variant="ghost" size="icon" className="h-8 w-8 lg:hidden mr-1 text-gray-600" onClick={() => { setForm((p) => ({ ...p, student_id: "", student_name: "" })); setSelectedStudent(null); }}>
@@ -731,7 +731,7 @@ export default function WaiverManagement() {
                                 </Button>
                             )}
                             <ShieldOff className="w-4 h-4 text-purple-600" /> নতুন ছাড়/মওকুফ
-                        </div>
+                        </DialogTitle>
                         <DialogDescription className="sr-only">শিক্ষার্থীদের জন্য নতুন ছাড় বা মওকুফ যুক্ত করার ফর্ম</DialogDescription>
                         {/* Explicit Close Button for mobile to ensure it's clickable */}
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 rounded-full hover:bg-red-50 hover:text-red-600 z-50 md:hidden" onClick={() => handleModalOpenChange(false)}>
