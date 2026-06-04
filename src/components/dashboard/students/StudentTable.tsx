@@ -84,6 +84,7 @@ const BRANCH_PALETTE = [
 
 // Bengali-aware text collator
 const bnCollator = new Intl.Collator('bn', { sensitivity: 'base', numeric: true });
+const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
 
 // ─── Default avatar (real photo) ──────────────────────────────────────────────
 const HijabAvatar = () => (
@@ -555,10 +556,14 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
                       )}
                     </TableCell>
 
-                    <TableCell className="font-mono text-sm text-gray-700 whitespace-nowrap">{student.father_mobile || "—"}</TableCell>
+                    <TableCell className="font-mono text-sm text-gray-700 whitespace-nowrap">
+                      {student.father_mobile ? <a href={`tel:${student.father_mobile}`} onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:underline">{toBengaliNumber(student.father_mobile)}</a> : "—"}
+                    </TableCell>
 
                     {extraColumns.guardianName   && <TableCell className="text-sm text-gray-700 whitespace-nowrap">{student.guardian_name   || "—"}</TableCell>}
-                    {extraColumns.guardianMobile && <TableCell className="font-mono text-sm text-gray-700 whitespace-nowrap">{student.guardian_mobile || "—"}</TableCell>}
+                    {extraColumns.guardianMobile && <TableCell className="font-mono text-sm text-gray-700 whitespace-nowrap">
+                      {student.guardian_mobile ? <a href={`tel:${student.guardian_mobile}`} onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:underline">{toBengaliNumber(student.guardian_mobile)}</a> : "—"}
+                    </TableCell>}
                     {extraColumns.address && (
                       <TableCell className="text-xs text-gray-600 min-w-[150px]">
                         {[student.present_village, student.present_union, student.present_upazila, student.present_district]
@@ -654,9 +659,9 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
                       {student.branches?.name || "—"}
                     </span>
                   </p>
-                  <p className="col-span-2"><span className="font-medium text-gray-700">যোগাযোগ:</span> {student.father_mobile || "—"}</p>
+                  <p className="col-span-2"><span className="font-medium text-gray-700">যোগাযোগ:</span> {student.father_mobile ? <a href={`tel:${student.father_mobile}`} onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:underline font-mono">{toBengaliNumber(student.father_mobile)}</a> : "—"}</p>
                   {extraColumns.guardianName   && <p className="col-span-2"><span className="font-medium text-gray-700">অভিভাবক:</span> {student.guardian_name   || "—"}</p>}
-                  {extraColumns.guardianMobile && <p className="col-span-2"><span className="font-medium text-gray-700">অভিভাবকের মোবাইল:</span> {student.guardian_mobile || "—"}</p>}
+                  {extraColumns.guardianMobile && <p className="col-span-2"><span className="font-medium text-gray-700">অভিভাবকের মোবাইল:</span> {student.guardian_mobile ? <a href={`tel:${student.guardian_mobile}`} onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:underline font-mono">{toBengaliNumber(student.guardian_mobile)}</a> : "—"}</p>}
                   {extraColumns.address        && <p className="col-span-2"><span className="font-medium text-gray-700">ঠিকানা:</span> {[student.present_village, student.present_union, student.present_upazila, student.present_district].filter(Boolean).join(", ") || "—"}</p>}
                 </div>
 

@@ -94,7 +94,7 @@ export default function Footer() {
             <ul className="space-y-3 text-sm text-gray-600">
               <li className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-primary flex-shrink-0" />
-                <span>{info.phone}</span>
+                <span><a href={`tel:${info.phone.replace(/[^0-9+]/g, '')}`} className="hover:underline hover:text-primary">{info.phone}</a></span>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-primary flex-shrink-0" />

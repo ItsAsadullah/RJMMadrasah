@@ -865,7 +865,7 @@ export default function WaiverManagement() {
                                                                 {/* Bottom part: Guardian + Action button */}
                                                                 <div className="mt-2.5 pt-2 border-t flex justify-between items-center text-xs text-gray-500">
                                                                     <div className="truncate pr-2">
-                                                                        {guardianName} - {mobile === "-" ? "-" : toBengaliNumber(mobile)}
+                                                                        {guardianName} - {mobile === "-" ? "-" : <a href={`tel:${mobile}`} onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:underline">{toBengaliNumber(mobile)}</a>}
                                                                     </div>
                                                                     <Button size="sm" onClick={(e) => { e.stopPropagation(); handleSelectStudent(s); }} className={`h-6 px-2.5 text-[10px] ${isSelected ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
                                                                         {isSelected ? "সিলেক্টেড" : "অ্যাকশন"}
@@ -931,7 +931,7 @@ export default function WaiverManagement() {
                                                                         <div className="text-xs text-gray-400">{summary.text}</div>
                                                                     </TableCell>
                                                                     <TableCell className="text-sm whitespace-nowrap py-2">{guardianName}</TableCell>
-                                                                    <TableCell className="text-sm whitespace-nowrap py-2">{mobile === "-" ? "-" : toBengaliNumber(mobile)}</TableCell>
+                                                                    <TableCell className="text-sm whitespace-nowrap py-2">{mobile === "-" ? "-" : <a href={`tel:${mobile}`} onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:underline">{toBengaliNumber(mobile)}</a>}</TableCell>
                                                                     <TableCell className="text-right whitespace-nowrap py-2">
                                                                         <Button size="sm" onClick={() => handleSelectStudent(s)}
                                                                             className="bg-purple-600 hover:bg-purple-700 h-8 px-4 text-sm">

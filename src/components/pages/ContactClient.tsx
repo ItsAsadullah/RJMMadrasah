@@ -105,8 +105,8 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <h3 className="font-bold text-lg text-gray-800 mb-1">ফোন</h3>
-                  <p className="text-gray-600">{info.phone1}</p>
-                  {info.phone2 && <p className="text-gray-600">{info.phone2}</p>}
+                  <p className="text-gray-600"><a href={`tel:${info.phone1.replace(/[^0-9+]/g, '')}`} className="hover:underline hover:text-blue-600">{info.phone1}</a></p>
+                  {info.phone2 && <p className="text-gray-600"><a href={`tel:${info.phone2.replace(/[^0-9+]/g, '')}`} className="hover:underline hover:text-blue-600">{info.phone2}</a></p>}
                 </div>
               </CardContent>
             </Card>

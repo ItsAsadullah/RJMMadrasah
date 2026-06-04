@@ -767,7 +767,9 @@ export default function FeeCollection() {
                                                 <TableCell>
                                                     <div className="flex flex-col gap-1 text-sm text-gray-600">
                                                         <div className="flex items-center gap-1.5">
-                                                            <span className="font-semibold text-gray-700">{guardianName || "-"} - {toBengaliNumber(guardianPhone || "-")}</span>
+                                                            <span className="font-semibold text-gray-700">
+                                                                {guardianName || "-"} - {guardianPhone ? <a href={`tel:${guardianPhone}`} onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:underline">{toBengaliNumber(guardianPhone)}</a> : "-"}
+                                                            </span>
                                                         </div>
                                                         <div>
                                                             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${s.residential_status === 'residential' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
@@ -885,7 +887,9 @@ export default function FeeCollection() {
                                                 {/* Bottom row: Contact & Action */}
                                                 <div className="flex justify-between items-center border-t border-gray-100 pt-2 mt-2">
                                                     <div className="text-[11px] text-gray-500 flex flex-col justify-center">
-                                                        <span className="font-medium text-gray-700">{guardianName || "-"} - {toBengaliNumber(guardianPhone || "-")}</span>
+                                                        <span className="font-medium text-gray-700">
+                                                            {guardianName || "-"} - {guardianPhone ? <a href={`tel:${guardianPhone}`} onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:underline">{toBengaliNumber(guardianPhone)}</a> : "-"}
+                                                        </span>
                                                     </div>
                                                     <Button
                                                         size="sm"
