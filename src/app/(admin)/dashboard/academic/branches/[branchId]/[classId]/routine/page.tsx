@@ -8,7 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription 
 } from "@/components/ui/dialog";
 import { 
-  Plus, Trash2, Clock, Calendar, User, BookOpen, Sun, Moon, Coffee, Gamepad2, Loader2, Save, Download, Copy, Edit, CheckCircle2, XCircle, AlertTriangle, Timer
+  Plus, Trash2, Clock, Calendar, User, BookOpen, Sun, Moon, Coffee, Gamepad2, Loader2, Save, Download, Copy, Edit, CheckCircle2, XCircle, AlertTriangle, Timer, Printer
 } from "lucide-react";
 
 const days = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -43,6 +43,12 @@ const defaultMadrasaRoutine = [
 ];
 
 // --- Helper Functions ---
+const toBn = (str: string | number) => {
+  if (!str) return "";
+  const bnDigits = ['০','১','২','৩','৪','৫','৬','৭','৮','৯'];
+  return str.toString().replace(/[0-9]/g, w => bnDigits[parseInt(w)]);
+};
+
 const formatTime = (time: string) => {
   if (!time) return "";
   const [hours, minutes] = time.split(':');
@@ -100,6 +106,8 @@ export default function ClassRoutinePage({ params }: { params: Promise<{ branchI
     const [teachers, setTeachers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [branchName, setBranchName] = useState("");
+    const [className, setClassName] = useState("");
 
     // Modals
     const [isOpen, setIsOpen] = useState(false);
@@ -143,6 +151,12 @@ export default function ClassRoutinePage({ params }: { params: Promise<{ branchI
       
       const { data: tData } = await supabase.from("teachers").select("id, name");
       if(tData) setTeachers(tData);
+
+      const { data: bData } = await supabase.from("branches").select("name").eq("id", branchId).single();
+      if (bData) setBranchName(bData.name);
+
+      const { data: cData } = await supabase.from("academic_classes").select("name").eq("id", classId).single();
+      if (cData) setClassName(cData.name);
 
       setLoading(false);
     }
@@ -301,15 +315,157 @@ export default function ClassRoutinePage({ params }: { params: Promise<{ branchI
 
     const filteredRoutines = routines.filter(r => r.day_of_week === selectedDay);
 
+    const handlePrint = () => {
+        window.print();
+    };
+
+    // Prepare data for the printable grid
+    const classRoutines = routines.filter(r => r.activity_type === 'class');
+    const uniqueTimeSlotsMap = new Map();
+    classRoutines.forEach(r => {
+        const key = `${r.start_time}-${r.end_time}`;
+        if (!uniqueTimeSlotsMap.has(key)) {
+            uniqueTimeSlotsMap.set(key, { start: r.start_time, end: r.end_time });
+        }
+    });
+    const uniqueTimeSlots = Array.from(uniqueTimeSlotsMap.values()).sort((a, b) => a.start.localeCompare(b.start));
+
+    const dayNamesBn: Record<string, string> = {
+        "Saturday": "শনিবার",
+        "Sunday": "রবিবার",
+        "Monday": "সোমবার",
+        "Tuesday": "মঙ্গলবার",
+        "Wednesday": "বুধবার",
+        "Thursday": "বৃহস্পতিবার",
+        "Friday": "শুক্রবার"
+    };
+
+    const periodNames = ["১ম", "২য়", "৩য়", "৪র্থ", "৫ম", "৬ষ্ঠ", "৭ম", "৮ম", "৯ম", "১০ম", "১১শ", "১২শ"];
+
     return (
-      <div className="space-y-6 pb-20">
+      <div className="space-y-6 pb-20 font-kalpurush" style={{ fontFamily: "'Kalpurush', sans-serif" }}>
+        
+        {/* Printable Weekly Routine */}
+        <div id="printable-document" className="hidden print:block w-full text-black bg-white p-4">
+            <style type="text/css" media="all">
+                {`
+                    .font-kalpurush, .font-kalpurush * {
+                        font-family: 'Kalpurush', sans-serif !important;
+                    }
+                    @media print {
+                        @page {
+                            size: A4 landscape !important;
+                            margin: 10mm;
+                        }
+                        #printable-document, #printable-document * {
+                            visibility: visible !important;
+                            font-family: 'Kalpurush', sans-serif !important;
+                        }
+                        #printable-document {
+                            position: absolute !important;
+                            left: 0 !important;
+                            top: 0 !important;
+                            width: 100% !important;
+                            height: auto !important;
+                            display: block !important;
+                            background: white !important;
+                            z-index: 9999 !important;
+                        }
+                        #printable-document table th, 
+                        #printable-document table td {
+                            border: 0.5px solid #000 !important;
+                        }
+                    }
+                `}
+            </style>
+            
+            {/* Header section */}
+            <div className="flex flex-col items-center justify-center mb-4 space-y-1 text-black">
+                <img src="/images/bismillah.svg" alt="Bismillah" className="h-6" />
+                <img src="/images/long_logo.svg" alt="Rahima Jannat Mahila Madrasa" className="h-12 md:h-16" />
+                <div className="text-sm font-bold text-black pt-1">{branchName}</div>
+                <div className="inline-block bg-gray-100 border-2 border-black rounded-full px-6 py-1 text-base md:text-lg font-bold text-black shadow-sm mt-1">
+                    ক্লাস রুটিন | শ্রেণি: {className}
+                </div>
+            </div>
+
+            <div className="overflow-x-auto pb-8">
+                <div className="border-[0.5px] border-black rounded-2xl overflow-hidden shadow-sm print:shadow-none">
+                <table className="w-full table-fixed border-collapse text-xs md:text-sm text-center print:text-[11px] leading-tight text-black">
+                    <thead>
+                        {/* Period Name Row */}
+                        <tr>
+                            <th className="border-[0.5px] border-black p-2 font-bold bg-gray-100 text-black w-16">বার/ঘণ্টা</th>
+                            {uniqueTimeSlots.map((slot, idx) => (
+                                <th key={`name-${idx}`} className="border-[0.5px] border-black p-2 font-bold bg-gray-100 text-black">
+                                    {periodNames[idx] || `${idx + 1}th`} ঘণ্টা
+                                </th>
+                            ))}
+                        </tr>
+                        {/* Time Row */}
+                        <tr>
+                            <th className="border-[0.5px] border-black p-1 bg-gray-50"></th>
+                            {uniqueTimeSlots.map((slot, idx) => (
+                                <th key={`time-${idx}`} className="border-[0.5px] border-black p-1 font-normal bg-gray-50 print:text-[10px]">
+                                    <div className="flex flex-col items-center justify-center leading-tight">
+                                        <span className="text-black font-bold">{toBn(formatTime(slot.start).replace(' AM', 'টা').replace(' PM', 'টা'))} - {toBn(formatTime(slot.end).replace(' AM', 'টা').replace(' PM', 'টা'))}</span>
+                                        <span className="text-[10px] print:text-[9px] text-gray-800 font-bold mt-0.5">
+                                            ({toBn(calculateDuration(slot.start, slot.end))})
+                                        </span>
+                                    </div>
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {days.map((day, rowIdx) => {
+                            return (
+                                <tr key={day} className="even:bg-gray-50/80">
+                                    <td className="border-[0.5px] border-black p-2 font-bold bg-gray-100 text-black">
+                                        {dayNamesBn[day] || day}
+                                    </td>
+                                    {uniqueTimeSlots.map((slot, idx) => {
+                                        const classForSlot = classRoutines.find(r => 
+                                            r.day_of_week === day && 
+                                            r.start_time === slot.start && 
+                                            r.end_time === slot.end
+                                        );
+                                        return (
+                                            <td key={`cell-${day}-${idx}`} className="border-[0.5px] border-black p-2 align-middle">
+                                                {classForSlot ? (
+                                                    <div className="flex flex-col items-center justify-center">
+                                                        <span className="font-bold text-black print:text-[12px] leading-tight mb-1">{classForSlot.academic_subjects?.name || "বিষয় নেই"}</span>
+                                                        {classForSlot.teachers?.name && (
+                                                            <span className="inline-flex items-center gap-1 bg-gray-100 border border-gray-400 text-black font-bold rounded px-1.5 py-0.5 text-[10px] print:text-[9px] leading-tight">
+                                                                <User className="w-2.5 h-2.5 text-black" /> {classForSlot.teachers.name}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-400 font-bold">-</span>
+                                                )}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+
+        {/* Main UI */}
+        <div className="print:hidden space-y-6">
         {/* Header & Controls */}
-        <div className="bg-white p-6 rounded-xl border shadow-sm flex flex-col lg:flex-row justify-between items-center gap-4">
+        <div className="bg-white p-4 md:p-6 rounded-xl border shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div>
                 <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Clock className="w-6 h-6 text-purple-600"/> ক্লাস রুটিন</h1>
                 <p className="text-sm text-gray-500">২৪ ঘন্টার সময়সূচি তৈরি ও নিয়ন্ত্রণ করুন</p>
             </div>
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-wrap gap-2 w-full lg:w-auto justify-start lg:justify-end">
+                <Button variant="outline" onClick={handlePrint} className="gap-2"><Printer className="w-4 h-4"/> রুটিন প্রিন্ট</Button>
                 <Button variant="outline" onClick={() => setIsLoadTemplateOpen(true)} className="gap-2"><Download className="w-4 h-4"/> টেমপ্লেট লোড</Button>
                 <Button variant="outline" onClick={() => setIsTemplateModalOpen(true)} className="gap-2"><Save className="w-4 h-4"/> টেমপ্লেট সেভ</Button>
                 <Button onClick={() => { resetForm(); setIsOpen(true); }} className="bg-purple-600 hover:bg-purple-700 gap-2"><Plus className="w-4 h-4"/> স্লট যোগ করুন</Button>
@@ -389,7 +545,7 @@ export default function ClassRoutinePage({ params }: { params: Promise<{ branchI
                         </div>
 
                         {/* Actions */}
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button variant="ghost" size="icon" onClick={() => handleEdit(routine)} className="hover:bg-white/50"><Edit className="w-4 h-4"/></Button>
                             <Button variant="ghost" size="icon" onClick={() => handleDeleteRequest(routine.id)} className="text-red-500 hover:bg-red-50"><Trash2 className="w-4 h-4"/></Button>
                         </div>
@@ -537,6 +693,7 @@ export default function ClassRoutinePage({ params }: { params: Promise<{ branchI
           </DialogContent>
         </Dialog>
 
+        </div> {/* End of Main UI */}
       </div>
     );
 }

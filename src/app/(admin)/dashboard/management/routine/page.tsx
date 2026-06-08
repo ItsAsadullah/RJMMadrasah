@@ -48,10 +48,10 @@ export default function RoutineManagementLanding() {
     }, [selectedBranch, selectedYear]);
 
     return (
-      <div className="p-6 max-w-6xl mx-auto space-y-8">
+      <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6 md:space-y-8">
         
         {/* Header */}
-        <div className="bg-white p-6 rounded-xl border shadow-sm">
+        <div className="bg-white p-4 md:p-6 rounded-xl border shadow-sm">
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
               <Clock className="w-7 h-7 text-purple-600" /> রুটিন ম্যানেজমেন্ট
           </h1>

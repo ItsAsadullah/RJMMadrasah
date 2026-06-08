@@ -73,16 +73,18 @@ export default function AdminLayout({
 
   return (
     // সম্পূর্ণ স্ক্রিন জুড়ে একটি ফ্লেক্স কন্টেইনার (এটি আগের স্ক্রল সমস্যা ফিক্স করবে)
-    <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
+    <div className="flex h-screen w-full bg-slate-50 overflow-hidden print:h-auto print:block print:overflow-visible">
       
       {/* বাম পাশে সাইডবার */}
-      <Sidebar />
+      <div className="print:hidden">
+        <Sidebar />
+      </div>
 
       {/* ডান পাশে মেইন কনটেন্ট */}
       {/* flex-1: বাকি জায়গা নিবে */}
       {/* overflow-y-auto: শুধু এই অংশটুকু স্ক্রল হবে, সাইডবার ফিক্সড থাকবে */}
-      <main className="flex-1 h-full overflow-y-auto p-2 pt-16 md:p-3 md:pt-3 pb-24 scrollbar-thin scrollbar-thumb-gray-200">
-        <div className="w-full">
+      <main className="flex-1 h-full overflow-y-auto p-2 pt-16 md:p-3 md:pt-3 pb-24 scrollbar-thin scrollbar-thumb-gray-200 print:overflow-visible print:h-auto print:p-0 print:block">
+        <div className="w-full print:block">
            {children}
         </div>
       </main>

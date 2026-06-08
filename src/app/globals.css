@@ -124,6 +124,10 @@
   font-family: 'Hind Siliguri', sans-serif;
 }
 
+.font-kalpurush {
+  font-family: 'Kalpurush', sans-serif;
+}
+
 /* --- Print Specific Styles --- */
 @media print {
   body {
@@ -140,7 +144,7 @@
     visibility: hidden;
   }
   
-  #printable-area, #printable-area * {
+  #printable-area, #printable-area *, #printable-document, #printable-document * {
     visibility: visible;
   }
 
@@ -155,6 +159,18 @@
     display: flex !important;
     align-items: center;
     justify-content: center;
+    background: white;
+    z-index: 9999;
+  }
+
+  #printable-document {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    display: block !important;
     background: white;
     z-index: 9999;
   }
