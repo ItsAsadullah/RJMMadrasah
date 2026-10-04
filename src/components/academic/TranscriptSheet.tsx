@@ -42,6 +42,7 @@ export interface TranscriptProps {
   branch: TranscriptBranch;
   marks: TranscriptMark[];
   summary: TranscriptSummary;
+  numberLanguage?: 'bn' | 'en';
 }
 
 // --- বাংলা কনভার্সন হেল্পার ---
@@ -59,7 +60,11 @@ const toBengaliNumber = (num: string | number) => {
   return result;
 };
 
-export default function TranscriptSheet({ student, exam, branch, marks, summary }: TranscriptProps) {
+export default function TranscriptSheet({ student, exam, branch, marks, summary, numberLanguage = 'bn' }: TranscriptProps) {
+  const formatNumber = (value: string | number) => numberLanguage === 'bn'
+    ? toBengaliNumber(value)
+    : String(value).replace(/[০-৯]/g, digit => String('০১২৩৪৫৬৭৮৯'.indexOf(digit)));
+
   // CSS to force A4 size and remove browser margins during print
   const printStyles = `
     @media print {
@@ -118,7 +123,7 @@ export default function TranscriptSheet({ student, exam, branch, marks, summary 
                           <div className="flex items-center justify-center gap-2">
                               <h2 className="text-lg font-bold text-emerald-800">{exam?.title}</h2>
                               <span className="text-emerald-300 font-bold">|</span>
-                              <span className="text-md font-semibold text-emerald-700">শিক্ষাবর্ষ: {toBengaliNumber(exam?.academicYear || "")}</span>
+                              <span className="text-md font-semibold text-emerald-700">শিক্ষাবর্ষ: {formatNumber(exam?.academicYear || "")}</span>
                           </div>
                       </div>
 
@@ -131,9 +136,9 @@ export default function TranscriptSheet({ student, exam, branch, marks, summary 
                               <div className="flex items-center justify-end"><span className="text-slate-500 whitespace-nowrap mr-2">শ্রেণি:</span> <span className="font-bold text-emerald-800 bg-emerald-100/80 px-3 py-0.5 rounded-full border border-emerald-200 print:bg-emerald-100 whitespace-nowrap">{student.className}</span></div>
                               
                               {/* Row 2 */}
-                              <div className="flex items-center"><span className="text-slate-500 whitespace-nowrap mr-2">আইডি নম্বর:</span> <span className="font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200 whitespace-nowrap">{toBengaliNumber(student.id)}</span></div>
+                              <div className="flex items-center"><span className="text-slate-500 whitespace-nowrap mr-2">আইডি নম্বর:</span> <span className="font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200 whitespace-nowrap">{formatNumber(student.id)}</span></div>
                               <div className="flex items-center"><span className="text-slate-500 whitespace-nowrap mr-2">মাতার নাম:</span> <span className="font-semibold text-slate-700 text-[14px] leading-tight">{student.motherNameBn}</span></div>
-                              <div className="flex items-center justify-end"><span className="text-slate-500 whitespace-nowrap mr-2">রোল নম্বর:</span> <span className="font-bold text-[15px] text-slate-800 whitespace-nowrap">{toBengaliNumber(student.rollNo)}</span></div>
+                              <div className="flex items-center justify-end"><span className="text-slate-500 whitespace-nowrap mr-2">রোল নম্বর:</span> <span className="font-bold text-[15px] text-slate-800 whitespace-nowrap">{formatNumber(student.rollNo)}</span></div>
                           </div>
                       </div>
 
@@ -160,30 +165,30 @@ export default function TranscriptSheet({ student, exam, branch, marks, summary 
                                       <tbody className="divide-y divide-emerald-100 bg-white/40">
                                           {marks.map((sub, idx) => (
                                               <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                                  <td className={`${tdPad} border-r border-emerald-100 text-slate-500`}>{toBengaliNumber(idx + 1)}</td>
+                                                  <td className={`${tdPad} border-r border-emerald-100 text-slate-500`}>{formatNumber(idx + 1)}</td>
                                                   <td className={`${tdPad} text-left font-semibold text-slate-800 border-r border-emerald-100`}>
                                                     {sub.subjectName}{sub.isOral ? ' (মৌখিক)' : ''}
                                                   </td>
-                                                  <td className={`${tdPad} border-r border-emerald-100 text-slate-600`}>{toBengaliNumber(sub.fullMarks || 100)}</td>
+                                                  <td className={`${tdPad} border-r border-emerald-100 text-slate-600`}>{formatNumber(sub.fullMarks || 100)}</td>
                                                   <td className={`${tdPad} font-bold text-emerald-700 border-r border-emerald-100 text-base`}>
-                                                    {sub.marksObtained !== null && sub.marksObtained !== undefined && sub.marksObtained !== "" ? toBengaliNumber(sub.marksObtained) : '-'}
+                                                    {sub.marksObtained !== null && sub.marksObtained !== undefined && sub.marksObtained !== "" ? formatNumber(sub.marksObtained) : '-'}
                                                   </td>
                                                   <td className={`${tdPad} border-r border-emerald-100`}>
                                                       <span className={`font-bold ${sub.grade === 'F' ? 'text-red-600' : 'text-slate-700'}`}>{sub.grade}</span>
                                                   </td>
-                                                  <td className={`${tdPad} font-semibold text-slate-700`}>{toBengaliNumber(sub.gp ? sub.gp.toFixed(2) : "0.00")}</td>
+                                                  <td className={`${tdPad} font-semibold text-slate-700`}>{formatNumber(sub.gp ? sub.gp.toFixed(2) : "0.00")}</td>
                                               </tr>
                                           ))}
                                           {/* Final Summary Row */}
                                           <tr className="font-bold bg-emerald-50/50 print:bg-emerald-50/50 print-color-exact border-t-2 border-emerald-200">
                                               <td colSpan={2} className={`${sumPad} text-right pr-4 text-emerald-900 uppercase tracking-wider border-r border-emerald-200`}>সর্বমোট</td>
                                               <td className={`${sumPad} text-center text-emerald-800 border-r border-emerald-200`}>
-                                                  {toBengaliNumber(summary.totalFullMarks)}
+                                                  {formatNumber(summary.totalFullMarks)}
                                               </td>
-                                              <td className={`${sumPad} text-center text-emerald-800 text-lg border-r border-emerald-200`}>{toBengaliNumber(summary.totalMarks)}</td>
+                                              <td className={`${sumPad} text-center text-emerald-800 text-lg border-r border-emerald-200`}>{formatNumber(summary.totalMarks)}</td>
                                               <td className={`${sumPad} text-center text-emerald-800 text-lg border-r border-emerald-200`}>{summary.grade}</td>
                                               <td className={`${sumPad} text-center text-emerald-800 text-lg`}>
-                                                {toBengaliNumber(typeof summary.gpa === 'number' ? summary.gpa.toFixed(2) : summary.gpa)}
+                                                {formatNumber(typeof summary.gpa === 'number' ? summary.gpa.toFixed(2) : summary.gpa)}
                                               </td>
                                           </tr>
                                       </tbody>
@@ -194,7 +199,7 @@ export default function TranscriptSheet({ student, exam, branch, marks, summary 
 
                       {summary.rank !== undefined && (
                           <div className="relative z-10 mb-4 text-center text-sm font-bold text-emerald-800">
-                              মেধাস্থান: {toBengaliNumber(summary.rank)}
+                              মেধাস্থান: {formatNumber(summary.rank)}
                           </div>
                       )}
 
@@ -205,12 +210,12 @@ export default function TranscriptSheet({ student, exam, branch, marks, summary 
                                   গ্রেডিং সিস্টেম
                               </div>
                               <div className="flex-1 grid grid-cols-6 divide-x divide-slate-200 text-center">
-                                  <div className="p-1.5"><div className="font-bold text-slate-800">৮০-১০০</div><div className="text-emerald-600 font-bold">A+ (5.00)</div></div>
-                                  <div className="p-1.5"><div className="font-bold text-slate-800">৭০-৭৯</div><div className="text-emerald-600 font-bold">A (4.00)</div></div>
-                                  <div className="p-1.5"><div className="font-bold text-slate-800">৬০-৬৯</div><div className="text-emerald-600 font-bold">A- (3.50)</div></div>
-                                  <div className="p-1.5"><div className="font-bold text-slate-800">৫০-৫৯</div><div className="text-blue-600 font-bold">B (3.00)</div></div>
-                                  <div className="p-1.5"><div className="font-bold text-slate-800">৪০-৪৯</div><div className="text-amber-600 font-bold">C (2.00)</div></div>
-                                  <div className="p-1.5"><div className="font-bold text-slate-800">৩৩-৩৯</div><div className="text-orange-600 font-bold">D (1.00)</div></div>
+                                  <div className="p-1.5"><div className="font-bold text-slate-800">{formatNumber("৮০-১০০")}</div><div className="text-emerald-600 font-bold">A+ ({formatNumber("5.00")})</div></div>
+                                  <div className="p-1.5"><div className="font-bold text-slate-800">{formatNumber("৭০-৭৯")}</div><div className="text-emerald-600 font-bold">A ({formatNumber("4.00")})</div></div>
+                                  <div className="p-1.5"><div className="font-bold text-slate-800">{formatNumber("৬০-৬৯")}</div><div className="text-emerald-600 font-bold">A- ({formatNumber("3.50")})</div></div>
+                                  <div className="p-1.5"><div className="font-bold text-slate-800">{formatNumber("৫০-৫৯")}</div><div className="text-blue-600 font-bold">B ({formatNumber("3.00")})</div></div>
+                                  <div className="p-1.5"><div className="font-bold text-slate-800">{formatNumber("৪০-৪৯")}</div><div className="text-amber-600 font-bold">C ({formatNumber("2.00")})</div></div>
+                                  <div className="p-1.5"><div className="font-bold text-slate-800">{formatNumber("৩৩-৩৯")}</div><div className="text-orange-600 font-bold">D ({formatNumber("1.00")})</div></div>
                               </div>
                           </div>
                       </div>

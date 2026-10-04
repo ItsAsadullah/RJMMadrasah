@@ -535,6 +535,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
         return (
             <div className="transcript-page page-break-after-always">
                 <TranscriptSheet
+                    numberLanguage={resultNumberLanguage}
                     student={{
                         id: student.student_id,
                         nameBn: student.name_bn,
