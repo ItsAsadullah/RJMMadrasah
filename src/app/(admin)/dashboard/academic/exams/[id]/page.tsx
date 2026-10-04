@@ -14,6 +14,7 @@ import Image from "next/image";
 import TranscriptSheet from "@/components/academic/TranscriptSheet";
 import { getBranchAddress } from "@/lib/branchUtils";
 import { sortClassNames } from "@/lib/classOrder";
+import { assignResultRanks, compareResults, type RankType } from "@/lib/resultRanking";
 
 // --- বাংলা কনভার্সন হেল্পার ---
 const toBengaliNumber = (num: string | number) => {
@@ -142,6 +143,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
     // --- Printing State ---
     const [printMode, setPrintMode] = useState<'admit' | 'transcript-single' | 'transcript-all' | 'tabulation'>('admit');
     const [tabulationPrintSort, setTabulationPrintSort] = useState<'roll' | 'merit'>('merit');
+    const [rankType, setRankType] = useState<RankType>('sequential');
     const [studentForTranscript, setStudentForTranscript] = useState<any>(null);
 
 
@@ -191,32 +193,9 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
             return { ...std, summary };
         });
 
-        const sortedForRank = [...computed].sort((a, b) => {
-            if (a.summary.status === 'Fail' && b.summary.status !== 'Fail') return 1;
-            if (b.summary.status === 'Fail' && a.summary.status !== 'Fail') return -1;
-            
-            if (b.summary.gpa !== a.summary.gpa) return b.summary.gpa - a.summary.gpa;
-            if (b.summary.total !== a.summary.total) return b.summary.total - a.summary.total;
-            
-            return 0;
-        });
+        return assignResultRanks(computed, rankType);
 
-        const rankMap = new Map();
-        let currentRank = 1;
-        sortedForRank.forEach((item) => {
-            if (item.summary.status === 'Fail' || item.summary.status === 'Pending') {
-                rankMap.set(item.student_id, '-');
-            } else {
-                rankMap.set(item.student_id, currentRank++);
-            }
-        });
-
-        return computed.map(item => ({
-            ...item,
-            rank: rankMap.get(item.student_id)
-        }));
-
-    }, [students, subjects, tabulationData]);
+    }, [students, subjects, tabulationData, rankType]);
 
 
     const fetchExamDetails = async () => {
@@ -583,7 +562,8 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                         totalMarks: summary.total,
                         totalFullMarks: summary.totalFull,
                         gpa: summary.gpa,
-                        grade: summary.grade
+                        grade: summary.grade,
+                        rank: resultsWithRank.find(result => result.student_id === student.student_id)?.rank ?? '-'
                     }}
                 />
             </div>
@@ -784,7 +764,19 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                        <h2 className="text-base sm:text-lg font-bold text-gray-800">সম্পূর্ণ ফলাফল তালিকা (মেধাক্রম অনুযায়ী)</h2>
                                        <Button size="sm" variant="ghost" onClick={fetchTabulationData} title="রিফ্রেশ"><RefreshCcw className="w-4 h-4 text-gray-500"/></Button>
                                    </div>
-                                   <div className="flex flex-wrap gap-2">
+                                   <div className="flex flex-wrap items-center gap-2">
+                                       <div className="flex items-center bg-purple-50 border border-purple-200 rounded-md px-2 py-1 shadow-sm">
+                                            <label htmlFor="result-rank-type" className="text-xs text-purple-800 mr-2 font-semibold">মেধাস্থান নিয়ম:</label>
+                                            <select
+                                                id="result-rank-type"
+                                                className="text-xs bg-white border border-purple-300 rounded px-1 outline-none focus:border-purple-500 h-7 font-medium text-gray-700"
+                                                value={rankType}
+                                                onChange={(e) => setRankType(e.target.value as RankType)}
+                                            >
+                                                <option value="sequential">বর্তমান পদ্ধতি (১, ২, ৩)</option>
+                                                <option value="excel">সমান মোট নম্বরে সমান মেধাস্থান (১, ১, ৩)</option>
+                                            </select>
+                                       </div>
                                        <div className="flex bg-blue-600 rounded-md overflow-hidden shadow-md">
                                            <div className="px-3 py-2 bg-blue-700 text-white text-xs sm:text-sm font-semibold flex items-center">
                                                <FileSpreadsheet className="w-4 h-4 mr-1 sm:mr-2"/> ফলাফল শিট প্রিন্ট:
@@ -1024,13 +1016,9 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                     const rB = parseInt((b.roll_number ?? b.roll_no) || "0", 10);
                     return rA - rB;
                 } else {
-                    // Merit sort (Higher GPA -> Higher Total -> Lower Roll)
-                    if (a.summary.status === 'Fail' && b.summary.status !== 'Fail') return 1;
-                    if (b.summary.status === 'Fail' && a.summary.status !== 'Fail') return -1;
-                    
-                    if (b.summary.gpa !== a.summary.gpa) return b.summary.gpa - a.summary.gpa;
-                    if (b.summary.total !== a.summary.total) return b.summary.total - a.summary.total;
-                    
+                    const meritOrder = compareResults(a, b, rankType);
+                    if (meritOrder !== 0) return meritOrder;
+
                     const rA = parseInt((a.roll_number ?? a.roll_no) || "0", 10);
                     const rB = parseInt((b.roll_number ?? b.roll_no) || "0", 10);
                     return rA - rB;

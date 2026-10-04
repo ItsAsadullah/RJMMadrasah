@@ -15,6 +15,7 @@ export interface TranscriptSummary {
   totalFullMarks: number | string;
   gpa: number | string;
   grade: string;
+  rank?: number | string;
 }
 
 export interface TranscriptStudent {
@@ -190,6 +191,12 @@ export default function TranscriptSheet({ student, exam, branch, marks, summary 
                               );
                           })()}
                       </div>
+
+                      {summary.rank !== undefined && (
+                          <div className="relative z-10 mb-4 text-center text-sm font-bold text-emerald-800">
+                              মেধাস্থান: {toBengaliNumber(summary.rank)}
+                          </div>
+                      )}
 
                       {/* Grading Scale */}
                       <div className="relative z-10 mb-4 flex justify-center">
