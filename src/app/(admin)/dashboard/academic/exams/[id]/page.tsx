@@ -144,8 +144,13 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
     const [printMode, setPrintMode] = useState<'admit' | 'transcript-single' | 'transcript-all' | 'tabulation'>('admit');
     const [tabulationPrintSort, setTabulationPrintSort] = useState<'roll' | 'merit'>('merit');
     const [rankType, setRankType] = useState<RankType>('sequential');
+    const [resultNumberLanguage, setResultNumberLanguage] = useState<'bn' | 'en'>('bn');
     const [studentForTranscript, setStudentForTranscript] = useState<any>(null);
 
+    const formatResultNumber = (value: string | number) => {
+        if (resultNumberLanguage === 'bn') return toBengaliNumber(value);
+        return String(value).replace(/[০-৯]/g, digit => String('০১২৩৪৫৬৭৮৯'.indexOf(digit)));
+    };
 
     async function fetchBranches() {
         const { data } = await supabase.from("branches").select("id, name");
@@ -765,6 +770,18 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                        <Button size="sm" variant="ghost" onClick={fetchTabulationData} title="রিফ্রেশ"><RefreshCcw className="w-4 h-4 text-gray-500"/></Button>
                                    </div>
                                    <div className="flex flex-wrap items-center gap-2">
+                                       <div className="flex items-center bg-blue-50 border border-blue-200 rounded-md px-2 py-1 shadow-sm">
+                                           <label htmlFor="result-number-language" className="text-xs text-blue-800 mr-2 font-semibold">সংখ্যার ভাষা:</label>
+                                           <select
+                                               id="result-number-language"
+                                               className="text-xs bg-white border border-blue-300 rounded px-1 outline-none focus:border-blue-500 h-7 font-medium text-gray-700"
+                                               value={resultNumberLanguage}
+                                               onChange={(e) => setResultNumberLanguage(e.target.value as 'bn' | 'en')}
+                                           >
+                                               <option value="bn">বাংলা (০১২৩)</option>
+                                               <option value="en">ইংরেজি (0123)</option>
+                                           </select>
+                                       </div>
                                        <div className="flex items-center bg-purple-50 border border-purple-200 rounded-md px-2 py-1 shadow-sm">
                                             <label htmlFor="result-rank-type" className="text-xs text-purple-800 mr-2 font-semibold">মেধাস্থান নিয়ম:</label>
                                             <select
@@ -818,7 +835,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                   <TableBody>
                                       {resultsWithRank.map((std: any) => (
                                           <TableRow key={std.id} className="hover:bg-gray-50">
-                                              <TableCell className="text-center font-bold border">{toBengaliNumber((std.roll_number ?? std.roll_no) || '-')}</TableCell>
+                                              <TableCell className="text-center font-bold border">{formatResultNumber((std.roll_number ?? std.roll_no) || '-')}</TableCell>
                                               <TableCell className="font-medium border">{std.name_bn}</TableCell>
                                               
                                               {/* Subject Marks Columns */}
@@ -826,20 +843,20 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                                   const markStr = tabulationData[std.student_id]?.[sub.id];
                                                   return (
                                                       <TableCell key={sub.id} className="text-center border text-xs text-gray-600">
-                                                          {markStr ? toBengaliNumber(markStr) : '-'}
+                                                          {markStr ? formatResultNumber(markStr) : '-'}
                                                       </TableCell>
                                                   )
                                               })}
 
-                                              <TableCell className="text-center font-mono border font-semibold">{toBengaliNumber(std.summary.total)}</TableCell>
-                                              <TableCell className="text-center font-bold text-blue-600 border">{toBengaliNumber(std.summary.gpa.toFixed(2))}</TableCell>
+                                              <TableCell className="text-center font-mono border font-semibold">{formatResultNumber(std.summary.total)}</TableCell>
+                                              <TableCell className="text-center font-bold text-blue-600 border">{formatResultNumber(std.summary.gpa.toFixed(2))}</TableCell>
                                               <TableCell className="text-center border">
                                                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${std.summary.status === 'Fail' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                                                       {std.summary.grade}
                                                   </span>
                                               </TableCell>
                                               <TableCell className="text-center font-bold text-purple-700 bg-purple-50 border">
-                                                  {toBengaliNumber(std.rank)}
+                                                  {formatResultNumber(std.rank)}
                                               </TableCell>
                                               <TableCell className="text-right border">
                                                   <Button size="sm" variant="outline" className="h-7 text-xs border-green-600 text-green-700 hover:bg-green-50" onClick={() => handlePrintTranscriptSingle(std)}>
@@ -1047,10 +1064,10 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                 <div className="border-b-2 border-green-800 w-full my-2"></div>
                                 <h2 className="text-2xl font-extrabold text-black mb-1">ফলাফল তালিকা (Tabulation Sheet)</h2>
                                 <h3 className="text-lg font-bold text-green-800">
-                                    {exam?.title} - {toBengaliNumber(exam?.academic_year || "")} | শ্রেণি: {classes.find(c => c.id === selectedClass)?.name}
+                                    {exam?.title} - {formatResultNumber(exam?.academic_year || "")} | শ্রেণি: {classes.find(c => c.id === selectedClass)?.name}
                                 </h3>
                                 <div className="absolute top-0 right-0 text-xs font-semibold text-gray-500 border rounded px-2 py-1">
-                                    পৃষ্ঠা: {toBengaliNumber(pageIndex + 1)} / {toBengaliNumber(chunks.length)} <br/>
+                                    পৃষ্ঠা: {formatResultNumber(pageIndex + 1)} / {formatResultNumber(chunks.length)} <br/>
                                     {tabulationPrintSort === 'roll' ? '(রোল অনুযায়ী)' : '(মেধা অনুযায়ী)'}
                                 </div>
                             </div>
@@ -1063,7 +1080,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                         <th className="border border-black p-1 w-40 text-left">শিক্ষার্থীর নাম</th>
                                         {subjects.map(sub => (
                                             <th key={sub.id} className="border border-black p-1">
-                                                {sub.name}{sub.exam_type === 'Oral' ? ' (মৌখিক)' : ''} <br/> ({toBengaliNumber(sub.full_marks || 100)})
+                                                {sub.name}{sub.exam_type === 'Oral' ? ' (মৌখিক)' : ''} <br/> ({formatResultNumber(sub.full_marks || 100)})
                                             </th>
                                         ))}
                                         <th className="border border-black p-1 w-12 bg-gray-100">মোট</th>
@@ -1075,20 +1092,20 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                 <tbody>
                                     {chunk.map((std: any) => (
                                         <tr key={std.id}>
-                                            <td className="border border-black p-1 font-bold">{toBengaliNumber((std.roll_number ?? std.roll_no) || '-')}</td>
+                                            <td className="border border-black p-1 font-bold">{formatResultNumber((std.roll_number ?? std.roll_no) || '-')}</td>
                                             <td className="border border-black p-1 text-left font-medium">{std.name_bn}</td>
                                             {subjects.map(sub => {
                                                 const markStr = tabulationData[std.student_id]?.[sub.id];
                                                 return (
                                                     <td key={sub.id} className="border border-black p-1">
-                                                        {markStr ? toBengaliNumber(markStr) : '-'}
+                                                        {markStr ? formatResultNumber(markStr) : '-'}
                                                     </td>
                                                 )
                                             })}
-                                            <td className="border border-black p-1 font-bold">{toBengaliNumber(std.summary.total)}</td>
-                                            <td className="border border-black p-1 font-bold">{toBengaliNumber(std.summary.gpa.toFixed(2))}</td>
+                                            <td className="border border-black p-1 font-bold">{formatResultNumber(std.summary.total)}</td>
+                                            <td className="border border-black p-1 font-bold">{formatResultNumber(std.summary.gpa.toFixed(2))}</td>
                                             <td className="border border-black p-1 font-bold">{std.summary.grade}</td>
-                                            <td className="border border-black p-1 font-bold">{toBengaliNumber(std.rank)}</td>
+                                            <td className="border border-black p-1 font-bold">{formatResultNumber(std.rank)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
