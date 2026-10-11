@@ -192,65 +192,135 @@ export default function ChairmanAdminPage() {
   const saveProfile = async (newStatus?: "draft" | "published" | "unpublished") => {
     setSaving(true);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         ...profile,
         status: newStatus || profile.status || "draft",
         social_links: profile.social_links || {},
         updated_by: (await supabase.auth.getUser()).data.user?.email || "admin",
       };
-      delete (payload as Partial<ChairmanProfile>).id;
-      delete (payload as Partial<ChairmanProfile>).created_at;
-      delete (payload as Partial<ChairmanProfile>).updated_at;
+      delete payload.id;
+      delete payload.created_at;
+      delete payload.updated_at;
 
       let pid = profileId;
 
       if (pid) {
-        await supabase.from("chairman_profiles").update(payload).eq("id", pid);
+        const { error: updateError } = await supabase.from("chairman_profiles").update(payload).eq("id", pid);
+        if (updateError) throw new Error("প্রোফাইল আপডেট ব্যর্থ: " + updateError.message);
       } else {
         const { data, error } = await supabase.from("chairman_profiles").insert([payload]).select("id").single();
-        if (error) throw error;
+        if (error) throw new Error("প্রোফাইল তৈরি ব্যর্থ: " + error.message);
         pid = data.id;
         setProfileId(pid);
       }
 
       // Save related records
       await saveRelated(pid!);
-      if (newStatus) setProfile(prev => ({ ...prev, status: newStatus }));
+      
+      // Reload from database to synchronize state with fresh data
+      await loadProfile();
+
       showMsg("success", "✅ সফলভাবে সংরক্ষিত হয়েছে!");
     } catch (err) {
+      console.error("Save profile error:", err);
       showMsg("error", "❌ ত্রুটি: " + (err as Error).message);
     }
     setSaving(false);
   };
 
   const saveRelated = async (pid: string) => {
-    // Education
-    await supabase.from("chairman_education").delete().eq("profile_id", pid);
-    if (education.length > 0) {
-      await supabase.from("chairman_education").insert(
-        education.map((e, i) => ({ ...e, profile_id: pid, sort_order: i, id: undefined, created_at: undefined }))
-      );
+    // 1. Education
+    const cleanEducation = education
+      .filter(e => (e.degree_bn && e.degree_bn.trim()) || (e.institution_bn && e.institution_bn.trim()) || (e.degree_en && e.degree_en.trim()))
+      .map((e, i) => ({
+        profile_id: pid,
+        degree_bn: e.degree_bn?.trim() || null,
+        degree_en: e.degree_en?.trim() || null,
+        institution_bn: e.institution_bn?.trim() || null,
+        institution_en: e.institution_en?.trim() || null,
+        subject_bn: e.subject_bn?.trim() || null,
+        subject_en: e.subject_en?.trim() || null,
+        passing_year: e.passing_year?.trim() || null,
+        description_bn: e.description_bn?.trim() || null,
+        description_en: e.description_en?.trim() || null,
+        sort_order: i,
+      }));
+
+    const { error: eduDelErr } = await supabase.from("chairman_education").delete().eq("profile_id", pid);
+    if (eduDelErr) throw new Error("পূর্ববর্তী শিক্ষাগত তথ্য মোছা ব্যর্থ: " + eduDelErr.message);
+
+    if (cleanEducation.length > 0) {
+      const { error: eduInsErr } = await supabase.from("chairman_education").insert(cleanEducation);
+      if (eduInsErr) throw new Error("শিক্ষাগত যোগ্যতা সংরক্ষণ ব্যর্থ: " + eduInsErr.message);
     }
-    // Experiences
-    await supabase.from("chairman_experiences").delete().eq("profile_id", pid);
-    if (experiences.length > 0) {
-      await supabase.from("chairman_experiences").insert(
-        experiences.map((e, i) => ({ ...e, profile_id: pid, sort_order: i, id: undefined, created_at: undefined }))
-      );
+
+    // 2. Experiences
+    const cleanExperiences = experiences
+      .filter(e => (e.position_bn && e.position_bn.trim()) || (e.organization_bn && e.organization_bn.trim()) || (e.position_en && e.position_en.trim()))
+      .map((e, i) => ({
+        profile_id: pid,
+        position_bn: e.position_bn?.trim() || null,
+        position_en: e.position_en?.trim() || null,
+        organization_bn: e.organization_bn?.trim() || null,
+        organization_en: e.organization_en?.trim() || null,
+        start_date: e.start_date?.trim() || null,
+        end_date: e.is_current ? null : (e.end_date?.trim() || null),
+        is_current: !!e.is_current,
+        responsibilities_bn: e.responsibilities_bn?.trim() || null,
+        responsibilities_en: e.responsibilities_en?.trim() || null,
+        experience_type: e.experience_type === "institutional" ? "institutional" : "career",
+        sort_order: i,
+      }));
+
+    const { error: expDelErr } = await supabase.from("chairman_experiences").delete().eq("profile_id", pid);
+    if (expDelErr) throw new Error("পূর্ববর্তী কর্মজীবন তথ্য মোছা ব্যর্থ: " + expDelErr.message);
+
+    if (cleanExperiences.length > 0) {
+      const { error: expInsErr } = await supabase.from("chairman_experiences").insert(cleanExperiences);
+      if (expInsErr) throw new Error("কর্মজীবন ও দায়িত্ব সংরক্ষণ ব্যর্থ: " + expInsErr.message);
     }
-    // Achievements
-    await supabase.from("chairman_achievements").delete().eq("profile_id", pid);
-    if (achievements.length > 0) {
-      await supabase.from("chairman_achievements").insert(
-        achievements.map((a, i) => ({ ...a, profile_id: pid, sort_order: i, id: undefined, created_at: undefined }))
-      );
+
+    // 3. Achievements
+    const cleanAchievements = achievements
+      .filter(a => (a.title_bn && a.title_bn.trim()) || (a.title_en && a.title_en.trim()))
+      .map((a, i) => ({
+        profile_id: pid,
+        title_bn: a.title_bn?.trim() || null,
+        title_en: a.title_en?.trim() || null,
+        description_bn: a.description_bn?.trim() || null,
+        description_en: a.description_en?.trim() || null,
+        year: a.year?.trim() || null,
+        image_url: a.image_url?.trim() || null,
+        sort_order: i,
+      }));
+
+    const { error: achDelErr } = await supabase.from("chairman_achievements").delete().eq("profile_id", pid);
+    if (achDelErr) throw new Error("পূর্ববর্তী অর্জন মোছা ব্যর্থ: " + achDelErr.message);
+
+    if (cleanAchievements.length > 0) {
+      const { error: achInsErr } = await supabase.from("chairman_achievements").insert(cleanAchievements);
+      if (achInsErr) throw new Error("অর্জন ও পুরস্কার সংরক্ষণ ব্যর্থ: " + achInsErr.message);
     }
-    // Documents
-    await supabase.from("chairman_documents").delete().eq("profile_id", pid);
-    if (documents.length > 0) {
-      await supabase.from("chairman_documents").insert(
-        documents.map((d, i) => ({ ...d, profile_id: pid, sort_order: i, id: undefined, created_at: undefined }))
-      );
+
+    // 4. Documents
+    const cleanDocuments = documents
+      .filter((d): d is typeof d & { file_url: string } => !!d.file_url && d.file_url.trim().length > 0)
+      .map((d, i) => ({
+        profile_id: pid,
+        title_bn: d.title_bn?.trim() || null,
+        title_en: d.title_en?.trim() || null,
+        file_url: d.file_url.trim(),
+        file_type: d.file_type || null,
+        is_public: d.is_public !== false,
+        sort_order: i,
+      }));
+
+    const { error: docDelErr } = await supabase.from("chairman_documents").delete().eq("profile_id", pid);
+    if (docDelErr) throw new Error("পূর্ববর্তী ডকুমেন্ট মোছা ব্যর্থ: " + docDelErr.message);
+
+    if (cleanDocuments.length > 0) {
+      const { error: docInsErr } = await supabase.from("chairman_documents").insert(cleanDocuments);
+      if (docInsErr) throw new Error("ডকুমেন্ট সংরক্ষণ ব্যর্থ: " + docInsErr.message);
     }
   };
 
