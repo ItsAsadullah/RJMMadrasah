@@ -22,6 +22,19 @@ export const supabase = createClient(supabaseUrl, supabaseKey)
 
 const invalidRefreshTokenPattern = /Invalid Refresh Token|Refresh Token Not Found/i
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (
+      event.reason &&
+      event.reason.name === 'AuthApiError' &&
+      invalidRefreshTokenPattern.test(event.reason.message)
+    ) {
+      event.preventDefault();
+      clearStoredSupabaseSession();
+    }
+  });
+}
+
 export function clearStoredSupabaseSession() {
   if (typeof window === 'undefined') return
 

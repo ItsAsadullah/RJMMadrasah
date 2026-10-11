@@ -41,3 +41,8 @@ yarn-error.log*
 next-env.d.ts
 
 Github Accecss Token/
+.agents/
+skills-lock.json
+supabase/.temp/
+*.mjs
+add_chairman_sidebar.js

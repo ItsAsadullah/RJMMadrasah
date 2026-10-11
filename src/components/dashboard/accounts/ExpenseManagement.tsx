@@ -46,14 +46,6 @@ export default function ExpenseManagement() {
         fund_type: "general", branch_id: ""
     });
 
-    useEffect(() => {
-        fetchInitial();
-    }, []);
-
-    useEffect(() => {
-        fetchExpenses();
-    }, [filterMonth, filterYear, filterCategory, filterBranch]);
-
     async function fetchInitial() {
         const [catRes, brRes] = await Promise.all([
             supabase.from("categories").select("id, name").eq("type", "expense"),
@@ -87,6 +79,14 @@ export default function ExpenseManagement() {
         if (data) setExpenses(data);
         setLoading(false);
     }
+
+    useEffect(() => {
+        fetchInitial();
+    }, []);
+
+    useEffect(() => {
+        fetchExpenses();
+    }, [filterMonth, filterYear, filterCategory, filterBranch]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
