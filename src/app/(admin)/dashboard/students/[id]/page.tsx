@@ -22,6 +22,8 @@ import TranscriptPreviewModal from "@/components/academic/TranscriptPreviewModal
 import { CopyableId } from "@/components/ui/copyable-id";
 import { divisions, districts, upazilas } from "@/data/bangladesh-data";
 import { differenceInYears, differenceInMonths, differenceInDays } from "date-fns";
+import StudentStatusDialog from "@/components/dashboard/students/StudentStatusDialog";
+import { getStudentStatus } from "@/lib/studentStatus";
 
 // --- কনফিগারেশন ---
 const CLOUD_NAME = "dfo1slmdy"; 
@@ -449,20 +451,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
         if (!error) router.push("/dashboard/students");
     };
 
-    const handleConfirmAdmission = async () => {
-      const { error } = await supabase.from("students").update({ status: 'active' }).eq("id", id);
-      if (!error) {
-          setSuccessMessage("ভর্তি কনফার্ম হয়েছে!");
-          setShowSuccessModal(true);
-          fetchAllData();
-          router.refresh();
-      }
-    };
-
-    const handleStatusChange = async (newStatus: string) => {
-        const { error } = await supabase.from("students").update({ status: newStatus }).eq("id", id);
-        if (!error) fetchAllData();
-    };
+    const [isStatusOpen, setIsStatusOpen] = useState(false);
 
     const handleSuccessClose = () => {
         setShowSuccessModal(false);
@@ -476,6 +465,14 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
 
     return (
       <div className="max-w-6xl mx-auto space-y-6 pb-10">
+        {isStatusOpen && <StudentStatusDialog
+          students={[student]}
+          onClose={() => setIsStatusOpen(false)}
+          onUpdated={(rows) => {
+            const updated = rows.find(row => row.id === student.id);
+            if (updated) setStudent((previous: any) => ({ ...previous, status: updated.status }));
+          }}
+        />}
         
         {/* ১. হেডার ও অ্যাকশন */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm print:hidden">
@@ -489,22 +486,14 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
               </div>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2 hidden md:flex">
                   <Printer className="w-4 h-4" /> প্রিন্ট প্রোফাইল
               </Button>
                 <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/students/edit/${id}`)} className="gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200">
                   <Edit className="w-4 h-4" /> তথ্য সংশোধন
               </Button>
-              {student.status === 'active' ? (
-                   <Button onClick={() => handleStatusChange('rejected')} variant="destructive" size="sm" className="gap-2">
-                      <XCircle className="w-4 h-4" /> সাসপেন্ড
-                   </Button>
-               ) : (
-                   <Button onClick={handleConfirmAdmission} className="bg-green-600 hover:bg-green-700 text-white gap-2" size="sm">
-                      <CheckCircle className="w-4 h-4" /> ভর্তি কনফার্ম
-                   </Button>
-               )}
+              <Button onClick={() => setIsStatusOpen(true)} variant="outline" size="sm">স্ট্যাটাস পরিবর্তন</Button>
                <Button onClick={handleDelete} variant="ghost" size="icon" className="text-red-500 hover:bg-red-50">
                   <Trash2 className="w-4 h-4" />
                </Button>
@@ -533,7 +522,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                       <Badge label={`বিভাগ: ${student.department}`} color="purple" />
                       <Badge label={`সেশন: ${student.academic_year}`} color="orange" />
                       {student.roll_number && <Badge label={`রোল: ${student.roll_number}`} color="cyan" />}
-                      <Badge label={student.status} color={student.status === 'active' ? 'green' : 'red'} />
+                      <Badge label={getStudentStatus(student.status).label} color={student.status === 'active' ? 'green' : 'red'} />
                   </div>
               </div>
            </div>

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import StudentTable from "@/components/dashboard/students/StudentTable";
 import StudentForm from "@/components/dashboard/students/StudentForm";
 import { getClassOrder } from "@/lib/classOrder";
+import { STUDENT_STATUSES, getStudentStatus } from "@/lib/studentStatus";
 
 export default function StudentManagement() {
     const router = useRouter();
@@ -207,6 +208,13 @@ export default function StudentManagement() {
     const activeStudents = filteredStudents.filter(s => s.status === 'active');
     const pendingStudents = filteredStudents.filter(s => s.status === 'pending');
 
+    const handleStatusUpdated = (rows: { id: string; status: string }[]) => {
+      const statuses = new Map(rows.map(row => [row.id, row.status]));
+      setStudents(previous => previous.map(student => statuses.has(student.id)
+        ? { ...student, status: statuses.get(student.id) }
+        : student));
+    };
+
     // --- Handlers ---
     const handleEdit = (student: any) => {
       router.push(`/dashboard/students/edit/${student.id}`);
@@ -354,13 +362,18 @@ export default function StudentManagement() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <Tabs defaultValue="active" className="w-full">
             <div className="px-3 sm:px-4 md:px-5 pt-3 sm:pt-4 border-b border-gray-100">
-              <TabsList className="grid w-full grid-cols-2 mb-0 h-auto p-1">
+              <TabsList className="grid w-full grid-cols-3 mb-0 h-auto p-1">
                 <TabsTrigger value="active" className="flex items-center gap-1.5 text-xs sm:text-sm px-2 py-2">
-                  <ListFilter className="w-4 h-4" /> শিক্ষার্থী তালিকা ({activeStudents.length})
+                  <ListFilter className="w-4 h-4" /> সক্রিয় ({activeStudents.length})
                 </TabsTrigger>
                 <TabsTrigger value="pending" className="flex items-center gap-1.5 text-xs sm:text-sm px-2 py-2">
                   <Clock className="w-4 h-4" /> অপেক্ষমাণ ({pendingStudents.length})
                 </TabsTrigger>
+                {STUDENT_STATUSES.filter(option => option.value === "inactive").map(option => (
+                  <TabsTrigger key={option.value} value={option.value} className="text-xs sm:text-sm px-2 py-2">
+                    {option.label} ({filteredStudents.filter(student => getStudentStatus(student.status).value === option.value).length})
+                  </TabsTrigger>
+                ))}
               </TabsList>
             </div>
 
@@ -374,6 +387,7 @@ export default function StudentManagement() {
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onBulkDelete={handleBulkDelete}
+                    onStatusUpdated={handleStatusUpdated}
                   />
                 )}
               </div>
@@ -393,10 +407,28 @@ export default function StudentManagement() {
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onBulkDelete={handleBulkDelete}
+                    onStatusUpdated={handleStatusUpdated}
                   />
                 )}
               </div>
             </TabsContent>
+            {STUDENT_STATUSES.filter(option => option.value === "inactive").map(option => (
+              <TabsContent key={option.value} value={option.value} className="m-0">
+                <div className="p-3 sm:p-4 md:p-5">
+                  {loading ? (
+                    <div className="flex justify-center py-20"><Loader2 className="animate-spin text-green-600 w-10 h-10" /></div>
+                  ) : (
+                    <StudentTable
+                      data={filteredStudents.filter(student => getStudentStatus(student.status).value === option.value).map(s => ({ ...s, branches: { name: branches.find(b => String(b.id) === String(s.branch_id))?.name || "-" } }))}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onBulkDelete={handleBulkDelete}
+                      onStatusUpdated={handleStatusUpdated}
+                    />
+                  )}
+                </div>
+              </TabsContent>
+            ))}
           </Tabs>
         </div>
 

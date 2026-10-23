@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:student-status": "jest --config jest.student-status.config.cjs --runInBand"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",

@@ -15,6 +15,7 @@ import { divisions, districts, upazilas } from "@/data/bangladesh-data";
 import { differenceInYears, differenceInMonths, differenceInDays } from "date-fns";
 import Image from "next/image";
 import Link from "next/link";
+import { STUDENT_STATUSES, getStudentStatus } from "@/lib/studentStatus";
 
 // --- কনফিগারেশন ---
 const CLOUD_NAME = "dfo1slmdy"; 
@@ -190,6 +191,7 @@ export default function AdminStudentEdit() {
               Object.entries(data).map(([key, value]) => [key, value ?? ""])
             ),
             branch_id: data.branch_id ? String(data.branch_id) : "",
+            status: getStudentStatus(data.status || "active").value,
             academic_year: String(data.academic_year || new Date().getFullYear()),
             roll_number: String(data.roll_number || data.roll_no || ""),
           }));
@@ -533,6 +535,12 @@ return (
            <SectionHeader icon={GraduationCap} title="একাডেমিক তথ্য" step="১" />
            
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+               <div className="space-y-1.5">
+                  <label htmlFor="student-status" className="text-sm font-semibold text-slate-700">শিক্ষার্থীর স্ট্যাটাস</label>
+                  <select id="student-status" name="status" value={formData.status} onChange={handleChange} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                    {STUDENT_STATUSES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+               </div>
                <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-slate-700">শাখা <span className="text-red-500">*</span></label>
                   <select name="branch_id" value={formData.branch_id} onChange={(e) => setFormData({...formData, branch_id: e.target.value, department: "", class_name: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">

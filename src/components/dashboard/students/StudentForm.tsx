@@ -21,6 +21,7 @@ import {
 import { supabase } from "@/lib/supabase/client";
 import { Loader2, Save } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { STUDENT_STATUSES, getStudentStatus } from "@/lib/studentStatus";
 
 type StudentFormProps = {
   open: boolean;
@@ -62,7 +63,7 @@ export default function StudentForm({
         class_name: student.class_name || "",
         department: student.department || "",
         father_mobile: student.father_mobile || "",
-        status: student.status || "active",
+        status: getStudentStatus(student.status || "active").value,
         branch_id: student.branch_id?.toString() || "",
         residential_status: student.residential_status || "non_residential",
         extra_care_enabled: student.extra_care_enabled || false,
@@ -222,9 +223,7 @@ export default function StudentForm({
                   <SelectValue placeholder="অবস্থা" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
+                  {STUDENT_STATUSES.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

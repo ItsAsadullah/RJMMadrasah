@@ -1,4 +1,5 @@
 "use client";
+import { STUDENT_STATUSES, getStudentStatus } from "@/lib/studentStatus";
 
 import { useState, useEffect, use } from "react";
 import { supabase } from "@/lib/supabase/client";
@@ -19,7 +20,7 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
 
     // ফিল্টার স্টেট
     const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("all"); // all, active, pending, rejected
+    const [statusFilter, setStatusFilter] = useState("all");
 
     async function fetchData() {
       setLoading(true);
@@ -53,7 +54,7 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
         student.birth_reg_no?.includes(searchTerm);
 
       // ২. স্ট্যাটাস দিয়ে ফিল্টার
-      const matchesStatus = statusFilter === "all" || student.status === statusFilter;
+      const matchesStatus = statusFilter === "all" || getStudentStatus(student.status).value === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
@@ -129,9 +130,7 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
                               onChange={(e) => setStatusFilter(e.target.value)}
                           >
                               <option value="all">সকল স্ট্যাটাস</option>
-                              <option value="active">Active (ভর্তি)</option>
-                              <option value="pending">Pending (অপেক্ষমাণ)</option>
-                              <option value="rejected">Rejected (বাতিল)</option>
+                              {STUDENT_STATUSES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                           </select>
                       </div>
                   </div>
@@ -177,7 +176,7 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
                                                 student.status === 'pending' ? 'bg-yellow-50 text-yellow-600' : 
                                                 'bg-red-50 text-red-600'}`}>
                                               {student.status === 'active' && <CheckCircle className="w-3 h-3" />} 
-                                              {student.status}
+                                              {getStudentStatus(student.status).label}
                                           </span>
                                       </TableCell>
                                       <TableCell className="text-right">

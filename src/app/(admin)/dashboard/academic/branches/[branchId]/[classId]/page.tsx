@@ -1,4 +1,5 @@
 "use client";
+import { STUDENT_STATUSES, getStudentStatus } from "@/lib/studentStatus";
 
 import { useState, useEffect, use } from "react";
 import { supabase } from "@/lib/supabase/client";
@@ -54,7 +55,7 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
         (student.student_id?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
         (student.father_mobile || "").includes(searchTerm);
 
-      const matchesStatus = statusFilter === "all" || student.status === statusFilter;
+      const matchesStatus = statusFilter === "all" || getStudentStatus(student.status).value === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
@@ -142,9 +143,7 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
                               onChange={(e) => setStatusFilter(e.target.value)}
                           >
                               <option value="all">সকল স্ট্যাটাস</option>
-                              <option value="active">Active (ভর্তি)</option>
-                              <option value="pending">Pending (অপেক্ষমাণ)</option>
-                              <option value="rejected">Rejected (বাতিল)</option>
+                              {STUDENT_STATUSES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                           </select>
                       </div>
 
@@ -194,7 +193,7 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
                                                 student.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
                                                 'bg-red-100 text-red-700'}`}>
                                               {student.status === 'active' && <CheckCircle className="w-3 h-3" />} 
-                                              {student.status}
+                                              {getStudentStatus(student.status).label}
                                           </span>
                                       </TableCell>
                                       <TableCell className="text-right">

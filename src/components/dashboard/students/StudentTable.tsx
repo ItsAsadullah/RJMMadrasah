@@ -18,6 +18,8 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { CopyableId } from "@/components/ui/copyable-id";
 import { getClassOrder } from "@/lib/classOrder";
+import { getStudentStatus } from "@/lib/studentStatus";
+import StudentStatusDialog from "./StudentStatusDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Student = {
@@ -48,6 +50,7 @@ type StudentTableProps = {
   onEdit: (student: Student) => void;
   onDelete: (id: string) => void;
   onBulkDelete: (ids: string[]) => void;
+  onStatusUpdated: (rows: { id: string; status: string }[]) => void;
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -93,7 +96,7 @@ const HijabAvatar = () => (
 );
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: StudentTableProps) {
+export default function StudentTable({ data, onEdit, onDelete, onBulkDelete, onStatusUpdated }: StudentTableProps) {
   type ExtraColumns = { guardianName: boolean; guardianMobile: boolean; address: boolean };
 
   const [searchTerm,           setSearchTerm]           = useState("");
@@ -101,6 +104,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
   const [currentPage,          setCurrentPage]          = useState(1);
   const [rowsPerPage,          setRowsPerPage]          = useState(10);
   const [selectedRows,         setSelectedRows]         = useState<Set<string>>(new Set());
+  const [statusStudents, setStatusStudents] = useState<Student[]>([]);
   const [showExtraColumnOpts,  setShowExtraColumnOpts]  = useState(false);
   const [printSchoolName,      setPrintSchoolName]      = useState("রহিমা জান্নাত মহিলা মাদ্রাসা");
   const [printLongLogoUrl,     setPrintLongLogoUrl]     = useState("/images/long_logo.svg");
@@ -187,12 +191,16 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
   useEffect(() => { setCurrentPage(1); }, [searchTerm, sortValue, rowsPerPage]);
 
   const totalPages    = Math.max(1, Math.ceil(filteredData.length / rowsPerPage));
-  const paginatedData = filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  useEffect(() => { setCurrentPage(page => Math.min(page, totalPages)); }, [totalPages]);
+  const visiblePage = Math.min(currentPage, totalPages);
+  const paginatedData = filteredData.slice((visiblePage - 1) * rowsPerPage, visiblePage * rowsPerPage);
+  const selectedStudents = filteredData.filter(student => selectedRows.has(student.id));
+  const allPageSelected = paginatedData.length > 0 && paginatedData.every(student => selectedRows.has(student.id));
 
   // ── Select handlers ────────────────────────────────────────────────────────
   const toggleSelectAll = () =>
     setSelectedRows(
-      selectedRows.size === paginatedData.length
+      allPageSelected
         ? new Set()
         : new Set(paginatedData.map((s) => s.id))
     );
@@ -233,7 +241,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
         ...(extraColumns.guardianName   ? [s.guardian_name   ?? ""] : []),
         ...(extraColumns.guardianMobile ? [s.guardian_mobile ?? ""] : []),
         ...(extraColumns.address        ? [addr]                     : []),
-        s.status ?? "",
+        getStudentStatus(s.status).label,
       ];
     });
     const csv = [hdrs, ...body]
@@ -282,7 +290,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
         ...(extraColumns.guardianName   ? [s.guardian_name   ?? ""] : []),
         ...(extraColumns.guardianMobile ? [s.guardian_mobile ?? ""] : []),
         ...(extraColumns.address        ? [addr]                     : []),
-        s.status === "active" ? "সক্রিয়" : "অপেক্ষমাণ",
+        getStudentStatus(s.status).label,
       ];
     });
 
@@ -331,8 +339,8 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
   };
 
   const handleBulkDelete = () => {
-    if (confirm(`${selectedRows.size} জন শিক্ষার্থী স্থায়ীভাবে মুছে ফেলবেন?`)) {
-      onBulkDelete([...selectedRows]);
+    if (confirm(`${selectedStudents.length} জন শিক্ষার্থী স্থায়ীভাবে মুছে ফেলবেন?`)) {
+      onBulkDelete(selectedStudents.map(student => student.id));
       setSelectedRows(new Set());
     }
   };
@@ -343,6 +351,16 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-3">
+      {statusStudents.length > 0 && (
+        <StudentStatusDialog
+          students={statusStudents}
+          onClose={() => setStatusStudents([])}
+          onUpdated={(rows) => {
+            onStatusUpdated(rows);
+            setSelectedRows(new Set());
+          }}
+        />
+      )}
 
       {/* Controls Row */}
       <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
@@ -425,9 +443,12 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
           </div>
 
           {/* Bulk delete */}
-          {selectedRows.size > 0 && (
+          {selectedStudents.length > 0 && (
             <div className="flex items-center gap-2 bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg text-red-600 animate-in fade-in">
-              <span className="text-xs font-bold whitespace-nowrap">{selectedRows.size} নির্বাচিত</span>
+              <span className="text-xs font-bold whitespace-nowrap">{selectedStudents.length} নির্বাচিত</span>
+              <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-slate-700" onClick={() => setStatusStudents(selectedStudents)}>
+                স্ট্যাটাস পরিবর্তন
+              </Button>
               <Button size="sm" variant="destructive" className="h-7 text-xs px-2" onClick={handleBulkDelete}>
                 <Trash2 className="w-3 h-3 mr-1" /> মুছুন
               </Button>
@@ -464,7 +485,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
             <TableRow className="bg-gray-50 border-b border-gray-200">
               <TableHead className="w-10 pl-4">
                 <Checkbox
-                  checked={paginatedData.length > 0 && selectedRows.size === paginatedData.length}
+                  checked={allPageSelected}
                   onCheckedChange={toggleSelectAll}
                 />
               </TableHead>
@@ -574,17 +595,16 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
                     <TableCell>
                       <span
                         className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${
-                          student.status === "active"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-yellow-100 text-yellow-700"
+                          getStudentStatus(student.status).className
                         }`}
                       >
-                        {student.status === "active" ? "সক্রিয়" : "অপেক্ষমাণ"}
+                        {getStudentStatus(student.status).label}
                       </span>
                     </TableCell>
 
                     <TableCell className="text-right pr-4">
                       <div className="flex justify-end gap-1.5 whitespace-nowrap">
+                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setStatusStudents([student])}>স্ট্যাটাস পরিবর্তন</Button>
                         <Link href={`/dashboard/students/${student.id}`}>
                           <Button variant="outline" size="sm" className="h-8 text-xs bg-green-50 text-green-700 hover:bg-green-100 border-green-200">
                             <Eye className="w-3 h-3 mr-1" /> প্রোফাইল
@@ -642,9 +662,9 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
                     </div>
                   </div>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 whitespace-nowrap ${
-                    student.status === "active" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                    getStudentStatus(student.status).className
                   }`}>
-                    {student.status === "active" ? "সক্রিয়" : "অপেক্ষমাণ"}
+                    {getStudentStatus(student.status).label}
                   </span>
                 </div>
 
@@ -666,6 +686,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete }: S
                 </div>
 
                 <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-gray-100">
+                  <Button variant="outline" size="sm" className="h-7 px-2 text-[11px]" onClick={() => setStatusStudents([student])}>স্ট্যাটাস পরিবর্তন</Button>
                   <Link href={`/dashboard/students/${student.id}`}>
                     <Button variant="outline" size="sm" className="h-7 px-2 text-[11px] bg-green-50 text-green-700 border-green-200">
                       <Eye className="w-3 h-3 mr-1" /> প্রোফাইল
