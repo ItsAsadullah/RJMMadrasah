@@ -1,6 +1,6 @@
 "use client";
 import { STUDENT_STATUSES, getStudentStatus } from "@/lib/studentStatus";
-import { filterAndResolveStudentsForClass } from "@/lib/secondaryEnrollment";
+import { filterAndResolveStudentsForClass, attachSecondaryEnrollments } from "@/lib/secondaryEnrollment";
 
 import { useState, useEffect, use } from "react";
 import { supabase } from "@/lib/supabase/client";
@@ -32,13 +32,14 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
       if (cls) {
           setClassInfo(cls);
           // ২. মূল ও অতিরিক্ত উভয় বিভাগের ভিত্তিতে স্টুডেন্ট আনা
-          const { data: stu } = await supabase
+          const { data: rawStu } = await supabase
               .from("students")
               .select("*")
               .eq("branch_id", parseInt(branchId))
               .eq("academic_year", cls.academic_year);
           
-          if (stu) {
+          if (rawStu) {
+              const stu = await attachSecondaryEnrollments(supabase, rawStu);
               const resolved = filterAndResolveStudentsForClass(stu, cls).sort((a, b) => {
                   const rA = parseInt((a.roll_number ?? a.roll_no) || "9999", 10);
                   const rB = parseInt((b.roll_number ?? b.roll_no) || "9999", 10);

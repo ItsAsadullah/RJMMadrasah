@@ -29,8 +29,9 @@ import {
   hasSecondaryEnrollment,
   formatSecondaryEnrollmentBadge,
   normalizeAcademicText,
-  buildSecondaryEnrollmentFields,
-  formatSecondaryEnrollmentDbError,
+  attachSecondaryEnrollments,
+  stripSecondaryAndVirtualFields,
+  saveSecondaryEnrollmentsHybrid,
 } from "@/lib/secondaryEnrollment";
 
 // --- কনফিগারেশন ---
@@ -187,7 +188,8 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
 
     async function fetchAllData() {
       setLoading(true);
-      const { data: stu } = await supabase.from("students").select("*").eq("id", id).single();
+      const { data: rawStu } = await supabase.from("students").select("*").eq("id", id).single();
+      const [stu] = rawStu ? await attachSecondaryEnrollments(supabase, [rawStu]) : [null];
       if (stu) {
           setStudent(stu);
           
@@ -443,24 +445,37 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
             ...restEditData
         } = editFormData;
 
-        const { error } = await supabase.from("students").update({
+        const cleanPayload = stripSecondaryAndVirtualFields({
             ...restEditData,
-            ...buildSecondaryEnrollmentFields(
-                { secondary_department, secondary_class_name, secondary_roll_number },
-                student
-            ),
             branch_id: parseInt(editFormData.branch_id),
             academic_year: parseInt(editFormData.academic_year),
             father_mobile: formatMobile(editFormData.father_mobile),
             mother_mobile: formatMobile(editFormData.mother_mobile),
             guardian_mobile: formatMobile(editFormData.guardian_mobile),
-        }).eq("id", id);
+        });
+
+        const { error } = await supabase.from("students").update(cleanPayload).eq("id", id);
+
+        let secError: any = null;
+        if (!error) {
+            try {
+                await saveSecondaryEnrollmentsHybrid(supabase, [{
+                    id: String(id),
+                    student_id: student?.student_id,
+                    secondary_department,
+                    secondary_class_name,
+                    secondary_roll_number,
+                }]);
+            } catch (e) {
+                secError = e;
+            }
+        }
 
         setIsUpdating(false);
         setShowEditConfirmModal(false);
 
-        if (error) {
-            alert("আপডেট ব্যর্থ হয়েছে: " + formatSecondaryEnrollmentDbError(error));
+        if (error || secError) {
+            alert("আপডেট ব্যর্থ হয়েছে: " + (error?.message || secError?.message || secError));
         } else {
             setSuccessMessage("শিক্ষার্থীর তথ্য সফলভাবে আপডেট হয়েছে!");
             setRedirectAfterSuccess(false);

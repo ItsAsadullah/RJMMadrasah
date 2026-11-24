@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Plus, Trash2, Layers, Calendar, ArrowRight, Settings, Loader2, ChevronLeft, Edit, Save, BookOpen, Users, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 import { departments, classesByDept } from "@/data/bangladesh-data";
-import { filterAndResolveStudentsForClass } from "@/lib/secondaryEnrollment";
+import { filterAndResolveStudentsForClass, attachSecondaryEnrollments } from "@/lib/secondaryEnrollment";
 
 // --- ক্লাসের লজিক্যাল অর্ডার ---
 const classOrder = [
@@ -77,12 +77,13 @@ export default function ClassListPage({ params }: { params: Promise<{ branchId: 
         console.error("Classes Error:", error);
     } else if (clsData) {
         // ৩. স্টুডেন্ট কাউন্ট আলাদাভাবে ফেচ করা (মূল ও অতিরিক্ত উভয় বিভাগের তালিকাভুক্তি সহ)
-        const { data: students } = await supabase
+        const { data: rawStudents } = await supabase
             .from("students")
             .select("*")
             .eq("branch_id", parseInt(branchId))
             .eq("academic_year", parseInt(year))
             .eq("status", "active");
+        const students = await attachSecondaryEnrollments(supabase, rawStudents || []);
 
         // ৪. ডাটা মার্জ করা
         const mergedClasses = clsData.map((c: any) => {

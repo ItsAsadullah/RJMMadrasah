@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import {
   Search, Edit, Trash2, Download, Printer, ArrowUpDown,
-  ChevronLeft, ChevronRight, Eye, Columns3,
+  ChevronLeft, ChevronRight, Eye, Columns3, Layers,
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
@@ -20,6 +20,7 @@ import { CopyableId } from "@/components/ui/copyable-id";
 import { getClassOrder } from "@/lib/classOrder";
 import { getStudentStatus } from "@/lib/studentStatus";
 import StudentStatusDialog from "./StudentStatusDialog";
+import BulkClassAssignDialog from "./BulkClassAssignDialog";
 import { hasSecondaryEnrollment, formatSecondaryEnrollmentBadge } from "@/lib/secondaryEnrollment";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -51,10 +52,15 @@ type Student = {
 
 type StudentTableProps = {
   data: Student[];
+  allStudents?: any[];
+  branches?: any[];
+  dbDepartments?: any[];
+  dbClasses?: any[];
   onEdit: (student: Student) => void;
   onDelete: (id: string) => void;
   onBulkDelete: (ids: string[]) => void;
   onStatusUpdated: (rows: { id: string; status: string }[]) => void;
+  onBulkClassUpdated?: () => void;
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -100,7 +106,18 @@ const HijabAvatar = () => (
 );
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function StudentTable({ data, onEdit, onDelete, onBulkDelete, onStatusUpdated }: StudentTableProps) {
+export default function StudentTable({
+  data,
+  allStudents = [],
+  branches = [],
+  dbDepartments = [],
+  dbClasses = [],
+  onEdit,
+  onDelete,
+  onBulkDelete,
+  onStatusUpdated,
+  onBulkClassUpdated,
+}: StudentTableProps) {
   type ExtraColumns = { guardianName: boolean; guardianMobile: boolean; address: boolean };
 
   const [searchTerm,           setSearchTerm]           = useState("");
@@ -109,6 +126,7 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete, onS
   const [rowsPerPage,          setRowsPerPage]          = useState(10);
   const [selectedRows,         setSelectedRows]         = useState<Set<string>>(new Set());
   const [statusStudents, setStatusStudents] = useState<Student[]>([]);
+  const [isBulkClassOpen,      setIsBulkClassOpen]      = useState(false);
   const [showExtraColumnOpts,  setShowExtraColumnOpts]  = useState(false);
   const [printSchoolName,      setPrintSchoolName]      = useState("রহিমা জান্নাত মহিলা মাদ্রাসা");
   const [printLongLogoUrl,     setPrintLongLogoUrl]     = useState("/images/long_logo.svg");
@@ -366,6 +384,22 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete, onS
         />
       )}
 
+      {isBulkClassOpen && selectedStudents.length > 0 && (
+        <BulkClassAssignDialog
+          open={isBulkClassOpen}
+          onClose={() => setIsBulkClassOpen(false)}
+          selectedStudents={selectedStudents}
+          allStudents={allStudents.length > 0 ? allStudents : data}
+          branches={branches}
+          dbDepartments={dbDepartments}
+          dbClasses={dbClasses}
+          onCompleted={() => {
+            setSelectedRows(new Set());
+            onBulkClassUpdated?.();
+          }}
+        />
+      )}
+
       {/* Controls Row */}
       <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
 
@@ -446,11 +480,29 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete, onS
             )}
           </div>
 
-          {/* Bulk delete */}
+          {/* Bulk actions */}
           {selectedStudents.length > 0 && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg text-red-600 animate-in fade-in">
-              <span className="text-xs font-bold whitespace-nowrap">{selectedStudents.length} নির্বাচিত</span>
-              <Button size="sm" variant="outline" className="h-7 text-xs px-2 text-slate-700" onClick={() => setStatusStudents(selectedStudents)}>
+            <div className="flex flex-wrap items-center gap-2 bg-purple-50 border border-purple-200 px-3 py-1.5 rounded-lg text-purple-900 animate-in fade-in">
+              <span className="text-xs font-bold whitespace-nowrap">
+                {toBengaliNumber(selectedStudents.length)} জন নির্বাচিত
+              </span>
+              {selectedStudents.length < filteredData.length && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedRows(new Set(filteredData.map((s) => s.id)))}
+                  className="text-[11px] font-semibold text-purple-700 underline hover:text-purple-900 whitespace-nowrap"
+                >
+                  সব ({toBengaliNumber(filteredData.length)} জন) সিলেক্ট করুন
+                </button>
+              )}
+              <Button
+                size="sm"
+                className="h-7 text-xs px-2.5 bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
+                onClick={() => setIsBulkClassOpen(true)}
+              >
+                <Layers className="w-3.5 h-3.5 mr-1" /> শ্রেণিতে যুক্ত / পরিবর্তন
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs px-2 bg-white text-slate-700" onClick={() => setStatusStudents(selectedStudents)}>
                 স্ট্যাটাস পরিবর্তন
               </Button>
               <Button size="sm" variant="destructive" className="h-7 text-xs px-2" onClick={handleBulkDelete}>

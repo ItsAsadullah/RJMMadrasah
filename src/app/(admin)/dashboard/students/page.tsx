@@ -11,7 +11,12 @@ import StudentTable from "@/components/dashboard/students/StudentTable";
 import StudentForm from "@/components/dashboard/students/StudentForm";
 import { getClassOrder } from "@/lib/classOrder";
 import { STUDENT_STATUSES, getStudentStatus } from "@/lib/studentStatus";
-import { normalizeAcademicText, departmentsMatch, hasSecondaryEnrollment } from "@/lib/secondaryEnrollment";
+import {
+  normalizeAcademicText,
+  departmentsMatch,
+  hasSecondaryEnrollment,
+  attachSecondaryEnrollments,
+} from "@/lib/secondaryEnrollment";
 
 export default function StudentManagement() {
     const router = useRouter();
@@ -40,8 +45,12 @@ export default function StudentManagement() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) console.error("Error fetching students:", error);
-      else setStudents(data || []);
+      if (error) {
+        console.error("Error fetching students:", error);
+      } else {
+        const hydrated = await attachSecondaryEnrollments(supabase, data || []);
+        setStudents(hydrated);
+      }
       setLoading(false);
     }
 
@@ -399,10 +408,15 @@ export default function StudentManagement() {
                 ) : (
                   <StudentTable
                     data={activeStudents.map(s => ({ ...s, branches: { name: branches.find(b => String(b.id) === String(s.branch_id))?.name || "-" } }))}
+                    allStudents={students}
+                    branches={branches}
+                    dbDepartments={dbDepartments}
+                    dbClasses={dbClasses}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onBulkDelete={handleBulkDelete}
                     onStatusUpdated={handleStatusUpdated}
+                    onBulkClassUpdated={fetchStudents}
                   />
                 )}
               </div>
@@ -419,10 +433,15 @@ export default function StudentManagement() {
                 ) : (
                   <StudentTable
                     data={pendingStudents.map(s => ({ ...s, branches: { name: branches.find(b => String(b.id) === String(s.branch_id))?.name || "-" } }))}
+                    allStudents={students}
+                    branches={branches}
+                    dbDepartments={dbDepartments}
+                    dbClasses={dbClasses}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onBulkDelete={handleBulkDelete}
                     onStatusUpdated={handleStatusUpdated}
+                    onBulkClassUpdated={fetchStudents}
                   />
                 )}
               </div>
@@ -435,10 +454,15 @@ export default function StudentManagement() {
                   ) : (
                     <StudentTable
                       data={filteredStudents.filter(student => getStudentStatus(student.status).value === option.value).map(s => ({ ...s, branches: { name: branches.find(b => String(b.id) === String(s.branch_id))?.name || "-" } }))}
+                      allStudents={students}
+                      branches={branches}
+                      dbDepartments={dbDepartments}
+                      dbClasses={dbClasses}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
                       onBulkDelete={handleBulkDelete}
                       onStatusUpdated={handleStatusUpdated}
+                      onBulkClassUpdated={fetchStudents}
                     />
                   )}
                 </div>

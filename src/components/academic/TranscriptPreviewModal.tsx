@@ -11,6 +11,7 @@ import {
     hasSecondaryEnrollment,
     normalizeAcademicText,
     formatOriginDepartmentBadge,
+    attachSecondaryEnrollments,
 } from "@/lib/secondaryEnrollment";
 
 // Helper functions (same as in public result page)
@@ -82,13 +83,14 @@ export default function TranscriptPreviewModal({
         setError(null);
         try {
             // 1. Fetch Student
-            const { data: student, error: stdError } = await supabase
+            const { data: rawStudent, error: stdError } = await supabase
                 .from("students")
                 .select("*")
                 .eq("id", studentDbId)
                 .single();
 
-            if (stdError || !student) throw new Error("শিক্ষার্থীর তথ্য পাওয়া যায়নি।");
+            if (stdError || !rawStudent) throw new Error("শিক্ষার্থীর তথ্য পাওয়া যায়নি।");
+            const [student] = await attachSecondaryEnrollments(supabase, [rawStudent]);
 
             // 2. Fetch Exam
             const { data: exam, error: exError } = await supabase

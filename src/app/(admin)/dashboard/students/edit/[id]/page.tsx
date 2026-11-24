@@ -19,8 +19,9 @@ import { STUDENT_STATUSES, getStudentStatus } from "@/lib/studentStatus";
 import {
   isHifzDepartment,
   normalizeAcademicText,
-  buildSecondaryEnrollmentFields,
-  formatSecondaryEnrollmentDbError,
+  attachSecondaryEnrollments,
+  stripSecondaryAndVirtualFields,
+  saveSecondaryEnrollmentsHybrid,
 } from "@/lib/secondaryEnrollment";
 
 // --- কনফিগারেশন ---
@@ -163,7 +164,6 @@ export default function AdminStudentEdit() {
   const [dbDepartments, setDbDepartments] = useState<any[]>([]);
   const [dbClasses, setDbClasses] = useState<any[]>([]);
   const [studentIdForDisplay, setStudentIdForDisplay] = useState("");
-  const [rawStudentRecord, setRawStudentRecord] = useState<any>(null);
 
   useEffect(() => {
     const fetchAcademicData = async () => {
@@ -197,14 +197,14 @@ export default function AdminStudentEdit() {
     const fetchStudentData = async () => {
       if (!id) return;
       try {
-        const { data, error } = await supabase
+        const { data: rawData, error } = await supabase
           .from('students')
           .select('*')
           .eq('id', id)
           .single();
         if (error) throw error;
+        const [data] = rawData ? await attachSecondaryEnrollments(supabase, [rawData]) : [null];
         if (data) {
-          setRawStudentRecord(data);
           setFormData(prev => ({
             ...prev,
             ...Object.fromEntries(
@@ -468,12 +468,8 @@ export default function AdminStudentEdit() {
         secondary_roll_number,
         ...restFormData
       } = formData;
-      const payload = {
+      const payload = stripSecondaryAndVirtualFields({
         ...restFormData,
-        ...buildSecondaryEnrollmentFields(
-          { secondary_department, secondary_class_name, secondary_roll_number },
-          rawStudentRecord
-        ),
         // সেইফটি: খালি স্ট্রিং থাকলে null পাঠান (যদি ডাটাবেস এরর দেয়)
         dob: formData.dob || null, 
         student_id: finalID,
@@ -485,7 +481,7 @@ export default function AdminStudentEdit() {
         father_mobile: formData.father_mobile ? "01" + formData.father_mobile : "",
         mother_mobile: formData.mother_mobile ? "01" + formData.mother_mobile : "",
         guardian_mobile: formData.guardian_mobile ? "01" + formData.guardian_mobile : "",
-      };
+      });
       
       // এরর হ্যান্ডলিং (Database Constraint Error Check)
       const { data, error } = await supabase.from("students").update(payload).eq('id', id).select();
@@ -500,10 +496,22 @@ export default function AdminStudentEdit() {
               attempts++;
               continue; // Try again with a new ID
           } else {
-              alert("সেভ করা যায়নি: " + formatSecondaryEnrollmentDbError(error));
+              alert("সেভ করা যায়নি: " + error.message);
               break;
           }
       } else {
+          try {
+              await saveSecondaryEnrollmentsHybrid(supabase, [{
+                  id: String(id),
+                  student_id: finalID,
+                  secondary_department,
+                  secondary_class_name,
+                  secondary_roll_number,
+              }]);
+          } catch (secErr: any) {
+              alert("সেভ করা যায়নি: " + (secErr?.message || secErr));
+              break;
+          }
           success = true;
           if(data) setCreatedStudentId(data[0].id);
           setLoading(false);

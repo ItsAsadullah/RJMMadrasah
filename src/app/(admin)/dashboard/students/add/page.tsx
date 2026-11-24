@@ -19,8 +19,10 @@ import { useRouter } from "next/navigation";
 import {
   isHifzDepartment,
   normalizeAcademicText,
-  buildSecondaryEnrollmentFields,
-  formatSecondaryEnrollmentDbError,
+  attachSecondaryEnrollments,
+  getTargetClassRollStats,
+  stripSecondaryAndVirtualFields,
+  saveSecondaryEnrollmentsHybrid,
 } from "@/lib/secondaryEnrollment";
 
 // --- কনফিগারেশন ---
@@ -279,23 +281,24 @@ export default function AdminStudentAdd() {
       try {
         const { data, error } = await supabase
           .from("students")
-          .select("roll_number")
+          .select("*")
           .eq("branch_id", parseInt(formData.branch_id))
-          .eq("department", formData.department)
-          .eq("class_name", formData.class_name)
           .eq("academic_year", parseInt(formData.academic_year));
 
         if (error) {
           console.error("Error fetching roll stats:", error);
           setRollStats({ count: 0, maxRoll: 0 });
         } else {
-          const rolls = (data || [])
-            .map(item => Number(item.roll_number))
-            .filter(num => Number.isFinite(num) && num > 0);
-
+          const hydrated = await attachSecondaryEnrollments(supabase, data || []);
+          const stats = getTargetClassRollStats(hydrated, {
+            name: formData.class_name,
+            department: formData.department,
+            branch_id: formData.branch_id,
+            academic_year: formData.academic_year,
+          });
           setRollStats({
-            count: rolls.length,
-            maxRoll: rolls.length ? Math.max(...rolls) : 0,
+            count: stats.existingCount,
+            maxRoll: stats.maxRoll,
           });
         }
       } finally {
@@ -530,13 +533,8 @@ export default function AdminStudentAdd() {
         secondary_roll_number,
         ...restFormData
       } = formData;
-      const payload = {
+      const payload = stripSecondaryAndVirtualFields({
         ...restFormData,
-        ...buildSecondaryEnrollmentFields({
-          secondary_department,
-          secondary_class_name,
-          secondary_roll_number,
-        }),
         // সেইফটি: খালি স্ট্রিং থাকলে null পাঠান (যদি ডাটাবেস এরর দেয়)
         dob: formData.dob || null, 
         student_id: finalID,
@@ -548,7 +546,7 @@ export default function AdminStudentAdd() {
         father_mobile: formData.father_mobile ? "01" + formData.father_mobile : "",
         mother_mobile: formData.mother_mobile ? "01" + formData.mother_mobile : "",
         guardian_mobile: formData.guardian_mobile ? "01" + formData.guardian_mobile : "",
-      };
+      });
       
       // এরর হ্যান্ডলিং (Database Constraint Error Check)
       const { data, error } = await supabase.from("students").insert([payload]).select();
@@ -563,12 +561,27 @@ export default function AdminStudentAdd() {
               attempts++;
               continue; // Try again with a new ID
           } else {
-              alert("সেভ করা যায়নি: " + formatSecondaryEnrollmentDbError(error));
+              alert("সেভ করা যায়নি: " + error.message);
               break;
           }
       } else {
           success = true;
-          if(data) setCreatedStudentId(data[0].id);
+          if (data && data[0]?.id) {
+              setCreatedStudentId(data[0].id);
+              if (secondary_class_name) {
+                  try {
+                      await saveSecondaryEnrollmentsHybrid(supabase, [{
+                          id: data[0].id,
+                          student_id: data[0].student_id || finalID,
+                          secondary_department,
+                          secondary_class_name,
+                          secondary_roll_number,
+                      }]);
+                  } catch (secErr: any) {
+                      console.error("Secondary enrollment save error:", secErr);
+                  }
+              }
+          }
           setShowSuccessModal(true);
       }
     }

@@ -13,7 +13,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Loader2, Save, Search, BookOpen, Filter } from "lucide-react";
-import { filterAndResolveStudentsForClass } from "@/lib/secondaryEnrollment";
+import { filterAndResolveStudentsForClass, attachSecondaryEnrollments } from "@/lib/secondaryEnrollment";
 
 export default function ResultManagement() {
   const [loading, setLoading] = useState(false);
@@ -100,8 +100,9 @@ export default function ResultManagement() {
       .eq("status", "active")
       .order("name_bn", { ascending: true });
 
+    const hydratedStu = await attachSecondaryEnrollments(supabase, rawStuData || []);
     const stuData = filterAndResolveStudentsForClass(
-      rawStuData?.filter((s: any) => !s.academic_year || String(s.academic_year) === String(selectedYear)),
+      hydratedStu.filter((s: any) => !s.academic_year || String(s.academic_year) === String(selectedYear)),
       clsObj
     );
 

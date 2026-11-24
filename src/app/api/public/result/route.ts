@@ -4,6 +4,7 @@ import {
   hasSecondaryEnrollment,
   normalizeAcademicText,
   formatOriginDepartmentBadge,
+  attachSecondaryEnrollments,
 } from '@/lib/secondaryEnrollment';
 
 export async function POST(request: Request) {
@@ -15,8 +16,9 @@ export async function POST(request: Request) {
     const service = createServiceClient();
     const { data: exam } = await service.from('exams').select('id,title,academic_year,branch_id').eq('id', examId).eq('status', 'published').eq('branch_id', branchId).eq('academic_year', Number(year)).single();
     if (!exam) return NextResponse.json({ error: 'প্রকাশিত ফলাফল পাওয়া যায়নি।' }, { status: 404 });
-    const { data: student } = await service.from('students').select('*').eq('student_id', studentId.trim()).single();
-    if (!student) return NextResponse.json({ error: 'ফলাফল পাওয়া যায়নি।' }, { status: 404 });
+    const { data: rawStudent } = await service.from('students').select('*').eq('student_id', studentId.trim()).single();
+    if (!rawStudent) return NextResponse.json({ error: 'ফলাফল পাওয়া যায়নি।' }, { status: 404 });
+    const [student] = await attachSecondaryEnrollments(service, [rawStudent]);
 
     let marksQuery = service.from('exam_marks').select('marks_obtained,academic_subjects!inner(name,full_marks,pass_marks,code,class_id,academic_classes!inner(id,name,branch_id,academic_year))')
       .eq('exam_id', exam.id).eq('student_id', student.student_id)

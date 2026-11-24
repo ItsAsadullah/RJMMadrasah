@@ -16,7 +16,7 @@ import TranscriptSheet from "@/components/academic/TranscriptSheet";
 import { getBranchAddress } from "@/lib/branchUtils";
 import { sortClassNames } from "@/lib/classOrder";
 import { assignResultRanks, compareResults, type RankType } from "@/lib/resultRanking";
-import { filterAndResolveStudentsForClass } from "@/lib/secondaryEnrollment";
+import { filterAndResolveStudentsForClass, attachSecondaryEnrollments } from "@/lib/secondaryEnrollment";
 
 // --- বাংলা কনভার্সন হেল্পার ---
 const toBengaliNumber = (num: string | number) => {
@@ -224,13 +224,14 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
 
       const selectedClassObj = classes.find(c => c.id === selectedClass);
       if (selectedClassObj) {
-          const { data: stds } = await supabase
+          const { data: rawStds } = await supabase
               .from("students")
               .select("*")
               .eq("academic_year", exam.academic_year)
               .eq("branch_id", selectedBranch);
           
-          if (stds) {
+          if (rawStds) {
+              const stds = await attachSecondaryEnrollments(supabase, rawStds);
               const resolvedStds = filterAndResolveStudentsForClass(stds, selectedClassObj);
               // Client-side numeric sort for roll numbers (unassigned rolls go after assigned rolls)
               const sortedStds = [...resolvedStds].sort((a, b) => {

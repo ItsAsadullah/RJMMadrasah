@@ -25,8 +25,8 @@ import { STUDENT_STATUSES, getStudentStatus } from "@/lib/studentStatus";
 import {
   isHifzDepartment,
   normalizeAcademicText,
-  buildSecondaryEnrollmentFields,
-  formatSecondaryEnrollmentDbError,
+  stripSecondaryAndVirtualFields,
+  saveSecondaryEnrollmentsHybrid,
 } from "@/lib/secondaryEnrollment";
 
 type StudentFormProps = {
@@ -141,35 +141,50 @@ export default function StudentForm({
         secondary_roll_number,
         ...baseFields
       } = formData;
-      const payload = {
-        ...baseFields,
-        ...buildSecondaryEnrollmentFields(
-          { secondary_department, secondary_class_name, secondary_roll_number },
-          student
-        ),
-      };
+      const payload = stripSecondaryAndVirtualFields(baseFields);
 
       if (student) {
-        // Update existing student
         const { error } = await supabase
           .from("students")
           .update(payload)
           .eq("id", student.id);
 
         if (error) throw error;
+
+        await saveSecondaryEnrollmentsHybrid(supabase, [
+          {
+            id: student.id,
+            student_id: student.student_id || formData.student_id,
+            secondary_department,
+            secondary_class_name,
+            secondary_roll_number,
+          },
+        ]);
       } else {
-        // Create new student
-        // Note: Ideally, use the full add page for better validation and ID generation
-        const { error } = await supabase.from("students").insert([payload]);
+        const { data, error } = await supabase
+          .from("students")
+          .insert([payload])
+          .select("id, student_id");
 
         if (error) throw error;
+        if (data?.[0]?.id && secondary_class_name) {
+          await saveSecondaryEnrollmentsHybrid(supabase, [
+            {
+              id: data[0].id,
+              student_id: data[0].student_id || formData.student_id,
+              secondary_department,
+              secondary_class_name,
+              secondary_roll_number,
+            },
+          ]);
+        }
       }
 
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
       console.error("Error saving student:", error);
-      alert("Error saving student: " + formatSecondaryEnrollmentDbError(error));
+      alert("সেভ করা যায়নি: " + (error?.message || error));
     } finally {
       setLoading(false);
     }
