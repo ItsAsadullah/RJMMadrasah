@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/(admin)/", "/student/", "/teacher/", "/login/"],
+        disallow: ["/api/", "/dashboard/", "/student/", "/teacher/", "/login/"],
       },
     ],
     sitemap: "https://rjmm.edu.bd/sitemap.xml",

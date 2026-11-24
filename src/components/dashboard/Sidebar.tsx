@@ -394,6 +394,7 @@ export default function Sidebar() {
                  "space-y-1 overflow-hidden transition-all duration-300 ease-in-out",
                  expandedMenus['website'] ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
               )}>
+                  <Link href="/dashboard/messages" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"><Bell className="w-4 h-4" /> যোগাযোগের বার্তা</Link>
                   <Link href="/dashboard/notices" className={cn("flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors", pathname === "/dashboard/notices" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50")}>
                      <Bell className="w-4 h-4" /> নোটিশ বোর্ড
                   </Link>

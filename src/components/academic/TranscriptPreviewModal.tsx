@@ -7,6 +7,11 @@ import { Loader2, Printer, X } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import TranscriptSheet from "@/components/academic/TranscriptSheet";
 import { getBranchAddress } from "@/lib/branchUtils";
+import {
+    hasSecondaryEnrollment,
+    normalizeAcademicText,
+    formatOriginDepartmentBadge,
+} from "@/lib/secondaryEnrollment";
 
 // Helper functions (same as in public result page)
 const getGradePoint = (marks: number) => {
@@ -59,27 +64,20 @@ export default function TranscriptPreviewModal({
     isOpen, 
     onClose, 
     studentDbId, 
-    examId 
+    examId,
+    className,
 }: { 
     isOpen: boolean; 
     onClose: () => void; 
     studentDbId: string; 
-    examId: string 
+    examId: string;
+    className?: string;
 }) {
     const [loading, setLoading] = useState(false);
     const [resultData, setResultData] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (isOpen && studentDbId && examId) {
-            fetchResultData();
-        } else {
-            setResultData(null);
-            setError(null);
-        }
-    }, [isOpen, studentDbId, examId]);
-
-    const fetchResultData = async () => {
+    async function fetchResultData() {
         setLoading(true);
         setError(null);
         try {
@@ -121,7 +119,11 @@ export default function TranscriptPreviewModal({
                         name,
                         full_marks,
                         code,
-                        is_active
+                        is_active,
+                        academic_classes (
+                            name,
+                            department
+                        )
                     )
                 `)
                 .eq("exam_id", examId)
@@ -130,8 +132,35 @@ export default function TranscriptPreviewModal({
             if (marksError) throw marksError;
             if (!marks || marks.length === 0) throw new Error("এই পরীক্ষার কোনো ফলাফল এন্ট্রি করা হয়নি।");
 
-            const processedMarks = marks
-                .filter((m: any) => m.academic_subjects && m.academic_subjects.is_active !== false)
+            const getSubjectClassName = (m: any): string => {
+                const sub = Array.isArray(m?.academic_subjects) ? m.academic_subjects[0] : m?.academic_subjects;
+                const cls = Array.isArray(sub?.academic_classes) ? sub.academic_classes[0] : sub?.academic_classes;
+                return cls?.name || "";
+            };
+
+            const filteredRawMarks = className
+                ? marks.filter((m: any) =>
+                    normalizeAcademicText(getSubjectClassName(m)) ===
+                    normalizeAcademicText(className)
+                  )
+                : marks;
+
+            const activeMarks = (filteredRawMarks.length > 0 ? filteredRawMarks : marks)
+                .filter((m: any) => {
+                    const sub = Array.isArray(m?.academic_subjects) ? m.academic_subjects[0] : m?.academic_subjects;
+                    return sub && sub.is_active !== false;
+                });
+
+            const resolvedClassName =
+                className ||
+                getSubjectClassName(activeMarks[0]) ||
+                student.class_name;
+
+            const isSecondaryForTranscript =
+                hasSecondaryEnrollment(student) &&
+                normalizeAcademicText(student.secondary_class_name) === normalizeAcademicText(resolvedClassName);
+
+            const processedMarks = activeMarks
                 .map((m: any) => ({
                     subject_name: m.academic_subjects.name,
                     full_marks: m.academic_subjects.full_marks || 100,
@@ -144,7 +173,14 @@ export default function TranscriptPreviewModal({
             const summary = calculateGPA(processedMarks);
 
             setResultData({
-                student,
+                student: {
+                    ...student,
+                    resolved_class_name: resolvedClassName,
+                    resolved_roll: isSecondaryForTranscript
+                        ? (student.secondary_roll_number || student.roll_number || student.roll_no || "-")
+                        : ((student.roll_number ?? student.roll_no) || "-"),
+                    origin_badge: isSecondaryForTranscript ? formatOriginDepartmentBadge(student) : null,
+                },
                 exam,
                 branch,
                 marks: processedMarks,
@@ -156,7 +192,16 @@ export default function TranscriptPreviewModal({
         } finally {
             setLoading(false);
         }
-    };
+    }
+
+    useEffect(() => {
+        if (isOpen && studentDbId && examId) {
+            fetchResultData();
+        } else {
+            setResultData(null);
+            setError(null);
+        }
+    }, [isOpen, studentDbId, examId, className]);
 
     const handlePrint = () => {
         if (!resultData) return;
@@ -244,8 +289,9 @@ export default function TranscriptPreviewModal({
                                         nameBn: resultData.student.name_bn,
                                         fatherNameBn: resultData.student.father_name_bn,
                                         motherNameBn: resultData.student.mother_name_bn,
-                                        className: resultData.student.class_name,
-                                        rollNo: (resultData.student.roll_number ?? resultData.student.roll_no) || '-'
+                                        className: resultData.student.resolved_class_name || resultData.student.class_name,
+                                        rollNo: resultData.student.resolved_roll || '-',
+                                        originBadge: resultData.student.origin_badge || null,
                                     }}
                                     exam={{
                                         title: resultData.exam.title,

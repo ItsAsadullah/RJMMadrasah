@@ -4,7 +4,7 @@ import { calculatePromotionLogic } from './utils';
 describe('Performance Test', () => {
   it('should process 1000 students in less than 5 seconds', () => {
     const students = [];
-    const marks = [];
+    const marks: Parameters<typeof calculatePromotionLogic>[1] = [];
     const subjects = ['English', 'Bengali', 'Math', 'Science', 'Technology', 'History', 'Geography', 'Religion'];
 
     // Generate 1000 students

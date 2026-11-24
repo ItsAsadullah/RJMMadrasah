@@ -18,6 +18,7 @@ import PaymentSlip from "@/components/dashboard/accounts/PaymentSlip";
 import StudentPaymentReport from "@/components/dashboard/accounts/StudentPaymentReport";
 import { CopyableId } from "@/components/ui/copyable-id";
 import { getClassOrder, sortClassNames } from "@/lib/classOrder";
+import { STUDENT_STATUSES, getStudentStatus } from "@/lib/studentStatus";
 
 const toBengaliNumber = (num: any) => String(num).replace(/[0-9]/g, c => "০১২৩৪৫৬৭৮৯"[parseInt(c)]);
 
@@ -110,6 +111,7 @@ export default function FeeCollection() {
     const [filterClass, setFilterClass] = useState("all");
     const [filterDepartment, setFilterDepartment] = useState("all");
     const [filterPaymentStatus, setFilterPaymentStatus] = useState("all"); // "all", "due", "paid"
+    const [filterStudentStatus, setFilterStudentStatus] = useState("all");
     const [activeWaivers, setActiveWaivers] = useState<any[]>([]);
 
     const [departments, setDepartments] = useState<string[]>([]);
@@ -280,13 +282,13 @@ export default function FeeCollection() {
     useEffect(() => {
         setCurrentPage(1);
         fetchStudents();
-    }, [search, filterBranch, filterClass, filterDepartment, filterPaymentStatus]);
+    }, [search, filterBranch, filterClass, filterDepartment, filterPaymentStatus, filterStudentStatus]);
 
     async function fetchInitialData() {
         const { data: b } = await supabase.from("branches").select("id, name, phone, address");
         if (b) setBranches(b);
         
-        const { data: c } = await supabase.from("students").select("class_name, department").eq("status", "active");
+        const { data: c } = await supabase.from("students").select("class_name, department");
         if (c) {
             const map = new Map<string, string>();
             const deptSet = new Set<string>();
@@ -314,12 +316,14 @@ export default function FeeCollection() {
         setLoading(true);
         let query = supabase.from("students")
             .select(`
-                id, name_bn, student_id, roll_no, roll_number, class_name, department, branch_id, academic_year, photo_url,
+                id, name_bn, student_id, status, roll_no, roll_number, class_name, department, branch_id, academic_year, photo_url,
                 residential_status, father_name_bn, father_mobile, guardian_name, guardian_mobile, guardian_type,
                 student_dues!student_id(amount, waiver, fine, paid_amount, status, net_amount, fee_type_id)
             `)
-            .eq("status", "active")
             .order("created_at", { ascending: false });
+
+        if (filterStudentStatus === "inactive") query = query.in("status", ["inactive", "rejected"]);
+        else if (filterStudentStatus !== "all") query = query.eq("status", filterStudentStatus);
 
         const cleanSearch = search.trim();
         if (cleanSearch) query = query.or(`name_bn.ilike.%${cleanSearch}%,student_id.ilike.%${cleanSearch}%`);
@@ -657,6 +661,16 @@ export default function FeeCollection() {
                                     </Select>
                                 </div>
                                 <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-gray-600">শিক্ষার্থীর স্ট্যাটাস</label>
+                                    <Select value={filterStudentStatus} onValueChange={setFilterStudentStatus}>
+                                        <SelectTrigger className="h-10"><SelectValue placeholder="শিক্ষার্থীর স্ট্যাটাস" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">সকল স্ট্যাটাস</SelectItem>
+                                            {STUDENT_STATUSES.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1.5">
                                     <label className="text-xs font-bold text-gray-600">পেমেন্ট স্ট্যাটাস</label>
                                     <Select value={filterPaymentStatus} onValueChange={setFilterPaymentStatus}>
                                         <SelectTrigger className="h-10"><SelectValue placeholder="স্ট্যাটাস" /></SelectTrigger>
@@ -758,6 +772,7 @@ export default function FeeCollection() {
                                                             </div>
                                                             <div className="text-[11px] text-gray-500 flex items-center gap-2 mt-0.5">
                                                                 <CopyableId id={s.student_id} className="font-mono" />
+                                                                <Badge className={getStudentStatus(s.status).className}>{getStudentStatus(s.status).label}</Badge>
                                                                 <span>•</span>
                                                                 <span>রোল: {toBengaliNumber(s.roll_number ?? s.roll_no ?? "") || "-"}</span>
                                                             </div>

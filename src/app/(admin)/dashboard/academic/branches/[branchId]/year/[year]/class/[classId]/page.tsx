@@ -1,5 +1,6 @@
 "use client";
 import { STUDENT_STATUSES, getStudentStatus } from "@/lib/studentStatus";
+import { filterAndResolveStudentsForClass } from "@/lib/secondaryEnrollment";
 
 import { useState, useEffect, use } from "react";
 import { supabase } from "@/lib/supabase/client";
@@ -24,7 +25,7 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
 
     async function fetchData() {
       setLoading(true);
-      const { data: cls } = await supabase.from("academic_classes").select("*, branches(name)").eq("id", classId).single();
+      const { data: cls } = await supabase.from("academic_classes").select("*, branches(name), departments(name)").eq("id", classId).single();
       if (cls) {
           setClassInfo(cls);
           const { data: stu } = await supabase
@@ -32,11 +33,9 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
               .select("*")
               .eq("branch_id", parseInt(branchId))
               .eq("academic_year", parseInt(year))
-              .eq("class_name", cls.name)
-              // .eq("status", "active") // সব স্টুডেন্ট দেখাবো, যাতে ফিল্টার করা যায়
               .order("name_bn", { ascending: true });
           
-          if (stu) setStudents(stu);
+          if (stu) setStudents(filterAndResolveStudentsForClass(stu, cls));
       }
       setLoading(false);
     }
@@ -167,8 +166,20 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
                           ) : (
                               filteredStudents.map((student) => (
                                   <TableRow key={student.id} className="hover:bg-gray-50">
-                                      <TableCell className="font-bold text-gray-800">{student.name_bn}</TableCell>
-                                      <TableCell className="font-mono text-xs">{student.birth_reg_no || "N/A"}</TableCell>
+                                      <TableCell className="font-bold text-gray-800">
+                                          <div className="flex flex-wrap items-center gap-2">
+                                              <span>{student.name_bn}</span>
+                                              {student.is_secondary_enrollment && student.origin_badge && (
+                                                  <span className="inline-block bg-purple-100 text-purple-800 border border-purple-200 px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                                                      {student.origin_badge}
+                                                  </span>
+                                              )}
+                                          </div>
+                                          {(student.roll_number || student.roll_no) && (
+                                              <p className="text-[11px] text-gray-500 font-normal">রোল: {student.roll_number || student.roll_no}</p>
+                                          )}
+                                      </TableCell>
+                                      <TableCell className="font-mono text-xs">{student.student_id || student.birth_reg_no || "N/A"}</TableCell>
                                       <TableCell className="font-mono text-gray-600">{student.father_mobile}</TableCell>
                                       <TableCell>
                                           <span className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded w-fit capitalize

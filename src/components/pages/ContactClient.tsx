@@ -43,6 +43,29 @@ const fallback: ContactSettings = {
 };
 
 export default function ContactPage() {
+  const [sending, setSending] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const submitMessage = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const fields = new FormData(form);
+    setSending(true);
+    setFeedback("");
+    try {
+      const { error } = await supabase.from("contact_messages").insert({
+        name: String(fields.get("name") || "").trim(),
+        phone: String(fields.get("phone") || "").trim(),
+        email: String(fields.get("email") || "").trim() || null,
+        subject: String(fields.get("subject") || "").trim(),
+        message: String(fields.get("message") || "").trim(),
+      });
+      if (error) throw error;
+      form.reset();
+      setFeedback("আপনার বার্তাটি সংরক্ষিত হয়েছে। কর্তৃপক্ষ এটি দেখতে পাবেন।");
+    } catch {
+      setFeedback("বার্তা জমা দেওয়া যায়নি। আবার চেষ্টা করুন অথবা ফোনে যোগাযোগ করুন।");
+    } finally { setSending(false); }
+  };
   const [info, setInfo] = useState<ContactSettings>(fallback);
 
   useEffect(() => {
@@ -130,7 +153,7 @@ export default function ContactPage() {
               <a href={info.facebook_url} target="_blank" rel="noopener noreferrer" className="bg-blue-600 text-white p-3 rounded-full hover:bg-blue-700 transition shadow-md">
                 <Facebook className="w-5 h-5" />
               </a>
-              <a href={info.website_url} target="_blank" rel="noopener noreferrer" className="bg-pink-600 text-white p-3 rounded-full hover:bg-pink-700 transition shadow-md">
+              <a href={/^https?:\/\//i.test(info.website_url || "") ? info.website_url : `https://${info.website_url || "rjmm.edu.bd"}`} target="_blank" rel="noopener noreferrer" className="bg-pink-600 text-white p-3 rounded-full hover:bg-pink-700 transition shadow-md">
                 <Globe className="w-5 h-5" />
               </a>
             </div>
@@ -143,38 +166,39 @@ export default function ContactPage() {
                 <h2 className="text-2xl font-bold text-green-800 mb-6 flex items-center gap-2">
                   <Send className="w-6 h-6" /> বার্তা পাঠান
                 </h2>
-                <form className="space-y-6">
+                <form className="space-y-6" onSubmit={submitMessage}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">আপনার নাম</label>
-                      <Input placeholder="সম্পূর্ণ নাম লিখুন" className="border-gray-300 focus:border-green-500" />
+                      <Input name="name" required maxLength={120} placeholder="সম্পূর্ণ নাম লিখুন" className="border-gray-300 focus:border-green-500" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700">মোবাইল নম্বর</label>
-                      <Input placeholder="017xxxxxxxx" className="border-gray-300 focus:border-green-500" />
+                      <Input name="phone" required minLength={7} maxLength={30} placeholder="017xxxxxxxx" className="border-gray-300 focus:border-green-500" />
                     </div>
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">ইমেইল (ঐচ্ছিক)</label>
-                    <Input type="email" placeholder="example@gmail.com" className="border-gray-300 focus:border-green-500" />
+                    <Input name="email" maxLength={254} type="email" placeholder="example@gmail.com" className="border-gray-300 focus:border-green-500" />
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">বিষয়</label>
-                    <Input placeholder="কি বিষয়ে জানতে চান?" className="border-gray-300 focus:border-green-500" />
+                    <Input name="subject" required maxLength={200} placeholder="কি বিষয়ে জানতে চান?" className="border-gray-300 focus:border-green-500" />
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">বার্তা</label>
-                    <Textarea 
+                    <Textarea name="message" required maxLength={5000} 
                       placeholder="আপনার প্রশ্ন বা মতামত বিস্তারিত লিখুন..." 
                       className="min-h-[150px] border-gray-300 focus:border-green-500" 
                     />
                   </div>
 
-                  <Button className="w-full bg-green-700 hover:bg-green-800 text-white font-bold py-6 text-lg">
-                    বার্তা প্রেরণ করুন
+                  <p role="status">{feedback}</p>
+                  <Button disabled={sending} type="submit" className="w-full bg-green-700 hover:bg-green-800 text-white font-bold py-6 text-lg">
+                    {sending ? "পাঠানো হচ্ছে…" : "বার্তা প্রেরণ করুন"}
                   </Button>
                 </form>
               </CardContent>

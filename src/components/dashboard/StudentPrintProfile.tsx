@@ -124,6 +124,22 @@ export default function StudentPrintProfile({ student }: { student: any }) {
                                     <p className="text-[12px] font-semibold text-gray-800 leading-none">{student.residential_status === 'residential' ? 'আবাসিক' : 'অনাবাসিক'}</p>
                                 </div>
                             </div>
+                            {student.secondary_class_name?.trim() && (
+                              <div className="grid grid-cols-3 gap-x-3 border-t border-green-200 pt-1.5 mt-1.5">
+                                <div>
+                                  <p className="text-[9px] font-bold text-purple-800 uppercase tracking-wide leading-none mb-0.5">অতিরিক্ত বিভাগ</p>
+                                  <p className="text-[11px] font-semibold text-gray-800 leading-none">{student.secondary_department?.trim() || '-'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[9px] font-bold text-purple-800 uppercase tracking-wide leading-none mb-0.5">অতিরিক্ত শ্রেণি (পরীক্ষা)</p>
+                                  <p className="text-[11px] font-semibold text-gray-800 leading-none">{student.secondary_class_name?.trim()}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[9px] font-bold text-purple-800 uppercase tracking-wide leading-none mb-0.5">অতিরিক্ত রোল</p>
+                                  <p className="text-[11px] font-semibold text-gray-800 leading-none">{student.secondary_roll_number || '-'}</p>
+                                </div>
+                              </div>
+                            )}
                         </div>
                     </div>
                 </div>

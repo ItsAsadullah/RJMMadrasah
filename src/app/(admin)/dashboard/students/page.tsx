@@ -11,6 +11,7 @@ import StudentTable from "@/components/dashboard/students/StudentTable";
 import StudentForm from "@/components/dashboard/students/StudentForm";
 import { getClassOrder } from "@/lib/classOrder";
 import { STUDENT_STATUSES, getStudentStatus } from "@/lib/studentStatus";
+import { normalizeAcademicText, departmentsMatch, hasSecondaryEnrollment } from "@/lib/secondaryEnrollment";
 
 export default function StudentManagement() {
     const router = useRouter();
@@ -64,7 +65,7 @@ export default function StudentManagement() {
 
         const { data: classes, error: classError } = await supabase
           .from("academic_classes")
-          .select("id, name, branch_id, department_id");
+          .select("id, name, branch_id, department_id, academic_year");
         if (classError) console.error("Error fetching classes:", classError);
         else setDbClasses(classes || []);
       } catch (error) {
@@ -96,30 +97,43 @@ export default function StudentManagement() {
       };
     }, []);
 
-    // --- Filter Logic ---
+    // --- Filter Logic (matches both primary and secondary/dual enrollment) ---
+    const matchesStudentDeptFilter = (s: any, filterVal: string) => {
+      if (filterVal === "all") return true;
+      const parts = filterVal.split("::");
+      const targetBranchId = parts.length === 2 ? parts[0] : null;
+      const targetDept = parts.length === 2 ? parts[1] : filterVal;
+      if (targetBranchId && String(s.branch_id || "") !== targetBranchId) return false;
+      if (departmentsMatch(s.department, targetDept)) return true;
+      if (hasSecondaryEnrollment(s) && departmentsMatch(s.secondary_department, targetDept)) return true;
+      return false;
+    };
+
+    const matchesStudentClassFilter = (s: any, cFilterVal: string, dFilterVal: string) => {
+      if (cFilterVal === "all") return true;
+      const parts = cFilterVal.split("::");
+      const targetBranchId = parts.length === 2 ? parts[0] : null;
+      const targetClass = normalizeAcademicText(parts.length === 2 ? parts[1] : cFilterVal);
+      if (targetBranchId && String(s.branch_id || "") !== targetBranchId) return false;
+
+      const dParts = dFilterVal !== "all" ? dFilterVal.split("::") : [];
+      const targetDept = dFilterVal !== "all" ? (dParts.length === 2 ? dParts[1] : dFilterVal) : null;
+
+      const primaryMatches =
+        normalizeAcademicText(s.class_name) === targetClass &&
+        (!targetDept || departmentsMatch(s.department, targetDept));
+      const secondaryMatches =
+        hasSecondaryEnrollment(s) &&
+        normalizeAcademicText(s.secondary_class_name) === targetClass &&
+        (!targetDept || departmentsMatch(s.secondary_department, targetDept));
+
+      return primaryMatches || secondaryMatches;
+    };
+
     const filteredStudents = students.filter(s => {
       if (branchFilter !== "all" && String(s.branch_id || "") !== branchFilter) return false;
-      
-      if (deptFilter !== "all") {
-        const parts = deptFilter.split("::");
-        if (parts.length === 2) {
-          const [dBranchId, dName] = parts;
-          if (String(s.branch_id || "") !== dBranchId || (s.department || "").trim() !== dName) return false;
-        } else {
-          if ((s.department || "").trim() !== deptFilter) return false;
-        }
-      }
-      
-      if (classFilter !== "all") {
-        const parts = classFilter.split("::");
-        if (parts.length === 2) {
-          const [cBranchId, cName] = parts;
-          if (String(s.branch_id || "") !== cBranchId || (s.class_name || "").trim() !== cName) return false;
-        } else {
-          if ((s.class_name || "").trim() !== classFilter) return false;
-        }
-      }
-      
+      if (!matchesStudentDeptFilter(s, deptFilter)) return false;
+      if (!matchesStudentClassFilter(s, classFilter, deptFilter)) return false;
       return true;
     });
 
@@ -130,19 +144,21 @@ export default function StudentManagement() {
       const studentsForBranch = branchFilter === "all" ? students : students.filter(s => String(s.branch_id) === branchFilter);
 
       studentsForBranch.forEach(s => {
-        const name = (s.department || "").trim();
-        if (!name) return;
-        const branchId = s.branch_id || "";
-        const value = `${branchId}::${name}`;
-        if (!seen.has(value)) {
-          seen.add(value);
-          let label = name;
-          if (branchFilter === "all") {
-             const branch = branches.find(b => String(b.id) === String(branchId));
-             if (branch) label = `${name} - ${branch.name}`;
+        [s.department, s.secondary_department].forEach(rawDept => {
+          const name = normalizeAcademicText(rawDept);
+          if (!name) return;
+          const branchId = s.branch_id || "";
+          const value = `${branchId}::${name}`;
+          if (!seen.has(value)) {
+            seen.add(value);
+            let label = name;
+            if (branchFilter === "all") {
+               const branch = branches.find(b => String(b.id) === String(branchId));
+               if (branch) label = `${name} - ${branch.name}`;
+            }
+            options.push({ label, value });
           }
-          options.push({ label, value });
-        }
+        });
       });
       // Sort alphabetically by label
       return options.sort((a, b) => a.label.localeCompare(b.label, "bn"));
@@ -155,33 +171,32 @@ export default function StudentManagement() {
       
       const studentsForClass = students.filter(s => {
         if (branchFilter !== "all" && String(s.branch_id) !== branchFilter) return false;
-        
-        if (deptFilter !== "all") {
-          const parts = deptFilter.split("::");
-          if (parts.length === 2) {
-            const [dBranchId, dName] = parts;
-            if (String(s.branch_id || "") !== dBranchId || (s.department || "").trim() !== dName) return false;
-          } else {
-            if ((s.department || "").trim() !== deptFilter) return false;
-          }
-        }
-        return true;
+        return matchesStudentDeptFilter(s, deptFilter);
       });
 
+      const targetDept = deptFilter !== "all" ? (deptFilter.includes("::") ? deptFilter.split("::")[1] : deptFilter) : null;
+
       studentsForClass.forEach(s => {
-        const name = (s.class_name || "").trim();
-        if (!name) return;
-        const branchId = s.branch_id || "";
-        const value = `${branchId}::${name}`;
-        if (!seen.has(value)) {
-          seen.add(value);
-          let label = name;
-          if (branchFilter === "all") {
-             const branch = branches.find(b => String(b.id) === String(branchId));
-             if (branch) label = `${name} - ${branch.name}`;
+        const pairs = [
+          { dept: s.department, cls: s.class_name },
+          ...(hasSecondaryEnrollment(s) ? [{ dept: s.secondary_department, cls: s.secondary_class_name }] : []),
+        ];
+        pairs.forEach(({ dept, cls }) => {
+          if (targetDept && !departmentsMatch(dept, targetDept)) return;
+          const name = normalizeAcademicText(cls);
+          if (!name) return;
+          const branchId = s.branch_id || "";
+          const value = `${branchId}::${name}`;
+          if (!seen.has(value)) {
+            seen.add(value);
+            let label = name;
+            if (branchFilter === "all") {
+               const branch = branches.find(b => String(b.id) === String(branchId));
+               if (branch) label = `${name} - ${branch.name}`;
+            }
+            options.push({ label, value });
           }
-          options.push({ label, value });
-        }
+        });
       });
       // Sort by class order (ছোট → বড়), then by branch label
       return options.sort((a, b) => {

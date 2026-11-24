@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient as createClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { calculatePromotionLogic, PromotionStudent } from "./utils";
 
@@ -50,12 +50,19 @@ export async function getPromotionList(
 ) {
   const supabase = await createClient();
 
-  // 1. Get Students
-  const { data: students, error: studentError } = await supabase
-    .from('students')
-    .select('id, student_id, name_en, name_bn, roll_no, class_name')
-    .eq('class_name', (await supabase.from('academic_classes').select('name').eq('id', classId).single()).data?.name)
-    .eq('status', 'active');
+  const { data: source, error: sourceError } = await supabase.from('academic_classes')
+    .select('name,branch_id,department,academic_year').eq('id', classId).single();
+  if (sourceError || !source) throw new Error('Source class not found');
+  const { data: exam, error: examError } = await supabase.from('exams').select('id')
+    .eq('id', examId).eq('branch_id', source.branch_id).eq('academic_year', source.academic_year).single();
+  if (examError || !exam) throw new Error('Exam does not belong to this branch and year');
+  let studentQuery = supabase.from('students').select('id,student_id,name_en,name_bn,roll_no,class_name')
+    .eq('class_name', source.name).eq('branch_id', source.branch_id).eq('academic_year', source.academic_year).eq('status', 'active');
+  studentQuery = source.department ? studentQuery.eq('department', source.department) : studentQuery.is('department', null);
+  const { data: students, error: studentError } = await studentQuery;
+  const { data: subjects, error: subjectError } = await supabase.from('academic_subjects').select('name').eq('class_id', classId).eq('is_active', true);
+  if (subjectError) throw subjectError;
+  if (!subjects?.length) throw new Error('No active subjects found for this class');
 
   if (studentError) throw studentError;
   if (!students || students.length === 0) return [];
@@ -67,9 +74,9 @@ export async function getPromotionList(
       student_id,
       marks_obtained,
       subject_id,
-      academic_subjects (name, full_marks, pass_marks)
+      academic_subjects!inner (name, full_marks, pass_marks, class_id)
     `)
-    .eq('exam_id', examId);
+    .eq('exam_id', examId).eq('academic_subjects.class_id', classId);
 
   if (marksError) throw marksError;
 
@@ -80,7 +87,7 @@ export async function getPromotionList(
     academic_subjects: Array.isArray(m.academic_subjects) ? m.academic_subjects[0] : m.academic_subjects
   })) || [];
 
-  return calculatePromotionLogic(students, marks, passMarksPerSubject);
+  return calculatePromotionLogic(students, marks, passMarksPerSubject, subjects.map(subject => subject.name));
 }
 
 export async function promoteStudents(
@@ -92,50 +99,19 @@ export async function promoteStudents(
 ) {
   const supabase = await createClient();
   
-  // Get target class name
-  const { data: targetClass } = await supabase.from('academic_classes').select('name').eq('id', toClassId).single();
-  if (!targetClass) throw new Error("Target class not found");
-
-  // Include manually passed students
-  const passedStudents = students.filter(s => 
-    (s.status === 'passed' || s.status === 'manual_passed') && s.new_roll
-  );
-  
-  if (passedStudents.length === 0) return { success: false, message: "No students to promote" };
-
-  // Log entry creation first
-  const { data: logEntry, error: logError } = await supabase.from('promotion_logs').insert({
-    academic_year: academicYear,
-    from_class_id: fromClassId,
-    to_class_id: toClassId,
-    exam_id: examId,
-    total_students: students.length,
-    promoted_count: passedStudents.length,
-    failed_count: students.length - passedStudents.length,
-    data: JSON.stringify(passedStudents.map(s => ({ 
-      id: s.student_id, 
-      name_bn: s.name_bn || s.name_en, // Store name
-      old_roll: s.roll_no, 
-      new_roll: s.new_roll, 
-      marks: s.total_marks,
-      is_manual: s.is_manual,
-      manual_reason: s.manual_reason
-    })))
-  }).select().single();
-
-  if (logError) throw logError;
-
-  // Batch Update
-  const updates = passedStudents.map(s => ({
-    id: s.id, // match by uuid
-    class_name: targetClass.name,
-    roll_no: String(s.new_roll),
-    academic_year: academicYear,
-  }));
-
-  const { error: updateError } = await supabase.from('students').upsert(updates, { onConflict: 'id' });
-
-  if (updateError) throw updateError;
+  const fresh = await getPromotionList(fromClassId, examId);
+  const passedStudents = students.filter(student => student.status === 'passed' || student.status === 'manual_passed');
+  if (!passedStudents.length) return { success: false, message: 'No students to promote' };
+  for (const student of passedStudents) {
+    const actual = fresh.find(item => item.id === student.id);
+    if (!actual || (student.status === 'passed' && actual.status !== 'passed')) throw new Error('Results changed; reload the list');
+    if (student.status === 'manual_passed' && !student.manual_reason?.trim()) throw new Error('Manual promotion requires a reason');
+  }
+  const { error } = await supabase.rpc('promote_students_atomic', { payload: {
+    from_class_id: fromClassId, to_class_id: toClassId, exam_id: examId, academic_year: academicYear,
+    total_students: fresh.length, students: passedStudents,
+  }});
+  if (error) throw error;
 
   revalidatePath('/dashboard/students');
   return { success: true, message: `Successfully promoted ${passedStudents.length} students` };

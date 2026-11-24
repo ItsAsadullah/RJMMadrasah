@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearStoredSupabaseSession, supabase } from "@/lib/supabase/client";
+import { isAdminUser } from "@/lib/adminAccess";
 import { Button } from "@/components/ui/button";
 import { School, Lock, User, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -35,73 +36,24 @@ export default function UniversalLoginPage() {
             });
 
             if (error) throw error;
+            const { data: { user }, error: verificationError } = await supabase.auth.getUser();
+            if (verificationError || !isAdminUser(user)) {
+                await supabase.auth.signOut({ scope: "local" });
+                throw new Error("এই অ্যাকাউন্টের অ্যাডমিন প্যানেলে প্রবেশের অনুমতি নেই।");
+            }
             router.push("/dashboard");
             router.refresh();
 
-        } else if (userType === 'teacher') {
-            // --- TEACHER LOGIN LOGIC ---
-            const { data, error } = await supabase
-                .from("teachers")
-                .select("*")
-                .eq("user_id", identifier)
-                .single();
-
-            if (error || !data) {
-                throw new Error("ইউজার আইডি সঠিক নয়।");
-            }
-
-            if (data.password !== password) {
-                throw new Error("পাসওয়ার্ড সঠিক নয়।");
-            }
-
-            // Set Session
-            localStorage.setItem("teacher_portal_session", JSON.stringify({
-                id: data.id,
-                name: data.name,
-                user_id: data.user_id,
-                designation: data.designation,
-                login_time: new Date().toISOString()
-            }));
-
-            // Redirect
-            router.push("/teacher/dashboard");
-
         } else {
-            // --- STUDENT LOGIN LOGIC ---
-            // 1. Verify Student ID
-            const { data, error } = await supabase
-                .from("students")
-                .select("id, student_id, name_bn, guardian_mobile, status")
-                .eq("student_id", identifier.trim())
-                .single();
-
-            if (error || !data) {
-                throw new Error("শিক্ষার্থী আইডি সঠিক নয়।");
-            }
-
-            // 2. Verify Mobile Number (Password)
-            const normalize = (num: string | null) => (num || "").replace(/\D/g, "").slice(-11);
-            const targetInput = normalize(password.trim());
-            const isMatch = (data.guardian_mobile && normalize(data.guardian_mobile) === targetInput);
-
-            if (!isMatch) {
-                throw new Error("জরুরী যোগাযোগের মোবাইল নম্বরটি সঠিক নয়।");
-            }
-
-            if (data.status !== "active") {
-                throw new Error("আপনার অ্যাকাউন্টটি বর্তমানে নিষ্ক্রিয় অবস্থায় আছে।");
-            }
-
-            // 3. Set Session
-            localStorage.setItem("student_portal_session", JSON.stringify({
-                id: data.id,
-                student_id: data.student_id,
-                name: data.name_bn,
-                login_time: new Date().toISOString()
-            }));
-
-            // 4. Redirect
-            router.push("/student/dashboard");
+            const response = await fetch("/api/portal/login", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ role: userType, identifier: identifier.trim(), password }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error);
+            localStorage.removeItem("teacher_portal_session");
+            localStorage.removeItem("student_portal_session");
+            window.location.assign(userType === "teacher" ? "/teacher/dashboard" : "/student/dashboard");
         }
     } catch (err: any) {
         setError(err.message || "লগইন ব্যর্থ হয়েছে। তথ্য যাচাই করে আবার চেষ্টা করুন।");

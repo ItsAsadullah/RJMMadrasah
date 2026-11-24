@@ -1,4 +1,5 @@
 "use client";
+import { dhakaDate } from "@/lib/dhakaDate";
 
 import { use, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -42,7 +43,7 @@ export default function AttendancePage({
   const subjectId = searchParams.get("subjectId");
   const isSubjectAttendanceDisabled = type === "subject";
 
-  const [date, setDate] = useState(queryDate || new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(queryDate || dhakaDate());
   const [students, setStudents] = useState<any[]>([]);
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
   const [remarks, setRemarks] = useState<Record<string, string>>({});
@@ -154,13 +155,10 @@ export default function AttendancePage({
       return;
     }
 
-    await supabase
-      .from("attendance")
-      .delete()
-      .eq("class_id", classId)
-      .eq("date", date);
-
-    const { error } = await supabase.from("attendance").insert(payload);
+    // One atomic statement: a failed save preserves all previous attendance.
+    const { error } = await supabase.from("attendance").upsert(payload, {
+      onConflict: "student_id,date",
+    });
 
     if (error) {
       alert("ত্রুটি: " + error.message);

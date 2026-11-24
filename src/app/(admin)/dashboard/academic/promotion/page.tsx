@@ -122,6 +122,10 @@ export default function PromotionPage() {
           }
           return s;
        });
+       let nextRoll = 1;
+       updated.forEach(student => {
+         student.new_roll = student.status === 'passed' || student.status === 'manual_passed' ? nextRoll++ : undefined;
+       });
        updatePromotedCount(updated);
        return updated;
     });

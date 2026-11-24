@@ -2,6 +2,27 @@
 import { calculatePromotionLogic } from './utils';
 
 describe('Promotion Logic', () => {
+  it('does not promote students without marks', () => {
+    const result = calculatePromotionLogic(students, []);
+    expect(result).toHaveLength(4);
+    for (const student of result) {
+      expect(student.status).toBe('failed');
+      expect(student.new_roll).toBeUndefined();
+      expect(student.failed_subjects).toContain('পরীক্ষার নম্বর পাওয়া যায়নি');
+    }
+  });
+
+  it('does not promote students with invalid marks even when another subject passed', () => {
+    for (const invalid of [NaN, Infinity, -1, null]) {
+      const result = calculatePromotionLogic(students, [
+        { student_id: 'S001', marks_obtained: 80, academic_subjects: subjects.english },
+        { student_id: 'S001', marks_obtained: invalid as number, academic_subjects: subjects.math },
+      ]);
+      expect(result.find(s => s.student_id === 'S001')?.status).toBe('failed');
+      expect(result.find(s => s.student_id === 'S001')?.new_roll).toBeUndefined();
+    }
+  });
+
   const students = [
     { id: '1', student_id: 'S001', name_en: 'Alice', roll_no: '1', class_name: 'Five' },
     { id: '2', student_id: 'S002', name_en: 'Bob', roll_no: '2', class_name: 'Five' },

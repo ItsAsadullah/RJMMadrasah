@@ -24,6 +24,14 @@ import { divisions, districts, upazilas } from "@/data/bangladesh-data";
 import { differenceInYears, differenceInMonths, differenceInDays } from "date-fns";
 import StudentStatusDialog from "@/components/dashboard/students/StudentStatusDialog";
 import { getStudentStatus } from "@/lib/studentStatus";
+import {
+  isHifzDepartment,
+  hasSecondaryEnrollment,
+  formatSecondaryEnrollmentBadge,
+  normalizeAcademicText,
+  buildSecondaryEnrollmentFields,
+  formatSecondaryEnrollmentDbError,
+} from "@/lib/secondaryEnrollment";
 
 // --- কনফিগারেশন ---
 const CLOUD_NAME = "dfo1slmdy"; 
@@ -148,6 +156,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
 
     const [previewModalOpen, setPreviewModalOpen] = useState(false);
     const [previewExamId, setPreviewExamId] = useState<string>("");
+    const [previewClassName, setPreviewClassName] = useState<string>("");
 
     // Edit State
     const [isEditOpen, setIsEditOpen] = useState(false);
@@ -190,6 +199,9 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
               ...stu,
               branch_id: stu.branch_id?.toString(),
               academic_year: stu.academic_year?.toString(),
+              secondary_department: stu.secondary_department || "",
+              secondary_class_name: stu.secondary_class_name || "",
+              secondary_roll_number: stu.secondary_roll_number || "",
               father_mobile: formatMobile(stu.father_mobile),
               mother_mobile: formatMobile(stu.mother_mobile),
               guardian_mobile: formatMobile(stu.guardian_mobile),
@@ -205,10 +217,10 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
               });
           }
 
-          // Fetch historical results from exam_marks
+          // Fetch historical results from exam_marks (grouped by exam + class so dual-enrolled students see both results)
           const { data: marksData } = await supabase
               .from("exam_marks")
-              .select("exam_id, marks_obtained, academic_subjects(full_marks), exams(title, academic_year, created_at)")
+              .select("exam_id, marks_obtained, academic_subjects(full_marks, class_id, academic_classes(name)), exams(title, academic_year, created_at)")
               .eq("student_id", stu.student_id);
 
           if (marksData && marksData.length > 0) {
@@ -216,10 +228,13 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
               marksData.forEach((m: any) => {
                   if (!m.exams) return;
                   const eId = m.exam_id;
-                  if (!examMap.has(eId)) {
-                      examMap.set(eId, {
+                  const clsName = m.academic_subjects?.academic_classes?.name || "";
+                  const groupKey = `${eId}::${normalizeAcademicText(clsName)}`;
+                  if (!examMap.has(groupKey)) {
+                      examMap.set(groupKey, {
                           exam_id: eId,
                           exam_name: m.exams.title,
+                          class_name: clsName,
                           academic_year: m.exams.academic_year,
                           created_at: m.exams.created_at,
                           total_marks_obtained: 0,
@@ -227,7 +242,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                           marks_array: []
                       });
                   }
-                  const e = examMap.get(eId);
+                  const e = examMap.get(groupKey);
                   e.total_marks_obtained += (m.marks_obtained || 0);
                   e.total_full_marks += (m.academic_subjects?.full_marks || 100);
                   e.marks_array.push({ obtained: m.marks_obtained });
@@ -421,9 +436,19 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
     const confirmUpdate = async () => {
         setIsUpdating(true);
         const formatMobile = (num: string) => num ? (num.length === 9 ? "01" + num : num) : "";
+        const {
+            secondary_department,
+            secondary_class_name,
+            secondary_roll_number,
+            ...restEditData
+        } = editFormData;
 
         const { error } = await supabase.from("students").update({
-            ...editFormData,
+            ...restEditData,
+            ...buildSecondaryEnrollmentFields(
+                { secondary_department, secondary_class_name, secondary_roll_number },
+                student
+            ),
             branch_id: parseInt(editFormData.branch_id),
             academic_year: parseInt(editFormData.academic_year),
             father_mobile: formatMobile(editFormData.father_mobile),
@@ -435,7 +460,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
         setShowEditConfirmModal(false);
 
         if (error) {
-            alert("আপডেট ব্যর্থ হয়েছে: " + error.message);
+            alert("আপডেট ব্যর্থ হয়েছে: " + formatSecondaryEnrollmentDbError(error));
         } else {
             setSuccessMessage("শিক্ষার্থীর তথ্য সফলভাবে আপডেট হয়েছে!");
             setRedirectAfterSuccess(false);
@@ -520,6 +545,9 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                       <Badge label={`শাখা: ${student.branch_id === 1 ? 'হলিধানী' : 'চাঁন্দুয়ালী'}`} color="green" />
                       <Badge label={`ক্লাস: ${student.class_name}`} color="blue" />
                       <Badge label={`বিভাগ: ${student.department}`} color="purple" />
+                      {hasSecondaryEnrollment(student) && (
+                        <Badge label={`অতিরিক্ত: ${formatSecondaryEnrollmentBadge(student)}`} color="indigo" />
+                      )}
                       <Badge label={`সেশন: ${student.academic_year}`} color="orange" />
                       {student.roll_number && <Badge label={`রোল: ${student.roll_number}`} color="cyan" />}
                       <Badge label={getStudentStatus(student.status).label} color={student.status === 'active' ? 'green' : 'red'} />
@@ -605,6 +633,13 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                       <InfoRow label="শ্রেণি" value={student.class_name} />
                       <InfoRow label="শিক্ষাবর্ষ" value={student.academic_year} />
                       <InfoRow label="রোল নম্বর" value={student.roll_number || '-'} />
+                      {hasSecondaryEnrollment(student) && (
+                        <>
+                          <InfoRow label="অতিরিক্ত বিভাগ" value={student.secondary_department?.trim() || '-'} />
+                          <InfoRow label="অতিরিক্ত শ্রেণি (পরীক্ষা)" value={student.secondary_class_name?.trim() || '-'} />
+                          <InfoRow label="অতিরিক্ত রোল" value={student.secondary_roll_number || '-'} />
+                        </>
+                      )}
                       <InfoRow label="আবাসন অবস্থা" value={student.residential_status === 'residential' ? 'আবাসিক' : 'অনাবাসিক'} />
                       {student.residential_status === 'non_residential' && (
                         <InfoRow label="এক্সট্রা কেয়ার" value={student.extra_care_enabled ? 'সক্রিয়' : 'নিষ্ক্রিয়'} />
@@ -662,6 +697,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                           <thead className="bg-gray-50 text-gray-600 font-medium border-b">
                               <tr>
                                   <th className="p-4">পরীক্ষার নাম</th>
+                                  <th className="p-4">শ্রেণি</th>
                                   <th className="p-4">শিক্ষাবর্ষ</th>
                                   <th className="p-4 text-center">প্রাপ্ত নম্বর</th>
                                   <th className="p-4 text-center">গ্রেড</th>
@@ -672,6 +708,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                               {results.map((res, idx) => (
                                   <tr key={idx} className="border-b last:border-0 hover:bg-gray-50">
                                       <td className="p-4 font-bold text-gray-800">{res.exam_name}</td>
+                                      <td className="p-4 text-gray-700 font-medium">{res.class_name?.trim() || student.class_name}</td>
                                       <td className="p-4 text-gray-600">{toBengaliNumber(res.academic_year)}</td>
                                       <td className="p-4 text-center font-mono">{toBengaliNumber(res.total_marks_obtained)} / {toBengaliNumber(res.total_full_marks)}</td>
                                       <td className="p-4 text-center">
@@ -686,6 +723,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                                             className="h-8 text-blue-600 border-blue-200 hover:bg-blue-50"
                                             onClick={() => {
                                                 setPreviewExamId(res.exam_id);
+                                                setPreviewClassName(res.class_name || "");
                                                 setPreviewModalOpen(true);
                                             }}
                                           >
@@ -717,7 +755,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                      <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
                         <div className="space-y-1.5">
                           <label className="text-sm font-semibold text-slate-700">শাখা</label>
-                          <select name="branch_id" value={editFormData.branch_id || ""} onChange={(e) => setEditFormData({...editFormData, branch_id: e.target.value, department: "", class_name: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
+                          <select name="branch_id" value={editFormData.branch_id || ""} onChange={(e) => setEditFormData({...editFormData, branch_id: e.target.value, department: "", class_name: "", secondary_department: "", secondary_class_name: "", secondary_roll_number: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
                             <option value="">সিলেক্ট করুন</option>
                             {dbBranches.length > 0
                               ? dbBranches.map(b => <option key={b.id} value={String(b.id)}>{b.name}</option>)
@@ -726,19 +764,35 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-sm font-semibold text-slate-700">বিভাগ</label>
-                          <select name="department" value={editFormData.department || ""} onChange={(e) => setEditFormData({...editFormData, department: e.target.value, class_name: ""})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
+                          <select name="department" value={editFormData.department || ""} onChange={(e) => {
+                            const val = e.target.value;
+                            setEditFormData({
+                              ...editFormData,
+                              department: val,
+                              class_name: "",
+                              ...(isHifzDepartment(val) ? {} : { secondary_department: "", secondary_class_name: "", secondary_roll_number: "" }),
+                            });
+                          }} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
                             <option value="">সিলেক্ট করুন</option>
-                            {dbDepartments.filter(d => String(d.branch_id) === String(editFormData.branch_id)).map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                            {dbDepartments.filter(d => String(d.branch_id) === String(editFormData.branch_id)).map(d => <option key={d.id} value={d.name}>{d.name.trim()}</option>)}
                           </select>
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-sm font-semibold text-slate-700">শ্রেণি</label>
                           <select name="class_name" value={editFormData.class_name || ""} onChange={(e) => setEditFormData({...editFormData, class_name: e.target.value})} className="w-full h-11 px-3 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
                             <option value="">সিলেক্ট করুন</option>
-                            {dbClasses.filter(c => {
-                              const dept = dbDepartments.find(d => d.name === editFormData.department && String(d.branch_id) === String(editFormData.branch_id));
-                              return String(c.branch_id) === String(editFormData.branch_id) && c.department_id === dept?.id;
-                            }).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                            {(() => {
+                              const dept = dbDepartments.find(d => normalizeAcademicText(d.name) === normalizeAcademicText(editFormData.department) && String(d.branch_id) === String(editFormData.branch_id));
+                              const seen = new Set<string>();
+                              return dbClasses.filter(c => {
+                                if (String(c.branch_id) !== String(editFormData.branch_id) || c.department_id !== dept?.id) return false;
+                                if (editFormData.academic_year && c.academic_year && String(c.academic_year) !== String(editFormData.academic_year)) return false;
+                                const key = normalizeAcademicText(c.name);
+                                if (!key || seen.has(key)) return false;
+                                seen.add(key);
+                                return true;
+                              }).map(c => <option key={c.id} value={c.name}>{c.name.trim()}</option>);
+                            })()}
                           </select>
                         </div>
                         <div className="space-y-1.5">
@@ -757,6 +811,72 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                         </div>
                         <InputGroup label="রোল নম্বর" name="roll_number" value={editFormData.roll_number} onChange={handleEditChange} placeholder="যেমন: ১২" />
                      </div>
+
+                     {(isHifzDepartment(editFormData.department) || Boolean(editFormData.secondary_class_name || editFormData.secondary_department)) && (
+                       <div className="mt-5 rounded-xl border border-purple-200 bg-purple-50/50 p-4 space-y-3">
+                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                           <div>
+                             <h4 className="text-xs font-bold text-purple-900">অতিরিক্ত বিভাগ ও শ্রেণি (শুধু ক্লাস তালিকা ও পরীক্ষা)</h4>
+                             <p className="text-[11px] text-purple-700/80">হাজিরা ও ফি হেফজখানার সাথেই থাকবে; এখানে কিতাব/অন্যান্য শ্রেণির তালিকা ও পরীক্ষায় যুক্ত হবে।</p>
+                           </div>
+                           {(editFormData.secondary_department || editFormData.secondary_class_name || editFormData.secondary_roll_number) && (
+                             <Button
+                               type="button"
+                               variant="outline"
+                               size="sm"
+                               onClick={() => setEditFormData((prev: any) => ({ ...prev, secondary_department: "", secondary_class_name: "", secondary_roll_number: "" }))}
+                               className="h-7 text-xs border-red-200 text-red-600 hover:bg-red-50"
+                             >
+                               মুছুন
+                             </Button>
+                           )}
+                         </div>
+                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                           <div className="space-y-1">
+                             <label className="text-xs font-semibold text-purple-900">অতিরিক্ত বিভাগ</label>
+                             <select
+                               name="secondary_department"
+                               value={editFormData.secondary_department || ""}
+                               onChange={(e) => setEditFormData({ ...editFormData, secondary_department: e.target.value, secondary_class_name: "" })}
+                               className="w-full h-10 px-3 border border-purple-200 rounded-lg bg-white text-sm"
+                             >
+                               <option value="">নির্বাচন করুন</option>
+                               {dbDepartments
+                                 .filter(d => String(d.branch_id) === String(editFormData.branch_id) && !isHifzDepartment(d.name))
+                                 .map(d => <option key={d.id} value={d.name}>{d.name.trim()}</option>)}
+                             </select>
+                           </div>
+                           <div className="space-y-1">
+                             <label className="text-xs font-semibold text-purple-900">অতিরিক্ত শ্রেণি</label>
+                             <select
+                               name="secondary_class_name"
+                               value={editFormData.secondary_class_name || ""}
+                               onChange={handleEditChange}
+                               disabled={!editFormData.secondary_department}
+                               className="w-full h-10 px-3 border border-purple-200 rounded-lg bg-white text-sm disabled:bg-slate-100"
+                             >
+                               <option value="">{editFormData.secondary_department ? "শ্রেণি নির্বাচন করুন" : "আগে বিভাগ দিন"}</option>
+                               {(() => {
+                                 if (!editFormData.secondary_department) return null;
+                                 const dept = dbDepartments.find(d => normalizeAcademicText(d.name) === normalizeAcademicText(editFormData.secondary_department) && String(d.branch_id) === String(editFormData.branch_id));
+                                 const seen = new Set<string>();
+                                 return dbClasses
+                                   .filter(c => {
+                                     if (String(c.branch_id) !== String(editFormData.branch_id) || c.department_id !== dept?.id) return false;
+                                     if (editFormData.academic_year && c.academic_year && String(c.academic_year) !== String(editFormData.academic_year)) return false;
+                                     const key = normalizeAcademicText(c.name);
+                                     if (!key || seen.has(key)) return false;
+                                     seen.add(key);
+                                     return true;
+                                   })
+                                   .map(c => <option key={c.id} value={c.name}>{c.name.trim()}</option>);
+                               })()}
+                             </select>
+                           </div>
+                           <InputGroup label="অতিরিক্ত রোল" name="secondary_roll_number" value={editFormData.secondary_roll_number || ""} onChange={handleEditChange} placeholder="যেমন: ১৫" />
+                         </div>
+                       </div>
+                     )}
                   </div>
 
                   {/* ২. শিক্ষার্থী তথ্য */}
@@ -903,6 +1023,7 @@ export default function StudentDetails({ params }: { params: Promise<{ id: strin
                 onClose={() => setPreviewModalOpen(false)}
                 studentDbId={student.id}
                 examId={previewExamId}
+                className={previewClassName}
             />
         )}
       </div>

@@ -1,4 +1,5 @@
 "use client";
+import { dhakaDate } from "@/lib/dhakaDate";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
@@ -18,7 +19,7 @@ export default function AttendanceDashboard() {
   const [branches, setBranches] = useState<any[]>([]);
   const [selectedBranch, setSelectedBranch] = useState("");
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear().toString());
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState(dhakaDate());
   const [classes, setClasses] = useState<any[]>([]);
   const [attendanceStats, setAttendanceStats] = useState<Record<string, number>>({});
 

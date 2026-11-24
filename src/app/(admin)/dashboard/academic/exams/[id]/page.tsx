@@ -1,4 +1,5 @@
 "use client";
+import { triggerPrint } from "@/lib/printDocument";
 
 import { useState, useEffect, use, useMemo } from "react";
 import { supabase } from "@/lib/supabase/client";
@@ -15,6 +16,7 @@ import TranscriptSheet from "@/components/academic/TranscriptSheet";
 import { getBranchAddress } from "@/lib/branchUtils";
 import { sortClassNames } from "@/lib/classOrder";
 import { assignResultRanks, compareResults, type RankType } from "@/lib/resultRanking";
+import { filterAndResolveStudentsForClass } from "@/lib/secondaryEnrollment";
 
 // --- বাংলা কনভার্সন হেল্পার ---
 const toBengaliNumber = (num: string | number) => {
@@ -145,6 +147,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
     const [tabulationPrintSort, setTabulationPrintSort] = useState<'roll' | 'merit'>('merit');
     const [rankType, setRankType] = useState<RankType>('sequential');
     const [resultNumberLanguage, setResultNumberLanguage] = useState<'bn' | 'en'>('bn');
+    const [showHifzInfoInResult, setShowHifzInfoInResult] = useState<boolean>(true);
     const [studentForTranscript, setStudentForTranscript] = useState<any>(null);
 
     const formatResultNumber = (value: string | number) => {
@@ -159,7 +162,11 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
 
     async function fetchClasses(branchId: string) {
         if (!exam?.academic_year) return;
-        const { data: cls } = await supabase.from("academic_classes").select("id, name").eq("branch_id", branchId).eq("academic_year", exam.academic_year);
+        const { data: cls } = await supabase
+            .from("academic_classes")
+            .select("id, name, department, department_id, departments(name)")
+            .eq("branch_id", branchId)
+            .eq("academic_year", exam.academic_year);
         if (cls) {
             // Sort by class order (শিশু → প্রথম → দ্বিতীয় → ...)
             const sorted = [...cls].sort((a, b) => {
@@ -169,25 +176,6 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
             setClasses(sorted);
         }
     }
-
-    useEffect(() => {
-      fetchExamDetails();
-      fetchBranches();
-    }, [id]);
-
-    useEffect(() => {
-        if (selectedBranch && exam) {
-            fetchClasses(selectedBranch);
-        } else {
-            setClasses([]);
-        }
-    }, [selectedBranch, exam]);
-
-    useEffect(() => {
-      if (selectedClass) {
-          fetchClassData();
-      }
-    }, [selectedClass]);
 
     // --- মেধা তালিকা ক্যালকুলেশন (Memoized) ---
     const resultsWithRank = useMemo(() => {
@@ -203,7 +191,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
     }, [students, subjects, tabulationData, rankType]);
 
 
-    const fetchExamDetails = async () => {
+    async function fetchExamDetails() {
       const { data: ex } = await supabase.from("exams").select("*, branches(name)").eq("id", id).single();
       if (ex) {
           setExam(ex);
@@ -214,7 +202,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
       setLoading(false);
     };
 
-    const fetchClassData = async () => {
+    async function fetchClassData() {
       const { data: subs } = await supabase.from("academic_subjects").select("*").eq("class_id", selectedClass).eq("is_active", true).order('code');
       if (subs) {
           // Load custom subject order from localStorage if available
@@ -234,21 +222,23 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
           setSubjects(subs);
       }
 
-      const className = classes.find(c => c.id === selectedClass)?.name;
-      if (className) {
+      const selectedClassObj = classes.find(c => c.id === selectedClass);
+      if (selectedClassObj) {
           const { data: stds } = await supabase
               .from("students")
-              .select("id, student_id, name_bn, roll_no, roll_number, father_name_bn, mother_name_bn, photo_url, branch_id")
-              .eq("class_name", className)
+              .select("*")
               .eq("academic_year", exam.academic_year)
               .eq("branch_id", selectedBranch);
           
           if (stds) {
-              // Client-side numeric sort for roll numbers (handling both string/number types gracefully)
-              const sortedStds = [...stds].sort((a, b) => {
-                  const rA = parseInt((a.roll_number ?? a.roll_no) || "0", 10);
-                  const rB = parseInt((b.roll_number ?? b.roll_no) || "0", 10);
-                  return rA - rB;
+              const resolvedStds = filterAndResolveStudentsForClass(stds, selectedClassObj);
+              // Client-side numeric sort for roll numbers (unassigned rolls go after assigned rolls)
+              const sortedStds = [...resolvedStds].sort((a, b) => {
+                  const rawA = (a.roll_number ?? a.roll_no) || "";
+                  const rawB = (b.roll_number ?? b.roll_no) || "";
+                  const rA = rawA !== "" ? parseInt(rawA, 10) : 999999;
+                  const rB = rawB !== "" ? parseInt(rawB, 10) : 999999;
+                  return (isNaN(rA) ? 999999 : rA) - (isNaN(rB) ? 999999 : rB);
               });
               setStudents(sortedStds);
           }
@@ -462,46 +452,6 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
     };
 
     // --- Print Handlers ---
-    const triggerPrint = (newTitle: string) => {
-        const originalTitle = document.title;
-        
-        // 1. Change document property
-        document.title = newTitle;
-        
-        // 2. Change all <title> elements
-        const titleTags = document.getElementsByTagName('title');
-        const originalTitleTags: string[] = [];
-        for (let i = 0; i < titleTags.length; i++) {
-            originalTitleTags.push(titleTags[i].innerText);
-            titleTags[i].innerText = newTitle;
-        }
-
-        // 3. Change all meta title elements (og:title, etc)
-        const metaTags = document.querySelectorAll('meta[property="og:title"], meta[name="title"], meta[name="twitter:title"]');
-        const originalMetaTags: {el: Element, val: string|null}[] = [];
-        metaTags.forEach(meta => {
-            originalMetaTags.push({ el: meta, val: meta.getAttribute('content') });
-            meta.setAttribute('content', newTitle);
-        });
-
-        // Wait longer (800ms) for mobile OS webview to sync metadata
-        setTimeout(() => window.print(), 800);
-        
-        const cleanup = () => {
-            document.title = originalTitle;
-            for (let i = 0; i < titleTags.length; i++) {
-                if (originalTitleTags[i]) titleTags[i].innerText = originalTitleTags[i];
-            }
-            originalMetaTags.forEach(m => {
-                if (m.val !== null) m.el.setAttribute('content', m.val);
-            });
-            window.removeEventListener('afterprint', cleanup);
-            window.removeEventListener('focus', cleanup);
-        };
-        window.addEventListener('afterprint', cleanup);
-        window.addEventListener('focus', cleanup);
-        setTimeout(cleanup, 20000); // 20s absolute fallback
-    };
 
     const handlePrintAdmitCards = () => {
       if (students.length === 0) return alert("প্রিন্ট করার মতো কোনো শিক্ষার্থী নেই!");
@@ -542,7 +492,8 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                         fatherNameBn: student.father_name_bn,
                         motherNameBn: student.mother_name_bn,
                         className: classes.find(c => c.id === selectedClass)?.name || "",
-                        rollNo: (student.roll_number ?? student.roll_no) || "-"
+                        rollNo: (student.roll_number ?? student.roll_no) || "-",
+                        originBadge: showHifzInfoInResult && student.is_secondary_enrollment ? student.origin_badge : null
                     }}
                     exam={{
                         title: exam?.title || "",
@@ -576,6 +527,25 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
         );
     };
 
+    useEffect(() => {
+      fetchExamDetails();
+      fetchBranches();
+    }, [id]);
+
+    useEffect(() => {
+        if (selectedBranch && exam) {
+            fetchClasses(selectedBranch);
+        } else {
+            setClasses([]);
+        }
+    }, [selectedBranch, exam]);
+
+    useEffect(() => {
+      if (selectedClass) {
+          fetchClassData();
+      }
+    }, [selectedClass]);
+
     if (loading) return <div className="p-10 text-center"><Loader2 className="animate-spin mx-auto text-purple-600"/></div>;
 
     return (
@@ -594,7 +564,14 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                   onChange={(e) => setSelectedClass(e.target.value)}
                >
                    <option value="">-- ক্লাস নির্বাচন করুন --</option>
-                   {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                   {classes.map(c => {
+                       const deptLabel = (c.departments?.name || c.department || "").trim();
+                       return (
+                           <option key={c.id} value={c.id}>
+                               {c.name?.trim()}{deptLabel ? ` (${deptLabel})` : ""}
+                           </option>
+                       );
+                   })}
                </select>
            </div>
           </div>
@@ -737,7 +714,14 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                                   <tr key={student.id} className="hover:bg-gray-50 group">
                                                       <td className="p-2 border border-gray-300 text-center font-bold bg-white group-hover:bg-gray-50 md:sticky md:left-0 z-10">{toBengaliNumber(student.roll_number ?? student.roll_no)}</td>
                                                       <td className="p-2 border border-gray-300 text-center font-mono text-gray-600 bg-white group-hover:bg-gray-50 md:sticky md:left-16 z-10">{toBengaliNumber(student.student_id)}</td>
-                                                      <td className="p-2 border border-gray-300 font-medium truncate bg-white group-hover:bg-gray-50 md:sticky md:left-40 z-10 shadow-r" title={student.name_bn}>{student.name_bn}</td>
+                                                      <td className="p-2 border border-gray-300 font-medium truncate bg-white group-hover:bg-gray-50 md:sticky md:left-40 z-10 shadow-r" title={student.name_bn}>
+                                                          <span>{student.name_bn}</span>
+                                                          {student.is_secondary_enrollment && student.origin_badge && (
+                                                              <span className="ml-1.5 inline-block bg-purple-100 text-purple-800 border border-purple-200 px-1.5 py-0.5 rounded text-[10px] font-semibold">
+                                                                  {student.origin_badge}
+                                                              </span>
+                                                          )}
+                                                      </td>
                                                       {subjects.map(sub => {
                                                           const currentMark = tabulationData[student.student_id]?.[sub.id] || "";
                                                           return (
@@ -771,6 +755,15 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                        <Button size="sm" variant="ghost" onClick={fetchTabulationData} title="রিফ্রেশ"><RefreshCcw className="w-4 h-4 text-gray-500"/></Button>
                                    </div>
                                    <div className="flex flex-wrap items-center gap-2">
+                                       <label className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-md px-2.5 py-1 shadow-sm cursor-pointer text-xs font-semibold text-emerald-800 h-9">
+                                           <input
+                                               type="checkbox"
+                                               checked={showHifzInfoInResult}
+                                               onChange={(e) => setShowHifzInfoInResult(e.target.checked)}
+                                               className="rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                           />
+                                           হিফজখানার তথ্যসহ
+                                       </label>
                                        <div className="flex items-center bg-blue-50 border border-blue-200 rounded-md px-2 py-1 shadow-sm">
                                            <label htmlFor="result-number-language" className="text-xs text-blue-800 mr-2 font-semibold">সংখ্যার ভাষা:</label>
                                            <select
@@ -837,7 +830,16 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                       {resultsWithRank.map((std: any) => (
                                           <TableRow key={std.id} className="hover:bg-gray-50">
                                               <TableCell className="text-center font-bold border">{formatResultNumber((std.roll_number ?? std.roll_no) || '-')}</TableCell>
-                                              <TableCell className="font-medium border">{std.name_bn}</TableCell>
+                                              <TableCell className="font-medium border">
+                                                  <div className="flex flex-wrap items-center gap-1.5">
+                                                      <span>{std.name_bn}</span>
+                                                      {showHifzInfoInResult && std.is_secondary_enrollment && std.origin_badge && (
+                                                          <span className="inline-block bg-purple-100 text-purple-800 border border-purple-200 px-1.5 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap">
+                                                              {std.origin_badge}
+                                                          </span>
+                                                      )}
+                                                  </div>
+                                              </TableCell>
                                               
                                               {/* Subject Marks Columns */}
                                               {subjects.map(sub => {
@@ -972,7 +974,7 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                   <div className="bg-green-50/50 p-2 rounded-lg border border-green-100 mb-1 text-sm print:bg-green-50">
                                       <div className="flex justify-between items-center mb-1 font-bold text-xs">
                                           <div className="border border-green-700 rounded px-2 py-0.5 bg-white text-green-900 shadow-sm">আইডি: <span className="font-mono">{toBengaliNumber(student.student_id)}</span></div>
-                                          <div className="border border-green-700 rounded px-2 py-0.5 bg-white text-green-900 shadow-sm">শ্রেণি: {classes.find(c => c.id === selectedClass)?.name}</div>
+                                          <div className="border border-green-700 rounded px-2 py-0.5 bg-white text-green-900 shadow-sm">শ্রেণি: {classes.find(c => c.id === selectedClass)?.name?.trim()}{showHifzInfoInResult && student.is_secondary_enrollment && student.origin_badge ? ` (${student.origin_badge})` : ''}</div>
                                           <div className="border border-green-700 rounded px-2 py-0.5 bg-white text-green-900 shadow-sm">রোল: <span className="font-mono">{toBengaliNumber((student.roll_number ?? student.roll_no) || '---')}</span></div>
                                       </div>
                                       <div className="grid grid-cols-3 gap-1 pt-1 border-t border-green-200 text-xs font-semibold text-center">
@@ -1094,7 +1096,12 @@ export default function ExamDetailsPage({ params }: { params: Promise<{ id: stri
                                     {chunk.map((std: any) => (
                                         <tr key={std.id}>
                                             <td className="border border-black p-1 font-bold">{formatResultNumber((std.roll_number ?? std.roll_no) || '-')}</td>
-                                            <td className="border border-black p-1 text-left font-medium">{std.name_bn}</td>
+                                            <td className="border border-black p-1 text-left font-medium">
+                                                {std.name_bn}
+                                                {showHifzInfoInResult && std.is_secondary_enrollment && std.origin_badge ? (
+                                                    <span className="ml-1 text-[9px] font-semibold text-gray-700">({std.origin_badge})</span>
+                                                ) : null}
+                                            </td>
                                             {subjects.map(sub => {
                                                 const markStr = tabulationData[std.student_id]?.[sub.id];
                                                 return (

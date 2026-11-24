@@ -1,4 +1,5 @@
 "use client";
+import { calculateGPA, subjectGrade } from "@/lib/grading";
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
@@ -20,53 +21,6 @@ const toBengaliNumber = (num: string | number) => {
     str = str.replace(new RegExp(char === '.' ? '\\.' : char, 'g'), bengali[index]);
   });
   return str;
-};
-
-// --- গ্রেডিং সিস্টেম হেল্পার ---
-const getGradePoint = (marks: number) => {
-    if (marks >= 80) return { gp: 5.00, grade: 'A+' };
-    if (marks >= 70) return { gp: 4.00, grade: 'A' };
-    if (marks >= 60) return { gp: 3.50, grade: 'A-' };
-    if (marks >= 50) return { gp: 3.00, grade: 'B' };
-    if (marks >= 40) return { gp: 2.00, grade: 'C' };
-    if (marks >= 33) return { gp: 1.00, grade: 'D' };
-    return { gp: 0.00, grade: 'F' };
-};
-
-const calculateGPA = (marksList: any[]) => {
-    let totalGP = 0;
-    let failCount = 0;
-    let totalMarks = 0;
-    let subjectCount = 0;
-
-    marksList.forEach(m => {
-        const { gp } = getGradePoint(m.marks_obtained || 0);
-        if (gp === 0) failCount++;
-        totalGP += gp;
-        totalMarks += (m.marks_obtained || 0);
-        subjectCount++;
-    });
-
-    if (subjectCount === 0) return { gpa: "0.00", grade: "N/A", total: 0, status: "Pending" };
-
-    const gpa = failCount > 0 ? 0 : (totalGP / subjectCount);
-    let grade = 'F';
-    
-    if (failCount === 0) {
-        if (gpa >= 5) grade = 'A+';
-        else if (gpa >= 4) grade = 'A';
-        else if (gpa >= 3.5) grade = 'A-';
-        else if (gpa >= 3) grade = 'B';
-        else if (gpa >= 2) grade = 'C';
-        else if (gpa >= 1) grade = 'D';
-    }
-
-    return {
-        gpa: gpa.toFixed(2),
-        grade,
-        total: totalMarks,
-        status: failCount > 0 ? 'Fail' : 'Pass'
-    };
 };
 
 export default function ResultPage() {
@@ -107,6 +61,7 @@ export default function ResultPage() {
       const { data: exData } = await supabase
         .from("exams")
         .select("id, title")
+        .eq("status", "published")
         .eq("is_active", true)
         .eq("branch_id", selectedBranch)
         .eq("academic_year", parseInt(selectedYear))
@@ -117,14 +72,21 @@ export default function ResultPage() {
       // Fetch Classes for branch and year
       const { data: clsData } = await supabase
         .from("academic_classes")
-        .select("name")
+        .select("id, name, department, departments(name)")
         .eq("is_active", true)
         .eq("branch_id", selectedBranch)
         .eq("academic_year", parseInt(selectedYear));
         
       if (clsData) {
-        const uniqueClasses = Array.from(new Set(clsData.map(c => c.name))).map(name => ({ name }));
-        setClassList(uniqueClasses);
+        const formatted = clsData.map((c: any) => {
+          const dept = (c.departments?.name || c.department || "").trim();
+          return {
+            id: c.id,
+            name: c.name,
+            label: `${c.name?.trim()}${dept ? ` (${dept})` : ""}`,
+          };
+        });
+        setClassList(formatted);
       }
       
       // Reset exam and class when changing branch/year
@@ -145,82 +107,22 @@ export default function ResultPage() {
     setResult(null);
 
     try {
-      // ১. স্টুডেন্ট চেক করা
-      const { data: student, error: stdError } = await supabase
-        .from("students")
-        .select("*")
-        .eq("student_id", studentId.trim())
-        .maybeSingle();
-
-      if (stdError || !student) {
-        throw new Error("শিক্ষার্থী খুঁজে পাওয়া যায়নি। আইডি সঠিক কিনা যাচাই করুন।");
-      }
-
-      // ২. ক্লাস ও বছর ভ্যালিডেশন
-      if (student.class_name !== selectedClass) {
-        throw new Error(`এই শিক্ষার্থী '${selectedClass}' শ্রেণির নয়। (নিবন্ধিত শ্রেণি: ${student.class_name})`);
-      }
-      
-      // Branch fetch
-      let branch = null;
-      if (student.branch_id) {
-        const { data: branchData } = await supabase
-          .from("branches")
-          .select("id, name, address")
-          .eq("id", student.branch_id)
-          .maybeSingle();
-        branch = branchData;
-      }
-
-      // Marks fetch
-      const { data: marks, error: marksError } = await supabase
-        .from("exam_marks")
-        .select(`
-            marks_obtained,
-            subject_id,
-            academic_subjects (
-                id,
-                name,
-                full_marks,
-                code,
-                is_active
-            )
-        `)
-        .eq("exam_id", selectedExam)
-        .eq("student_id", student.student_id);
-
-      if (marksError) throw marksError;
-
-      if (!marks || marks.length === 0) {
-        throw new Error("এই পরীক্ষার ফলাফল এখনো প্রকাশিত হয়নি বা শিক্ষার্থী অনুপস্থিত ছিল।");
-      }
-
-      // Filter out removed/inactive subjects
-      const processedMarks = marks
-        .filter((m: any) => m.academic_subjects && m.academic_subjects.name && m.academic_subjects.is_active !== false)
-        .map((m: any) => ({
-          subject_name: m.academic_subjects?.name,
-          full_marks: m.academic_subjects?.full_marks || 100,
-          marks_obtained: m.marks_obtained,
-          code: m.academic_subjects?.code
-        }));
-
-      processedMarks.sort((a, b) => (a.code > b.code ? 1 : -1));
-
-      if (processedMarks.length === 0) {
-        throw new Error("এই পরীক্ষার ফলাফল এখনো প্রকাশিত হয়নি বা শিক্ষার্থী অনুপস্থিত ছিল।");
-      }
-
-      const summary = calculateGPA(processedMarks);
-      const examInfo = exams.find(e => e.id === selectedExam);
-
-      setResult({
-        student,
-        branch,
-        exam: examInfo,
-        marks: processedMarks,
-        summary
+      const chosenCls = classList.find((c: any) => c.id === selectedClass || c.name === selectedClass);
+      const response = await fetch("/api/public/result", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          examId: selectedExam,
+          studentId,
+          classId: chosenCls?.id,
+          className: chosenCls?.name || selectedClass,
+          branchId: selectedBranch,
+          year: selectedYear,
+        }),
       });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      const processedMarks = data.marks.sort((a: any, b: any) => String(a.code).localeCompare(String(b.code), undefined, { numeric: true }));
+      setResult({ ...data, marks: processedMarks, summary: calculateGPA(processedMarks) });
 
     } catch (err: any) {
       setError(err.message || "ফলাফল খুঁজতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
@@ -382,9 +284,9 @@ export default function ResultPage() {
                                     {classList.length === 0 && selectedBranch && (
                                         <div className="p-2 text-sm text-gray-500 text-center">কোনো শ্রেণি পাওয়া যায়নি</div>
                                     )}
-                                    {classList.map((cls, idx) => (
-                                        <SelectItem key={idx} value={cls.name} className="cursor-pointer py-2">
-                                            {cls.name}
+                                    {classList.map((cls: any, idx: number) => (
+                                        <SelectItem key={cls.id || idx} value={cls.id || cls.name} className="cursor-pointer py-2">
+                                            {cls.label || cls.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -463,7 +365,8 @@ export default function ResultPage() {
                     fatherNameBn: result.student.father_name_bn,
                     motherNameBn: result.student.mother_name_bn,
                     className: result.student.class_name,
-                    rollNo: (result.student.roll_number ?? result.student.roll_no) || '-'
+                    rollNo: (result.student.roll_number ?? result.student.roll_no) || '-',
+                    originBadge: result.student.origin_badge || null,
                   }}
                   exam={{
                     title: result.exam.title,
@@ -474,7 +377,7 @@ export default function ResultPage() {
                   }}
                   marks={result.marks.map((m: any) => {
                     const mk = m.marks_obtained ? parseInt(m.marks_obtained) : 0;
-                    const gi = m.marks_obtained !== null && m.marks_obtained !== undefined ? getGradePoint(mk) : { gp: 0, grade: 'AB' };
+                    const gi = m.marks_obtained !== null && m.marks_obtained !== undefined ? subjectGrade({ marks_obtained: mk, full_marks: m.full_marks, pass_marks: m.pass_marks }) : { gp: 0, grade: 'AB' };
                     return {
                       subjectName: m.subject_name,
                       fullMarks: m.full_marks || 100,

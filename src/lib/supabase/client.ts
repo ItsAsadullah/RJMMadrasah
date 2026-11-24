@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
 // আমরা .env ফাইল থেকে URL এবং Key ডেকে আনছি
 // বিল্ড টাইমে এরর এড়ানোর জন্য ফলব্যাক ভ্যালু ব্যবহার করা হয়েছে
@@ -18,7 +18,7 @@ const browserAuthStorageKeys = [
 ]
 
 // Supabase কানেকশন তৈরি হচ্ছে
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export const supabase = createBrowserClient(supabaseUrl, supabaseKey)
 
 const invalidRefreshTokenPattern = /Invalid Refresh Token|Refresh Token Not Found/i
 

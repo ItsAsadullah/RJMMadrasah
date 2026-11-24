@@ -20,6 +20,7 @@ import { CopyableId } from "@/components/ui/copyable-id";
 import { getClassOrder } from "@/lib/classOrder";
 import { getStudentStatus } from "@/lib/studentStatus";
 import StudentStatusDialog from "./StudentStatusDialog";
+import { hasSecondaryEnrollment, formatSecondaryEnrollmentBadge } from "@/lib/secondaryEnrollment";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Student = {
@@ -30,6 +31,9 @@ type Student = {
   roll_no?: string;
   class_name: string;
   department: string;
+  secondary_department?: string | null;
+  secondary_class_name?: string | null;
+  secondary_roll_number?: string | null;
   father_mobile: string;
   guardian_name?: string;
   guardian_mobile?: string;
@@ -560,9 +564,21 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete, onS
                       <p className="text-[11px] text-gray-500 mt-0.5">
                         রোল: {student.roll_number ?? student.roll_no ?? "—"}
                       </p>
+                      {hasSecondaryEnrollment(student) && (
+                        <span className="mt-1 inline-block bg-purple-50 text-purple-800 border border-purple-200 px-2 py-0.5 rounded text-[10px] font-semibold">
+                          + {formatSecondaryEnrollmentBadge(student)}
+                        </span>
+                      )}
                     </TableCell>
 
-                    <TableCell className="text-sm text-gray-700 whitespace-nowrap">{student.department || "—"}</TableCell>
+                    <TableCell className="text-sm text-gray-700 whitespace-nowrap">
+                      <div>{student.department?.trim() || "—"}</div>
+                      {hasSecondaryEnrollment(student) && student.secondary_department?.trim() && (
+                        <div className="text-[11px] text-purple-700 font-medium">
+                          + {student.secondary_department.trim()} (পরীক্ষা)
+                        </div>
+                      )}
+                    </TableCell>
 
                     <TableCell>
                       {student.branches?.name ? (
@@ -671,7 +687,12 @@ export default function StudentTable({ data, onEdit, onDelete, onBulkDelete, onS
                 <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-gray-600">
                   <p><span className="font-medium text-gray-700">শ্রেণি:</span> {student.class_name || "—"}</p>
                   <p><span className="font-medium text-gray-700">রোল:</span> {student.roll_number ?? student.roll_no ?? "—"}</p>
-                  <p><span className="font-medium text-gray-700">বিভাগ:</span> {student.department || "—"}</p>
+                  <p><span className="font-medium text-gray-700">বিভাগ:</span> {student.department?.trim() || "—"}</p>
+                  {hasSecondaryEnrollment(student) && (
+                    <p className="col-span-2 text-purple-700 font-semibold">
+                      অতিরিক্ত শ্রেণি (পরীক্ষা): {formatSecondaryEnrollmentBadge(student)}
+                    </p>
+                  )}
                   <p className="flex items-center gap-1 flex-wrap">
                     <span className="font-medium text-gray-700">শাখা:</span>
                     <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${bc.bg} ${bc.text}`}>

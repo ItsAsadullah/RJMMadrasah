@@ -13,6 +13,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Loader2, Save, Search, BookOpen, Filter } from "lucide-react";
+import { filterAndResolveStudentsForClass } from "@/lib/secondaryEnrollment";
 
 export default function ResultManagement() {
   const [loading, setLoading] = useState(false);
@@ -52,7 +53,7 @@ export default function ResultManagement() {
     async function fetchClasses() {
       const { data } = await supabase
         .from("academic_classes")
-        .select("*")
+        .select("*, departments(name)")
         .eq("branch_id", selectedBranch)
         .eq("academic_year", selectedYear)
         .eq("is_active", true);
@@ -91,14 +92,18 @@ export default function ResultManagement() {
     const clsObj = classes.find(c => c.id === selectedClass);
     if (!clsObj) return;
 
-    // স্টুডেন্টদের তালিকা আনা
-    const { data: stuData } = await supabase
+    // স্টুডেন্টদের তালিকা আনা (মূল ও অতিরিক্ত উভয় বিভাগের শিক্ষার্থী সহ)
+    const { data: rawStuData } = await supabase
       .from("students")
-      .select("id, name_bn, birth_reg_no, photo_url")
+      .select("*")
       .eq("branch_id", selectedBranch)
-      .eq("class_name", clsObj.name) // নাম দিয়ে ম্যাচিং
       .eq("status", "active")
       .order("name_bn", { ascending: true });
+
+    const stuData = filterAndResolveStudentsForClass(
+      rawStuData?.filter((s: any) => !s.academic_year || String(s.academic_year) === String(selectedYear)),
+      clsObj
+    );
 
     // যদি ইতিমধ্যে রেজাল্ট সেভ করা থাকে, তা লোড করা
     const { data: existingResults } = await supabase
@@ -232,7 +237,10 @@ export default function ResultManagement() {
               disabled={!selectedBranch}
             >
               <option value="">আগে শাখা দিন</option>
-              {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {classes.map(c => {
+                const deptLabel = (c.departments?.name || c.department || "").trim();
+                return <option key={c.id} value={c.id}>{c.name?.trim()}{deptLabel ? ` (${deptLabel})` : ""}</option>;
+              })}
             </select>
           </div>
 
@@ -301,7 +309,14 @@ export default function ResultManagement() {
                 <TableRow key={student.id} className="hover:bg-gray-50/50">
                   <TableCell className="font-medium text-gray-500">{index + 1}</TableCell>
                   <TableCell>
-                    <div className="font-bold text-gray-800">{student.name_bn}</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-gray-800">{student.name_bn}</span>
+                      {student.is_secondary_enrollment && student.origin_badge && (
+                        <span className="inline-block bg-purple-100 text-purple-800 border border-purple-200 px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                          {student.origin_badge}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs text-gray-500">{student.birth_reg_no || "N/A"}</TableCell>
                   <TableCell className="text-right">

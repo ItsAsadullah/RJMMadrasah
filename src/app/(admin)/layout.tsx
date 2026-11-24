@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSafeSupabaseSession, supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/client";
+import { isAdminUser } from "@/lib/adminAccess";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Preloader from "@/components/ui/Preloader";
 
@@ -24,9 +25,10 @@ export default function AdminLayout({
           return;
         }
 
-        const { session, error } = await getSafeSupabaseSession();
+        const { data: { user }, error } = await supabase.auth.getUser();
         
-        if (error || !session) {
+        if (error || !isAdminUser(user)) {
+          setAuthenticated(false);
           router.replace("/login");
           setLoading(false);
         } else {
@@ -47,7 +49,7 @@ export default function AdminLayout({
     if (supabase && supabase.auth) {
       // ফিক্স: সঠিক ফাংশন নাম onAuthStateChange ব্যবহার করা হয়েছে (d নেই)
       const { data } = supabase.auth.onAuthStateChange((event, session) => {
-        if (event === "SIGNED_OUT" || !session) {
+        if (event === "SIGNED_OUT" || !isAdminUser(session?.user)) {
           setAuthenticated(false);
           router.replace("/login");
         }

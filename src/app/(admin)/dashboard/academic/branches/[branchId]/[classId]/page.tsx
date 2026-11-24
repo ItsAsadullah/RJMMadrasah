@@ -1,5 +1,6 @@
 "use client";
 import { STUDENT_STATUSES, getStudentStatus } from "@/lib/studentStatus";
+import { filterAndResolveStudentsForClass } from "@/lib/secondaryEnrollment";
 
 import { useState, useEffect, use } from "react";
 import { supabase } from "@/lib/supabase/client";
@@ -26,20 +27,25 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
     async function fetchData() {
       setLoading(true);
       // ১. ক্লাসের তথ্য আনা
-      const { data: cls } = await supabase.from("academic_classes").select("*, branches(name)").eq("id", classId).single();
+      const { data: cls } = await supabase.from("academic_classes").select("*, branches(name), departments(name)").eq("id", classId).single();
       
       if (cls) {
           setClassInfo(cls);
-          // ২. ক্লাসের নামের ভিত্তিতে স্টুডেন্ট আনা (অথবা ভবিষ্যতে class_id দিয়ে)
+          // ২. মূল ও অতিরিক্ত উভয় বিভাগের ভিত্তিতে স্টুডেন্ট আনা
           const { data: stu } = await supabase
               .from("students")
               .select("*")
               .eq("branch_id", parseInt(branchId))
-              .eq("class_name", cls.name)
-              .eq("academic_year", cls.academic_year) // ক্লাসের সাল অনুযায়ী
-              .order("roll_no", { ascending: true }); // রোল অনুযায়ী সাজানো
+              .eq("academic_year", cls.academic_year);
           
-          if (stu) setStudents(stu);
+          if (stu) {
+              const resolved = filterAndResolveStudentsForClass(stu, cls).sort((a, b) => {
+                  const rA = parseInt((a.roll_number ?? a.roll_no) || "9999", 10);
+                  const rB = parseInt((b.roll_number ?? b.roll_no) || "9999", 10);
+                  return rA - rB;
+              });
+              setStudents(resolved);
+          }
       }
       setLoading(false);
     }
@@ -179,10 +185,17 @@ export default function ClassDashboard({ params }: { params: Promise<{ branchId:
                           ) : (
                               filteredStudents.map((student) => (
                                   <TableRow key={student.id} className="hover:bg-gray-50/80 transition-colors">
-                                      <TableCell className="font-mono font-bold text-gray-600">{student.roll_no || "-"}</TableCell>
+                                      <TableCell className="font-mono font-bold text-gray-600">{student.roll_number || student.roll_no || "-"}</TableCell>
                                       <TableCell>
                                           <div>
-                                              <p className="font-bold text-gray-800">{student.name_bn}</p>
+                                              <div className="flex flex-wrap items-center gap-2">
+                                                  <p className="font-bold text-gray-800">{student.name_bn}</p>
+                                                  {student.is_secondary_enrollment && student.origin_badge && (
+                                                      <span className="inline-block bg-purple-100 text-purple-800 border border-purple-200 px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                                                          {student.origin_badge}
+                                                      </span>
+                                                  )}
+                                              </div>
                                               <p className="text-xs text-gray-500 font-mono">{student.student_id}</p>
                                           </div>
                                       </TableCell>

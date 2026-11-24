@@ -1,4 +1,5 @@
 "use client";
+import { calculateGPA } from "@/lib/grading";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -143,16 +144,6 @@ export default function StudentDashboard() {
   const [isSubmittingLeave, setIsSubmittingLeave] = useState(false);
   const [leaveHistory, setLeaveHistory] = useState<any[]>([]);
 
-  useEffect(() => {
-    fetchStudentData();
-  }, []);
-
-  useEffect(() => {
-    if (student?.id) {
-        fetchLeaveHistory();
-    }
-  }, [student?.id]);
-
   const fetchLeaveHistory = async () => {
       if (!student?.id) return;
       const { data } = await supabase.from("leave_applications")
@@ -162,51 +153,23 @@ export default function StudentDashboard() {
       if (data) setLeaveHistory(data);
   };
 
-  // Live Status Timer
-  useEffect(() => {
-    if (routines.length > 0) {
-      updateLiveStatus();
-      const interval = setInterval(updateLiveStatus, 60000); // Update every minute
-      return () => clearInterval(interval);
-    }
-  }, [routines]);
-
   const fetchStudentData = async () => {
     setLoading(true);
     try {
-        // 1. Identify Student
-        // Check local storage session first
-        const sessionStr = localStorage.getItem("student_portal_session");
-        let studentIdToFetch = null;
-
-        if (sessionStr) {
-            const session = JSON.parse(sessionStr);
-            studentIdToFetch = session.id;
-        } else {
-            // Fallback to Supabase Auth (for Admins testing as student)
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                 const { data } = await supabase.from("students").select("id").eq("id", user.id).single();
-                 if(data) studentIdToFetch = data.id;
-            }
-        }
-
-        if (!studentIdToFetch) {
-            // If no session found, redirect to login
-            router.push("/login");
-            return;
-        }
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) { router.replace("/login"); return; }
 
         // Fetch Full Student Data
         const { data: studentData, error } = await supabase
             .from("students")
             .select("*")
-            .eq("id", studentIdToFetch)
+            .eq("auth_user_id", user.id)
             .single();
 
-        if (error || !studentData) {
+        if (error || !studentData || studentData.status !== "active") {
             console.error("Student not found", error);
             // If ID is invalid (maybe deleted), clear session
+            await supabase.auth.signOut({ scope: "local" });
             localStorage.removeItem("student_portal_session");
             router.push("/login");
             return;
@@ -296,10 +259,10 @@ export default function StudentDashboard() {
             .from("exam_marks")
             .select(`
                 exam_id, marks_obtained, 
-                exams(id, title, academic_year, created_at),
-                academic_subjects(full_marks, academic_classes(name))
+                exams!inner(id, title, academic_year, created_at, status),
+                academic_subjects(full_marks, pass_marks, academic_classes(name))
             `)
-            .eq("student_id", studentData.student_id);
+            .eq("student_id", studentData.student_id).eq("exams.status", "published");
 
         if (marksData && marksData.length > 0) {
             const resultsByExam: Record<string, any> = {};
@@ -307,13 +270,15 @@ export default function StudentDashboard() {
             marksData.forEach((mark: any) => {
                 const eId = mark.exams?.id;
                 if (!eId) return;
+                const clsName = (mark.academic_subjects?.academic_classes?.name || "").trim();
+                const groupKey = `${eId}::${clsName}`;
 
-                if (!resultsByExam[eId]) {
-                    resultsByExam[eId] = {
+                if (!resultsByExam[groupKey]) {
+                    resultsByExam[groupKey] = {
                         exam_id: eId,
                         exam_name: mark.exams?.title || "অজানা পরীক্ষা",
                         academic_year: mark.exams?.academic_year || "",
-                        class_name: mark.academic_subjects?.academic_classes?.name || "",
+                        class_name: clsName,
                         created_at: mark.exams?.created_at,
                         total_obtained: 0,
                         total_full: 0,
@@ -321,21 +286,13 @@ export default function StudentDashboard() {
                     };
                 }
 
-                resultsByExam[eId].total_obtained += (mark.marks_obtained || 0);
-                resultsByExam[eId].total_full += (mark.academic_subjects?.full_marks || 100);
-                resultsByExam[eId].marks_array.push({ obtained: mark.marks_obtained });
+                resultsByExam[groupKey].total_obtained += (mark.marks_obtained || 0);
+                resultsByExam[groupKey].total_full += (mark.academic_subjects?.full_marks || 100);
+                resultsByExam[groupKey].marks_array.push({ marks_obtained: mark.marks_obtained, full_marks: mark.academic_subjects?.full_marks ?? 100, pass_marks: mark.academic_subjects?.pass_marks });
             });
 
             const aggregatedResults = Object.values(resultsByExam).map((res: any) => {
-                const percentage = res.total_full > 0 ? (res.total_obtained / res.total_full) * 100 : 0;
-                let grade = 'F';
-                if (percentage >= 80) grade = 'A+';
-                else if (percentage >= 70) grade = 'A';
-                else if (percentage >= 60) grade = 'A-';
-                else if (percentage >= 50) grade = 'B';
-                else if (percentage >= 40) grade = 'C';
-                else if (percentage >= 33) grade = 'D';
-                if (res.marks_array.some((m: any) => m.obtained < 33)) grade = 'F';
+                const { grade } = calculateGPA(res.marks_array);
 
                 return {
                     exam_id: res.exam_id,
@@ -355,13 +312,16 @@ export default function StudentDashboard() {
             setHistoricalResults(aggregatedResults);
         }
 
-        // 5. Fetch Attendance (Mock logic for now, should query attendance table)
-        setAttendanceStats({
-            present: 19,
-            absent: 4,
-            late: 1,
-            percentage: 82
-        });
+        // Show recorded attendance instead of fabricated sample statistics.
+        const { data: attendanceData, error: attendanceError } = await supabase
+            .from("attendance").select("status").eq("student_id", studentData.id);
+        if (attendanceError) throw attendanceError;
+        const recorded = attendanceData || [];
+        const present = recorded.filter(row => row.status === "present").length;
+        const absent = recorded.filter(row => row.status === "absent").length;
+        const late = recorded.filter(row => row.status === "late").length;
+        setAttendanceStats({ present, absent, late,
+            percentage: recorded.length ? Math.round((present + late) * 100 / recorded.length) : 0 });
 
         // 6. Fetch Notices (Public and Class Specific)
         const { data: noticeData } = await supabase.from("notices")
@@ -404,8 +364,28 @@ export default function StudentDashboard() {
       setNextActivity(next);
   };
 
-  const handleLogout = () => {
-      localStorage.removeItem("student_portal_session");
+  useEffect(() => {
+    fetchStudentData();
+  }, []);
+
+  useEffect(() => {
+    if (student?.id) {
+        fetchLeaveHistory();
+    }
+  }, [student?.id]);
+
+  // Live Status Timer
+  useEffect(() => {
+    if (routines.length > 0) {
+      updateLiveStatus();
+      const interval = setInterval(updateLiveStatus, 60000); // Update every minute
+      return () => clearInterval(interval);
+    }
+  }, [routines]);
+
+  const handleLogout = async () => {
+      await supabase.auth.signOut({ scope: "local" });
+            localStorage.removeItem("student_portal_session");
       router.push("/login");
   };
 

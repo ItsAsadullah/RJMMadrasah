@@ -131,44 +131,15 @@ export default function TeacherSalary() {
         try {
             const amount = parseFloat(payForm.amount);
             
-            // 1. Create transaction
-            const { data: { user } } = await supabase.auth.getUser();
-            const { data: txData, error: txError } = await supabase
-                .from("transactions")
-                .insert({
-                    amount,
-                    type: "expense",
-                    fund_type: "general",
-                    description: `শিক্ষক বেতন - ${payForm.teacher_name} - ${bengaliMonths[selectedMonth]} ${selectedYear}`,
-                    transaction_date: new Date().toISOString().split("T")[0],
-                    branch_id: payForm.branch_id ? parseInt(payForm.branch_id) : null,
-                    created_by: user?.id
-                })
-                .select()
-                .single();
-
-            if (txError) throw txError;
-
-            // 2. Insert salary record
-            const teacher = teachers.find(t => t.id === payForm.teacher_id);
             const agg = getAggregatedSalary(payForm.teacher_id);
-            const baseAmount = agg.base_amount > 0 ? agg.base_amount : amount;
+            const { error } = await supabase.rpc("manage_teacher_salary", { action: "create", payload: {
+                teacher_id: payForm.teacher_id, amount,
+                base_amount: agg.base_amount > 0 ? agg.base_amount : amount,
+                month: selectedMonth, year: selectedYear,
+                payment_method: payForm.payment_method, remarks: payForm.note,
+            }});
+            if (error) throw error;
 
-            const { error: salError } = await supabase
-                .from("teacher_salaries")
-                .insert({
-                    teacher_id: payForm.teacher_id,
-                    base_amount: baseAmount,
-                    net_amount: amount,
-                    salary_month: selectedMonth,
-                    salary_year: selectedYear,
-                    payment_date: new Date().toISOString().split("T")[0],
-                    payment_method: payForm.payment_method,
-                    remarks: payForm.note,
-                    created_by: user?.id
-                });
-
-            if (salError) throw salError;
 
             setPayModal(false);
             await fetchSalaryStatus();
@@ -235,11 +206,11 @@ export default function TeacherSalary() {
     };
 
     const handleDeleteSalary = async (id: string) => {
-        if (!confirm("আপনি কি নিশ্চিত যে এই পেমেন্ট রেকর্ডটি মুছে ফেলতে চান? ট্রানজেকশন অটোমেটিক মুছবে না।")) return;
+        if (!confirm("আপনি কি নিশ্চিত যে এই পেমেন্ট রেকর্ডটি মুছে ফেলতে চান? সংশ্লিষ্ট হিসাবের এন্ট্রিও মুছে যাবে।")) return;
         try {
-            const { data, error } = await supabase.from("teacher_salaries").delete().eq("id", id).select();
+            const { error } = await supabase.rpc("manage_teacher_salary", { action: "delete", payload: { id } });
             if (error) throw error;
-            if (!data || data.length === 0) throw new Error("ডাটা ডিলিট হয়নি। ডাটাবেজে Delete পারমিশন (RLS) চেক করুন।");
+
             
             setHistory(history.filter(h => h.id !== id));
             await fetchSalaryStatus();
@@ -263,14 +234,10 @@ export default function TeacherSalary() {
         if (!editForm.amount || parseFloat(editForm.amount) <= 0) return alert("বেতনের পরিমাণ দিন");
         setEditingPayment(true);
         try {
-            const { error } = await supabase
-                .from("teacher_salaries")
-                .update({
-                    net_amount: parseFloat(editForm.amount),
-                    payment_method: editForm.payment_method,
-                    remarks: editForm.note
-                })
-                .eq("id", editForm.id);
+            const { error } = await supabase.rpc("manage_teacher_salary", { action: "update", payload: {
+                id: editForm.id, amount: parseFloat(editForm.amount),
+                payment_method: editForm.payment_method, remarks: editForm.note,
+            }});
 
             if (error) throw error;
 
@@ -285,7 +252,7 @@ export default function TeacherSalary() {
                 remarks: editForm.note
             } : h));
 
-            alert("পেমেন্ট আপডেট সফল হয়েছে! (সংশ্লিষ্ট ট্রানজেকশন আপডেট করতে হবে)");
+            alert("পেমেন্ট ও সংশ্লিষ্ট হিসাব একসঙ্গে আপডেট হয়েছে।");
         } catch (err: any) {
             alert("ত্রুটি: " + err.message);
         }

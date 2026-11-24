@@ -25,6 +25,7 @@ export interface TranscriptStudent {
   motherNameBn: string;
   className: string;
   rollNo: string | number;
+  originBadge?: string | null;
 }
 
 export interface TranscriptExam {
@@ -131,9 +132,17 @@ export default function TranscriptSheet({ student, exam, branch, marks, summary,
                       <div className="relative z-10 mb-6 bg-slate-50/50 border border-slate-200 rounded-xl p-4 text-[13px] print:bg-slate-50/50 print-color-exact shadow-sm">
                           <div className="grid grid-cols-[1fr_1fr_max-content] gap-y-3 gap-x-4">
                               {/* Row 1 */}
-                              <div className="flex items-center"><span className="text-slate-500 whitespace-nowrap mr-2">শিক্ষার্থীর নাম:</span> <span className="font-bold text-[15px] text-slate-800 leading-tight">{student.nameBn}</span></div>
+                              <div className="flex items-center flex-wrap gap-1.5">
+                                <span className="text-slate-500 whitespace-nowrap mr-0.5">শিক্ষার্থীর নাম:</span>
+                                <span className="font-bold text-[15px] text-slate-800 leading-tight">{student.nameBn}</span>
+                                {student.originBadge && (
+                                  <span className="text-[11px] font-semibold text-purple-800 bg-purple-100/80 px-2 py-0.5 rounded-full border border-purple-200 print:bg-purple-100 whitespace-nowrap">
+                                    {student.originBadge}
+                                  </span>
+                                )}
+                              </div>
                               <div className="flex items-center"><span className="text-slate-500 whitespace-nowrap mr-2">পিতার নাম:</span> <span className="font-semibold text-slate-700 text-[14px] leading-tight">{student.fatherNameBn}</span></div>
-                              <div className="flex items-center justify-end"><span className="text-slate-500 whitespace-nowrap mr-2">শ্রেণি:</span> <span className="font-bold text-emerald-800 bg-emerald-100/80 px-3 py-0.5 rounded-full border border-emerald-200 print:bg-emerald-100 whitespace-nowrap">{student.className}</span></div>
+                              <div className="flex items-center justify-end"><span className="text-slate-500 whitespace-nowrap mr-2">শ্রেণি:</span> <span className="font-bold text-emerald-800 bg-emerald-100/80 px-3 py-0.5 rounded-full border border-emerald-200 print:bg-emerald-100 whitespace-nowrap">{student.className?.trim()}</span></div>
                               
                               {/* Row 2 */}
                               <div className="flex items-center"><span className="text-slate-500 whitespace-nowrap mr-2">আইডি নম্বর:</span> <span className="font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200 whitespace-nowrap">{formatNumber(student.id)}</span></div>

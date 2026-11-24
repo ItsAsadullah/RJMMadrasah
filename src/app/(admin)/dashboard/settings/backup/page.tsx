@@ -35,6 +35,7 @@ export default function BackupRestorePage() {
   // Tables to backup/restore - Order is critical for dependency management (Parent -> Child)
   const TABLES = [
     "branches",
+    "departments",
     "categories",
     "academic_classes",
      "academic_subjects",
@@ -42,9 +43,13 @@ export default function BackupRestorePage() {
      "exams",
     "students",
     "teachers",
+    "fee_types",
     "fee_structures",
+    "student_waivers",
     "student_dues",
     "transactions",
+    "teacher_salaries",
+    "leave_applications",
     "payments",
     "attendance",
     "routines",
@@ -58,7 +63,11 @@ export default function BackupRestorePage() {
     "gallery_items",
     "admission_config",
     "routine_templates",
-    "profiles"
+    "profiles",
+    "admission_settings", "branding_settings", "contact_settings",
+    "features_settings", "footer_settings", "seo_settings",
+    "chairman_profiles", "chairman_achievements", "chairman_documents",
+    "chairman_education", "chairman_experiences", "contact_messages"
   ];
 
   const handleAction = (type: "backup" | "restore" | "clear") => {
@@ -101,9 +110,15 @@ export default function BackupRestorePage() {
       const backupData: Record<string, any> = {};
       
       for (const table of TABLES) {
-        const { data, error } = await supabase.from(table).select("*");
-        if (error) throw error;
-        backupData[table] = data;
+        const rows: Record<string, unknown>[] = [];
+        const pageSize = 500;
+        for (let offset = 0; ; offset += pageSize) {
+          const { data, error } = await supabase.from(table).select("*").order("id").range(offset, offset + pageSize - 1);
+          if (error) throw new Error(`${table}: ${error.message}`);
+          rows.push(...(data || []));
+          if (!data || data.length < pageSize) break;
+        }
+        backupData[table] = rows;
       }
 
       const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
@@ -150,6 +165,13 @@ export default function BackupRestorePage() {
     try {
       const text = await restoreFile.text();
       const backupData = JSON.parse(text);
+      if (!backupData || typeof backupData !== "object" || Array.isArray(backupData)) {
+        throw new Error("ব্যাকআপ ফাইলের গঠন সঠিক নয়।");
+      }
+      const keys = Object.keys(backupData);
+      if (!keys.length || keys.some(key => !TABLES.includes(key) || !Array.isArray(backupData[key]) || backupData[key].some((row: unknown) => !row || typeof row !== "object" || Array.isArray(row)))) {
+        throw new Error("ব্যাকআপে অজানা টেবিল বা ভুল রেকর্ড আছে। কোনো তথ্য রিস্টোর করা হয়নি।");
+      }
 
       // Disable RLS or handle dependencies carefully
       // Order matters: branches -> classes -> students/teachers -> attendance/exams
@@ -160,29 +182,11 @@ export default function BackupRestorePage() {
       
       for (const table of TABLES) {
         if (backupData[table] && Array.isArray(backupData[table]) && backupData[table].length > 0) {
-            // Remove helper join columns if any (e.g., branches in teachers)
-            const cleanData = backupData[table].map((item: any) => {
-                const newItem = { ...item };
-                // Remove joined tables (objects/arrays) that are not columns
-                Object.keys(newItem).forEach(key => {
-                    if (typeof newItem[key] === 'object' && newItem[key] !== null) {
-                        delete newItem[key];
-                    }
-                });
-                return newItem;
-            });
-
-            const { error } = await supabase.from(table).upsert(cleanData);
-            
-            if (error) {
-                console.error(`Error restoring ${table}:`, error);
-                setAlertConfig({
-                    title: "ত্রুটি!",
-                    description: `Error restoring ${table}: ${error.message}`,
-                    type: "error"
-                });
-                setInfoAlertOpen(true);
-                // We don't throw here to attempt restoring other tables
+            // select("*") backups contain real columns, including JSON/JSONB.
+            // Preserve nested values and stop immediately on a failed table.
+            for (let offset = 0; offset < backupData[table].length; offset += 200) {
+              const { error } = await supabase.from(table).upsert(backupData[table].slice(offset, offset + 200));
+              if (error) throw new Error(`${table}: ${error.message}. পূর্বের কিছু ডেটা ইতিমধ্যে রিস্টোর হয়ে থাকতে পারে।`);
             }
         }
       }

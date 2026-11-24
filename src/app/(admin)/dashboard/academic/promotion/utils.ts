@@ -20,7 +20,8 @@ export type PromotionStudent = {
 export function calculatePromotionLogic(
   students: { id: string, student_id: string, name_en: string, name_bn?: string, roll_no: string, class_name: string }[],
   marks: { student_id: string, marks_obtained: number, academic_subjects: { name: string, pass_marks: number } }[],
-  passMarksPerSubject: number = 33
+  passMarksPerSubject: number = 33,
+  expectedSubjects: string[] = []
 ): PromotionStudent[] {
   const studentMap: Record<string, PromotionStudent> = {};
 
@@ -46,8 +47,13 @@ export function calculatePromotionLogic(
     const sId = m.student_id;
     if (studentMap[sId]) {
       const subjectName = m.academic_subjects?.name || 'Unknown';
-      const mark = m.marks_obtained || 0;
-      const subjectPassMark = m.academic_subjects?.pass_marks || passMarksPerSubject;
+      const mark = m.marks_obtained;
+      const subjectPassMark = m.academic_subjects?.pass_marks ?? passMarksPerSubject;
+      if (typeof mark !== 'number' || !Number.isFinite(mark) || mark < 0) {
+        studentMap[sId].status = 'failed';
+        studentMap[sId].failed_subjects.push(`${subjectName}: নম্বর অসম্পূর্ণ`);
+        return;
+      }
       
       studentMap[sId].subject_marks[subjectName] = mark;
       studentMap[sId].total_marks += mark;
@@ -56,6 +62,20 @@ export function calculatePromotionLogic(
         studentMap[sId].status = 'failed';
         studentMap[sId].failed_subjects.push(subjectName);
       }
+    }
+  });
+
+  // Students without usable marks must never receive an automatic promotion.
+  Object.values(studentMap).forEach(student => {
+    for (const subject of expectedSubjects) {
+      if (!(subject in student.subject_marks)) {
+        student.status = 'failed';
+        student.failed_subjects.push(`${subject}: নম্বর পাওয়া যায়নি`);
+      }
+    }
+    if (Object.keys(student.subject_marks).length === 0) {
+      student.status = 'failed';
+      student.failed_subjects.push('পরীক্ষার নম্বর পাওয়া যায়নি');
     }
   });
 

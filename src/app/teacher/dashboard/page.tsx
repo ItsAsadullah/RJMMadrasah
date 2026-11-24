@@ -1,4 +1,5 @@
 "use client";
+import { dhakaDate } from "@/lib/dhakaDate";
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -43,20 +44,13 @@ function TeacherDashboardContent() {
     const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "routine");
 
     async function checkSession() {
-        if (typeof window !== 'undefined') {
-            const sessionStr = localStorage.getItem("teacher_portal_session");
-            if (!sessionStr) {
-              router.push("/login");
-              return;
-            }
-            try {
-              setTeacher(JSON.parse(sessionStr));
-            } catch (e) {
-              console.error("Session parse error", e);
-              router.push("/login");
-            }
-            setLoading(false);
-        }
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) { router.replace("/login"); return; }
+        const { data: profile, error: profileError } = await supabase.from("teachers")
+            .select("id,name,user_id,designation").eq("auth_user_id", user.id).single();
+        if (profileError || !profile) { router.replace("/login"); return; }
+        setTeacher(profile);
+        setLoading(false);
     }
 
     async function fetchRoutine() {
@@ -106,19 +100,15 @@ function TeacherDashboardContent() {
         const cls = classes.find(c => c.id === classId);
         if (!cls) return;
 
-        const { data: studentData, error } = await supabase
-            .from("students")
-            .select("id, student_id, name_bn, roll_no, photo_url")
-            .eq("class_name", cls.name)
-            .eq("branch_id", cls.branch_id)
-            .eq("status", "active")
-            .order("roll_no", { ascending: true });
+        const response = await fetch(`/api/teacher/students?class_id=${encodeURIComponent(classId)}`);
+        if (!response.ok) { setStudents([]); return; }
+        const { students: studentData } = await response.json();
 
         if (studentData) {
             setStudents(studentData);
             
             // Check if attendance already exists for today
-            const date = new Date().toISOString().split('T')[0];
+            const date = dhakaDate();
             
             const { data: existingAttendance, error: attError } = await supabase
                 .from("attendance")
@@ -174,7 +164,8 @@ function TeacherDashboardContent() {
         }
     }, [selectedClass]);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        await supabase.auth.signOut({ scope: "local" });
         localStorage.removeItem("teacher_portal_session");
         router.push("/login");
     };
@@ -193,7 +184,7 @@ function TeacherDashboardContent() {
         if (!selectedClass || students.length === 0) return;
         setIsSubmittingAttendance(true);
 
-        const date = new Date().toISOString().split('T')[0];
+        const date = dhakaDate();
         const cls = classes.find(c => c.id === selectedClass);
         
         const inserts = students.map(student => ({
