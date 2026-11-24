@@ -296,6 +296,61 @@ export function normalizeSecondaryEntry(values: {
   };
 }
 
+/**
+ * Partitions selected students into:
+ * - `alreadyEnrolled`: students who are ALREADY in the target class (primary or secondary depending on mode)
+ * - `eligible`: remaining students who should be added/migrated to the target class
+ */
+export function partitionStudentsForTargetClass<T extends Record<string, any>>(
+  selectedStudents: T[],
+  target: TargetAcademicClass & {
+    branch_id?: string | number | null;
+    academic_year?: string | number | null;
+  },
+  mode: "secondary" | "primary"
+): {
+  alreadyEnrolled: Array<{ student: T; existingRoll: string; matchType: "primary" | "secondary" }>;
+  eligible: T[];
+} {
+  const targetName = normalizeAcademicText(target.name);
+  if (!targetName) {
+    return { alreadyEnrolled: [], eligible: selectedStudents };
+  }
+
+  const alreadyEnrolled: Array<{
+    student: T;
+    existingRoll: string;
+    matchType: "primary" | "secondary";
+  }> = [];
+  const eligible: T[] = [];
+
+  for (const student of selectedStudents) {
+    const sameBranch =
+      !target.branch_id || String(student?.branch_id || "") === String(target.branch_id);
+    const sameYear =
+      !target.academic_year ||
+      !student?.academic_year ||
+      String(student.academic_year) === String(target.academic_year);
+
+    const match = sameBranch && sameYear ? matchesAcademicClass(student, target) : null;
+
+    if (mode === "secondary" && (match === "primary" || match === "secondary")) {
+      const existingRoll =
+        match === "secondary"
+          ? String(student?.secondary_roll_number || "")
+          : String((student?.roll_number ?? student?.roll_no) || "");
+      alreadyEnrolled.push({ student, existingRoll, matchType: match });
+    } else if (mode === "primary" && match === "primary") {
+      const existingRoll = String((student?.roll_number ?? student?.roll_no) || "");
+      alreadyEnrolled.push({ student, existingRoll, matchType: "primary" });
+    } else {
+      eligible.push(student);
+    }
+  }
+
+  return { alreadyEnrolled, eligible };
+}
+
 export async function fetchSecondaryEnrollmentStore(
   supabaseClient: any
 ): Promise<SecondaryEnrollmentStore> {
@@ -303,13 +358,15 @@ export async function fetchSecondaryEnrollmentStore(
     const { data, error } = await supabaseClient
       .from("home_sections")
       .select("id, additional_data")
-      .eq("section_key", SECONDARY_ENROLLMENTS_SECTION_KEY)
-      .maybeSingle();
+      .like("section_key", `${SECONDARY_ENROLLMENTS_SECTION_KEY}%`)
+      .order("id", { ascending: false })
+      .limit(1);
 
-    if (error || !data?.additional_data || typeof data.additional_data !== "object") {
+    const latest = Array.isArray(data) ? data[0] : data;
+    if (error || !latest?.additional_data || typeof latest.additional_data !== "object") {
       return {};
     }
-    return data.additional_data as SecondaryEnrollmentStore;
+    return latest.additional_data as SecondaryEnrollmentStore;
   } catch {
     return {};
   }
@@ -370,19 +427,24 @@ export async function saveSecondaryEnrollmentsHybrid(
 ): Promise<void> {
   if (!items.length) return;
 
-  const { data: existing, error: fetchError } = await supabaseClient
+  // Fetch all existing snapshot rows (latest first).
+  // IMPORTANT: Live `home_sections` has a `BEFORE UPDATE` trigger referencing `NEW.updated_at`
+  // while the live table lacks an `updated_at` column. Therefore we NEVER call `.update()`
+  // on `home_sections` — we INSERT a new snapshot row first, then best-effort DELETE older rows.
+  const { data: existingRows, error: fetchError } = await supabaseClient
     .from("home_sections")
-    .select("id, additional_data")
-    .eq("section_key", SECONDARY_ENROLLMENTS_SECTION_KEY)
-    .maybeSingle();
+    .select("id, section_key, additional_data")
+    .like("section_key", `${SECONDARY_ENROLLMENTS_SECTION_KEY}%`)
+    .order("id", { ascending: false });
 
   if (fetchError) {
     throw fetchError;
   }
 
+  const latestRow = Array.isArray(existingRows) && existingRows.length > 0 ? existingRows[0] : null;
   const prevData: SecondaryEnrollmentStore =
-    existing?.additional_data && typeof existing.additional_data === "object"
-      ? existing.additional_data
+    latestRow?.additional_data && typeof latestRow.additional_data === "object"
+      ? latestRow.additional_data
       : {};
 
   const nextById: Record<string, SecondaryEnrollmentEntry> = { ...(prevData.by_id || {}) };
@@ -411,28 +473,33 @@ export async function saveSecondaryEnrollmentsHybrid(
     by_student_id: nextByStudentId,
   };
 
-  if (existing?.id) {
-    const { error: updateErr } = await supabaseClient
-      .from("home_sections")
-      .update({
-        additional_data: nextAdditionalData,
-        is_active: false,
-      })
-      .eq("id", existing.id);
-    if (updateErr) throw updateErr;
-  } else {
-    const { error: insertErr } = await supabaseClient.from("home_sections").insert([
-      {
-        section_key: SECONDARY_ENROLLMENTS_SECTION_KEY,
-        title: "System Secondary Enrollments",
-        subtitle: "",
-        content: "",
-        image_url: "",
-        additional_data: nextAdditionalData,
-        is_active: false,
-      },
-    ]);
-    if (insertErr) throw insertErr;
+  const uniqueSnapshotKey = `${SECONDARY_ENROLLMENTS_SECTION_KEY}_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 6)}`;
+
+  const { error: insertErr } = await supabaseClient.from("home_sections").insert([
+    {
+      section_key: uniqueSnapshotKey,
+      title: "System Secondary Enrollments",
+      subtitle: "",
+      content: "",
+      image_url: "",
+      additional_data: nextAdditionalData,
+      is_active: false,
+    },
+  ]);
+  if (insertErr) throw insertErr;
+
+  // Best-effort cleanup of older snapshot rows so the table stays clean
+  if (Array.isArray(existingRows) && existingRows.length > 0) {
+    const oldIds = existingRows.map((r: any) => r.id).filter(Boolean);
+    if (oldIds.length > 0) {
+      try {
+        await supabaseClient.from("home_sections").delete().in("id", oldIds);
+      } catch {
+        // Ignore if DELETE policy is restricted; readers always select highest `id`
+      }
+    }
   }
 
   // Best-effort sync to native `students` columns if the SQL migration has been applied

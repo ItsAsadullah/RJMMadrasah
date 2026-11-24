@@ -7,6 +7,7 @@ import {
   parseRollNumber,
   getTargetClassRollStats,
   assignSequentialRolls,
+  partitionStudentsForTargetClass,
   stripSecondaryAndVirtualFields,
 } from "./secondaryEnrollment";
 
@@ -106,5 +107,74 @@ describe("secondaryEnrollment helpers", () => {
     expect(departmentsMatch("\tকিতাব", "কিতাব বিভাগ")).toBe(true);
     expect(departmentsMatch("নূরানী", "নূরানী ও মক্তব বিভাগ")).toBe(true);
     expect(departmentsMatch("কিতাব", "নূরানী")).toBe(false);
+  });
+
+  test("skips students already enrolled in target class and assigns next serial rolls to remaining", () => {
+    const selected = [
+      {
+        id: "h1",
+        student_id: "260001",
+        name_bn: "ফাতেমা",
+        branch_id: 7,
+        academic_year: 2026,
+        department: "হিফজুল কুরআন",
+        class_name: "আম শাখা",
+        roll_number: "1",
+        secondary_department: "\tকিতাব",
+        secondary_class_name: "চতুর্থ ",
+        secondary_roll_number: "15",
+      },
+      {
+        id: "h2",
+        student_id: "260002",
+        name_bn: "আয়েশা",
+        branch_id: 7,
+        academic_year: 2026,
+        department: "হিফজুল কুরআন",
+        class_name: "আম শাখা",
+        roll_number: "2",
+      },
+      {
+        id: "h3",
+        student_id: "260003",
+        name_bn: "খাদিজা",
+        branch_id: 7,
+        academic_year: 2026,
+        department: "হিফজুল কুরআন",
+        class_name: "আম শাখা",
+        roll_number: "3",
+      },
+    ];
+
+    const target = {
+      name: "চতুর্থ ",
+      department: "\tকিতাব",
+      branch_id: 7,
+      academic_year: 2026,
+    };
+
+    const { alreadyEnrolled, eligible } = partitionStudentsForTargetClass(
+      selected,
+      target,
+      "secondary"
+    );
+    expect(alreadyEnrolled.map((x) => ({ id: x.student.id, roll: x.existingRoll }))).toEqual([
+      { id: "h1", roll: "15" },
+    ]);
+    expect(eligible.map((s) => s.id)).toEqual(["h2", "h3"]);
+
+    // h1's existing roll (15) is preserved and NOT excluded when computing nextRoll!
+    const stats = getTargetClassRollStats(
+      selected,
+      target,
+      new Set(eligible.map((s) => s.id))
+    );
+    expect(stats).toEqual({ existingCount: 1, maxRoll: 15, nextRoll: 16 });
+
+    const assigned = assignSequentialRolls(eligible, stats.nextRoll);
+    expect(assigned.map((a) => ({ id: a.student.id, roll: a.assignedRoll }))).toEqual([
+      { id: "h2", roll: "16" },
+      { id: "h3", roll: "17" },
+    ]);
   });
 });

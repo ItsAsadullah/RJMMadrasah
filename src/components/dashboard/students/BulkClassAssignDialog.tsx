@@ -12,7 +12,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Layers, ArrowRightLeft, BookOpen, CheckCircle2, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  Layers,
+  ArrowRightLeft,
+  BookOpen,
+  CheckCircle2,
+  Trash2,
+  AlertTriangle,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import {
   isHifzDepartment,
@@ -20,6 +28,7 @@ import {
   toAsciiDigits,
   getTargetClassRollStats,
   assignSequentialRolls,
+  partitionStudentsForTargetClass,
   saveSecondaryEnrollmentsHybrid,
 } from "@/lib/secondaryEnrollment";
 
@@ -128,9 +137,35 @@ export default function BulkClassAssignDialog({
     return Array.from(yrs).sort((a, b) => Number(b) - Number(a));
   }, [dbClasses, targetBranchId, targetYear]);
 
-  const selectedIdsSet = useMemo(
-    () => new Set(selectedStudents.map((s) => String(s.id))),
-    [selectedStudents]
+  // Separate students already in the target class (to skip) vs eligible students (to migrate/add)
+  const { alreadyEnrolled, eligible } = useMemo(() => {
+    if (!targetClassName) {
+      return {
+        alreadyEnrolled: [] as Array<{
+          student: any;
+          existingRoll: string;
+          matchType: "primary" | "secondary";
+        }>,
+        eligible: selectedStudents,
+      };
+    }
+    return partitionStudentsForTargetClass(
+      selectedStudents,
+      {
+        name: targetClassName,
+        department: targetDepartment,
+        branch_id: targetBranchId,
+        academic_year: targetYear,
+      },
+      mode
+    );
+  }, [selectedStudents, targetClassName, targetDepartment, targetBranchId, targetYear, mode]);
+
+  // Only exclude `eligible` (not-yet-enrolled) students when computing existing rolls in target class,
+  // so already-enrolled students' rolls in that class ARE counted toward `maxRoll`.
+  const eligibleIdsSet = useMemo(
+    () => new Set(eligible.map((s) => String(s.id))),
+    [eligible]
   );
 
   const rollStats = useMemo(() => {
@@ -143,9 +178,9 @@ export default function BulkClassAssignDialog({
         branch_id: targetBranchId,
         academic_year: targetYear,
       },
-      selectedIdsSet
+      eligibleIdsSet
     );
-  }, [allStudents, targetClassName, targetDepartment, targetBranchId, targetYear, selectedIdsSet]);
+  }, [allStudents, targetClassName, targetDepartment, targetBranchId, targetYear, eligibleIdsSet]);
 
   useEffect(() => {
     if (targetClassName) {
@@ -162,9 +197,9 @@ export default function BulkClassAssignDialog({
   }, [customStartRoll, rollStats.nextRoll]);
 
   const previewAssignments = useMemo(() => {
-    if (!targetClassName) return [];
-    return assignSequentialRolls(selectedStudents, effectiveStartRoll);
-  }, [selectedStudents, targetClassName, effectiveStartRoll]);
+    if (!targetClassName || eligible.length === 0) return [];
+    return assignSequentialRolls(eligible, effectiveStartRoll);
+  }, [eligible, targetClassName, effectiveStartRoll]);
 
   const anyHasExistingSecondary = useMemo(
     () => selectedStudents.some((s) => Boolean(normalizeAcademicText(s.secondary_class_name))),
@@ -174,6 +209,11 @@ export default function BulkClassAssignDialog({
   const handleBulkSave = async () => {
     if (!targetBranchId || !targetDepartment || !targetClassName) {
       setError("অনুগ্রহ করে শাখা, বিভাগ এবং শ্রেণি নির্বাচন করুন।");
+      return;
+    }
+
+    if (previewAssignments.length === 0) {
+      setError("নতুন করে যুক্ত করার মতো কোনো শিক্ষার্থী নেই (সবাই ইতিমধ্যে এই শ্রেণিতে তালিকাভুক্ত)।");
       return;
     }
 
@@ -210,6 +250,12 @@ export default function BulkClassAssignDialog({
         );
         const failed = results.find((r) => r.error);
         if (failed?.error) throw failed.error;
+      }
+
+      if (alreadyEnrolled.length > 0) {
+        alert(
+          `সফলভাবে ${toBengaliNumber(previewAssignments.length)} জন শিক্ষার্থী '${targetClassName.trim()}' শ্রেণিতে যুক্ত হয়েছে এবং আগে থেকেই তালিকাভুক্ত থাকায় ${toBengaliNumber(alreadyEnrolled.length)} জন স্কিপ করা হয়েছে।`
+        );
       }
 
       onCompleted();
@@ -250,14 +296,14 @@ export default function BulkClassAssignDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !saving && !next && onClose()}>
-      <DialogContent className="sm:max-w-[680px] max-h-[92vh] overflow-y-auto font-[Kalpurush]">
+      <DialogContent className="sm:max-w-[700px] max-h-[92vh] overflow-y-auto font-[Kalpurush]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg font-bold text-gray-800">
             <Layers className="w-5 h-5 text-green-600" />
             একসাথে শ্রেণিতে যুক্ত / স্থানান্তর ({toBengaliNumber(selectedStudents.length)} জন নির্বাচিত)
           </DialogTitle>
           <DialogDescription>
-            নির্বাচিত শিক্ষার্থীদের একসাথে নতুন শ্রেণিতে যুক্ত করুন; ওই শ্রেণির বর্তমান শেষ রোলের পরের সিরিয়াল থেকে স্বয়ংক্রিয়ভাবে রোল নম্বর বসে যাবে।
+            নির্বাচিত শিক্ষার্থীদের একসাথে নতুন শ্রেণিতে যুক্ত করুন। কেউ আগে থেকেই ওই শ্রেণিতে থাকলে স্বয়ংক্রিয়ভাবে স্কিপ হবে এবং বাকিদের রোল পরের সিরিয়াল থেকে বসবে।
           </DialogDescription>
         </DialogHeader>
 
@@ -391,8 +437,43 @@ export default function BulkClassAssignDialog({
             </div>
           </div>
 
-          {/* Serial Roll Summary & Preview */}
-          {targetClassName && (
+          {/* Already Enrolled Warning & Auto-Skip List */}
+          {targetClassName && alreadyEnrolled.length > 0 && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 space-y-2">
+              <div className="flex items-start gap-2 text-amber-900">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs space-y-0.5">
+                  <p className="font-bold text-sm">
+                    {toBengaliNumber(alreadyEnrolled.length)} জন শিক্ষার্থী ইতিমধ্যে &lsquo;{targetClassName.trim()}&rsquo; শ্রেণিতে তালিকাভুক্ত আছে!
+                  </p>
+                  <p className="text-amber-800">
+                    তাদের স্বয়ংক্রিয়ভাবে <strong>স্কিপ (বাদ)</strong> দেওয়া হবে এবং{" "}
+                    {eligible.length > 0
+                      ? `বাকি ${toBengaliNumber(eligible.length)} জন শিক্ষার্থী এই শ্রেণিতে যুক্ত হবে।`
+                      : "নতুন করে যুক্ত করার মতো আর কোনো শিক্ষার্থী বাকি নেই।"}
+                  </p>
+                </div>
+              </div>
+              <div className="max-h-28 overflow-y-auto rounded-lg border border-amber-200 bg-white divide-y divide-amber-100 text-xs">
+                {alreadyEnrolled.map(({ student, existingRoll }) => (
+                  <div key={student.id} className="px-3 py-1.5 flex items-center justify-between gap-2">
+                    <span className="font-semibold text-gray-800">
+                      {student.name_bn}{" "}
+                      <span className="font-mono text-gray-500 font-normal">
+                        (ID: {toBengaliNumber(student.student_id || "-")})
+                      </span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">
+                      {existingRoll ? `বিদ্যমান রোল: ${toBengaliNumber(existingRoll)} • ` : ""}স্কিপ হবে
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Serial Roll Summary & Preview for Eligible Students */}
+          {targetClassName && eligible.length > 0 && (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="text-xs text-emerald-950 space-y-0.5">
@@ -404,8 +485,9 @@ export default function BulkClassAssignDialog({
                     <strong>{rollStats.maxRoll > 0 ? toBengaliNumber(rollStats.maxRoll) : "নেই (০)"}</strong>
                   </p>
                   <p className="text-emerald-800 font-semibold">
-                    নতুন সিরিয়াল রোল বসবে: {toBengaliNumber(effectiveStartRoll)} থেকে{" "}
-                    {toBengaliNumber(effectiveStartRoll + selectedStudents.length - 1)} পর্যন্ত
+                    যুক্ত হতে যাওয়া {toBengaliNumber(eligible.length)} জনের নতুন সিরিয়াল রোল বসবে:{" "}
+                    {toBengaliNumber(effectiveStartRoll)} থেকে{" "}
+                    {toBengaliNumber(effectiveStartRoll + eligible.length - 1)} পর্যন্ত
                   </p>
                 </div>
 
@@ -481,7 +563,7 @@ export default function BulkClassAssignDialog({
             <Button
               type="button"
               onClick={handleBulkSave}
-              disabled={saving || !targetClassName}
+              disabled={saving || !targetClassName || eligible.length === 0}
               className={
                 mode === "secondary"
                   ? "bg-purple-600 hover:bg-purple-700 text-white"
@@ -492,8 +574,10 @@ export default function BulkClassAssignDialog({
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" /> সংরক্ষণ হচ্ছে...
                 </>
+              ) : alreadyEnrolled.length > 0 ? (
+                `নিশ্চিত করুন (${toBengaliNumber(eligible.length)} জন যুক্ত, ${toBengaliNumber(alreadyEnrolled.length)} জন স্কিপ)`
               ) : (
-                `নিশ্চিত করুন (${toBengaliNumber(selectedStudents.length)} জন)`
+                `নিশ্চিত করুন (${toBengaliNumber(eligible.length)} জন)`
               )}
             </Button>
           </div>
